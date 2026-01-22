@@ -1,0 +1,36 @@
+{
+  "name": "AI Meta-Software Factory",
+  "short_name": "AI Meta-Factory",
+  "description": "Build web and mobile applications instantly with AI",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10B981",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["productivity", "development", "tools"],
+  "shortcuts": [
+    {
+      "name": "New Project",
+      "short_name": "New",
+      "description": "Create a new AI project",
+      "url": "/builder?new=true"
+    },
+    {
+      "name": "Templates",
+      "short_name": "Templates",
+      "description": "Browse templates",
+      "url": "/templates"
+    }
+  ]
+}

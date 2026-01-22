@@ -1,0 +1,724 @@
+import JSZip from 'jszip';
+import { ReactNativeTransformer } from './react-native-transformer';
+
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  version: string;
+  author?: string;
+  createdAt: string;
+}
+
+export interface AppConfig {
+  name: string;
+  slug: string;
+  version: string;
+  orientation: 'portrait' | 'landscape';
+  icon: string;
+  splash: {
+    image: string;
+    resizeMode: 'contain' | 'cover';
+    backgroundColor: string;
+  };
+  ios: {
+    supportsTablet: boolean;
+  };
+  android: {
+    adaptiveIcon: {
+      foregroundImage: string;
+      backgroundColor: string;
+    };
+    package: string;
+  };
+  web: {
+    favicon: string;
+  };
+}
+
+export class ExpoProjectGenerator {
+  static async generateProject(
+    project: Project,
+    components: any[]
+  ): Promise<Blob> {
+    const zip = new JSZip();
+    
+    // 1. Create package.json
+    const packageJson = this.createPackageJson(project);
+    zip.file('package.json', JSON.stringify(packageJson, null, 2));
+
+    // 2. Create App.js
+    const appCode = this.generateAppCode(project, components);
+    zip.file('App.js', appCode);
+
+    // 3. Create components
+    const componentsDir = zip.folder('components');
+    const rnComponents = ReactNativeTransformer.convertAllComponents(components);
+    
+    rnComponents.forEach((rnComp, index) => {
+      componentsDir?.file(
+        `Component${index}.js`,
+        rnComp.code.trim()
+      );
+    });
+
+    // 4. Create app.json
+    const appConfig = this.createAppConfig(project);
+    zip.file('app.json', JSON.stringify(appConfig, null, 2));
+
+    // 5. Create eas.json (for EAS builds)
+    const easConfig = this.createEasConfig(project);
+    zip.file('eas.json', JSON.stringify(easConfig, null, 2));
+
+    // 6. Create babel.config.js
+    zip.file('babel.config.js', `
+module.exports = function(api) {
+  api.cache(true);
+  return {
+    presets: ['babel-preset-expo'],
+    plugins: [
+      [
+        'module-resolver',
+        {
+          root: ['./'],
+          alias: {
+            '@': './',
+          },
+        },
+      ],
+    ],
+  };
+};
+    `.trim());
+
+    // 7. Create .gitignore
+    zip.file('.gitignore', `
+node_modules/
+.expo/
+dist/
+*.apk
+*.aab
+.DS_Store
+*.log
+    `.trim());
+
+    // 8. Create README.md
+    const readme = this.createReadme(project);
+    zip.file('README.md', readme);
+
+    // 9. Create assets directory structure
+    const assetsDir = zip.folder('assets');
+    assetsDir?.file('icon.png', '');
+    assetsDir?.file('adaptive-icon.png', '');
+    assetsDir?.file('favicon.png', '');
+    assetsDir?.file('splash.png', '');
+
+    // 10. Create metro.config.js for better performance
+    zip.file('metro.config.js', `
+const { getDefaultConfig } = require('expo/metro-config');
+
+const config = getDefaultConfig(__dirname);
+
+config.transformer.babelTransformerPath = require.resolve('react-native-svg-transformer');
+config.resolver.assetExts = config.resolver.assetExts.filter(ext => ext !== 'svg');
+config.resolver.sourceExts = [...config.resolver.sourceExts, 'svg'];
+
+module.exports = config;
+    `.trim());
+
+    // 11. Generate and return ZIP
+    return await zip.generateAsync({ 
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: {
+        level: 6
+      }
+    });
+  }
+
+  private static createPackageJson(project: Project): any {
+    const slug = project.name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
+
+    return {
+      name: slug,
+      version: project.version || '1.0.0',
+      main: 'node_modules/expo/AppEntry.js',
+      scripts: {
+        'start': 'expo start',
+        'android': 'expo start --android',
+        'ios': 'expo start --ios',
+        'web': 'expo start --web',
+        'build': 'expo build:android',
+        'build:apk': 'eas build --platform android --profile preview',
+        'build:aab': 'eas build --platform android --profile production',
+        'prebuild': 'expo prebuild',
+        'lint': 'eslint .',
+        'test': 'jest'
+      },
+      dependencies: {
+        'expo': '~50.0.0',
+        'expo-status-bar': '~1.11.0',
+        'expo-splash-screen': '~0.26.0',
+        'expo-updates': '~0.24.0',
+        'expo-constants': '~15.4.0',
+        'react': '18.2.0',
+        'react-native': '0.73.0',
+        'react-native-safe-area-context': '4.8.0',
+        'react-native-screens': '~3.29.0',
+        'react-native-web': '~0.19.0',
+        'react-native-gesture-handler': '~2.14.0',
+        'react-native-reanimated': '~3.6.0',
+        '@expo/vector-icons': '^14.0.0',
+        'react-native-svg': '13.4.0'
+      },
+      devDependencies: {
+        '@babel/core': '^7.20.0',
+        '@types/react': '~18.2.45',
+        '@types/react-native': '~0.73.0',
+        'typescript': '^5.1.3',
+        'jest': '^29.2.1',
+        'jest-expo': '~50.0.0',
+        'react-test-renderer': '18.2.0',
+        '@testing-library/react-native': '~12.0.0',
+        'eslint': '^8.19.0',
+        'eslint-config-expo': '^6.0.0'
+      },
+      private: true,
+      author: project.author || 'AI Meta-Software Factory',
+      description: project.description || 'React Native app generated by AI Meta-Software Factory',
+      keywords: ['react-native', 'expo', 'generated', 'ai']
+    };
+  }
+
+  private static generateAppCode(project: Project, components: any[]): string {
+    const imports = components
+      .map((_, i) => `import Component${i} from './components/Component${i}';`)
+      .join('\n');
+    
+    const componentRenders = components
+      .map((_, i) => `
+        <View style={styles.componentWrapper}>
+          <Component${i} />
+        </View>
+      `)
+      .join('\n');
+
+    return `
+import React, { useState, useEffect } from 'react';
+import {
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  StatusBar,
+  ActivityIndicator,
+  RefreshControl
+} from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
+${imports}
+
+// Prevent splash screen from auto-hiding
+SplashScreen.preventAutoHideAsync();
+
+export default function App() {
+  const [appIsReady, setAppIsReady] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [data, setData] = useState({});
+
+  useEffect(() => {
+    async function prepare() {
+      try {
+        // Simulate loading resources
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (e) {
+        console.warn(e);
+      } finally {
+        setAppIsReady(true);
+        await SplashScreen.hideAsync();
+      }
+    }
+
+    prepare();
+  }, []);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 2000);
+  }, []);
+
+  if (!appIsReady) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3B82F6" />
+        <Text style={styles.loadingText}>Loading {project.name}...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      
+      <ScrollView
+        contentContainerStyle={styles.scrollView}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.appTitle}>{project.name}</Text>
+          {project.description && (
+            <Text style={styles.appDescription}>{project.description}</Text>
+          )}
+          <View style={styles.badgeContainer}>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>AI Generated</Text>
+            </View>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>React Native</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Content */}
+        <View style={styles.content}>
+          <Text style={styles.sectionTitle}>Your Components</Text>
+          <Text style={styles.sectionSubtitle}>
+            {components.length} component${components.length !== 1 ? 's' : ''} generated
+          </Text>
+
+          ${componentRenders}
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerTitle}>About This App</Text>
+            <Text style={styles.footerText}>
+              Generated by AI Meta-Software Factory on {new Date().toLocaleDateString()}
+            </Text>
+            <Text style={styles.footerVersion}>
+              Version: {project.version || '1.0.0'}
+            </Text>
+            <Text style={styles.footerNote}>
+              Edit components in the components/ directory to customize your app.
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#64748b',
+  },
+  scrollView: {
+    flexGrow: 1,
+    paddingBottom: 40,
+  },
+  header: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    alignItems: 'center',
+  },
+  appTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  appDescription: {
+    fontSize: 16,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  badgeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  badge: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  content: {
+    padding: 24,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 8,
+  },
+  sectionSubtitle: {
+    fontSize: 16,
+    color: '#64748b',
+    marginBottom: 24,
+  },
+  componentWrapper: {
+    marginBottom: 24,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  footer: {
+    marginTop: 32,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    alignItems: 'center',
+  },
+  footerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 12,
+  },
+  footerText: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  footerVersion: {
+    fontSize: 14,
+    color: '#94a3b8',
+    marginBottom: 16,
+  },
+  footerNote: {
+    fontSize: 12,
+    color: '#cbd5e1',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+});
+    `.trim();
+  }
+
+  private static createAppConfig(project: Project): any {
+    const slug = project.name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
+
+    return {
+      expo: {
+        name: project.name,
+        slug: slug,
+        version: project.version || '1.0.0',
+        orientation: 'portrait',
+        icon: './assets/icon.png',
+        userInterfaceStyle: 'light',
+        splash: {
+          image: './assets/splash.png',
+          resizeMode: 'contain',
+          backgroundColor: '#ffffff'
+        },
+        assetBundlePatterns: ['**/*'],
+        ios: {
+          supportsTablet: true,
+          bundleIdentifier: `com.aifactory.${slug}`,
+          buildNumber: '1.0.0'
+        },
+        android: {
+          adaptiveIcon: {
+            foregroundImage: './assets/adaptive-icon.png',
+            backgroundColor: '#ffffff'
+          },
+          package: `com.aifactory.${slug}`,
+          versionCode: 1,
+          permissions: []
+        },
+        web: {
+          favicon: './assets/favicon.png',
+          bundler: 'metro'
+        },
+        extra: {
+          eas: {
+            projectId: this.generateProjectId()
+          }
+        },
+        plugins: [
+          'expo-font',
+          'expo-asset',
+          [
+            'expo-splash-screen',
+            {
+              backgroundColor: '#ffffff',
+              image: './assets/splash.png',
+              resizeMode: 'contain'
+            }
+          ]
+        ]
+      }
+    };
+  }
+
+  private static createEasConfig(project: Project): any {
+    const slug = project.name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
+
+    return {
+      cli: {
+        version: '>= 6.0.0'
+      },
+      build: {
+        development: {
+          developmentClient: true,
+          distribution: 'internal',
+          android: {
+            buildType: 'apk'
+          }
+        },
+        preview: {
+          android: {
+            buildType: 'apk'
+          }
+        },
+        production: {
+          android: {
+            buildType: 'aab',
+            gradleCommand: ':app:bundleRelease'
+          }
+        }
+      },
+      submit: {
+        production: {}
+      }
+    };
+  }
+
+  private static createReadme(project: Project): string {
+    const currentDate = new Date().toLocaleDateString();
+    
+    return `# ${project.name}
+
+> Generated by AI Meta-Software Factory - ${currentDate}
+
+${project.description || 'A React Native mobile application generated from web components.'}
+
+## 📱 App Details
+
+- **Name**: ${project.name}
+- **Version**: ${project.version || '1.0.0'}
+- **Platform**: Android/iOS/Web
+- **Generated**: ${currentDate}
+- **Framework**: React Native + Expo
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 16+
+- npm or yarn
+- Expo CLI (\`npm install -g expo-cli\`)
+- Android Studio (for Android builds)
+- Xcode (for iOS builds - macOS only)
+
+### Installation
+
+\`\`\`bash
+# Install dependencies
+npm install
+
+# Start development server
+npm start
+\`\`\`
+
+### Development
+
+1. **Run on Android**:
+   \`\`\`bash
+   npm run android
+   \`\`\`
+
+2. **Run on iOS**:
+   \`\`\`bash
+   npm run ios
+   \`\`\`
+
+3. **Run on Web**:
+   \`\`\`bash
+   npm run web
+   \`\`\`
+
+## 📦 Build for Production
+
+### Android APK (Preview)
+\`\`\`bash
+npm run build:apk
+\`\`\`
+
+### Android AAB (Production - Google Play)
+\`\`\`bash
+npm run build:aab
+\`\`\`
+
+### Using Expo Application Services (EAS)
+\`\`\`bash
+# Install EAS CLI
+npm install -g eas-cli
+
+# Login to Expo
+eas login
+
+# Build for Android
+eas build --platform android --profile production
+\`\`\`
+
+## 🏗️ Project Structure
+
+\`\`\`
+.
+├── App.js                 # Main application entry point
+├── app.json              # Expo configuration
+├── eas.json              # EAS build configuration
+├── package.json          # Dependencies
+├── components/           # Generated components
+│   ├── Component0.js
+│   ├── Component1.js
+│   └── ...
+├── assets/               # App assets (icons, images)
+└── README.md             # This file
+\`\`\`
+
+## 🎨 Customization
+
+### Editing Components
+All generated components are in the \`components/\` directory. Edit them to customize your app:
+
+\`\`\`javascript
+// components/Component0.js
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+
+export const Component0 = () => {
+  return (
+    <View style={styles.container}>
+      <Text>Edit me!</Text>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 16,
+  },
+});
+\`\`\`
+
+### Adding New Features
+1. Install additional packages: \`npm install <package-name>\`
+2. Import and use them in your components
+3. Update \`app.json\` if needed for permissions
+
+## 🔧 Configuration Files
+
+### app.json
+Expo configuration including app name, icons, splash screen, and platform settings.
+
+### eas.json
+Expo Application Services configuration for cloud builds.
+
+## 🧪 Testing
+
+Run the test suite:
+\`\`\`bash
+npm test
+\`\`\`
+
+## 📊 Analytics & Monitoring
+
+To add analytics:
+1. Install: \`expo install expo-analytics\`
+2. Configure in \`App.js\`
+
+## 🔐 Environment Variables
+
+Create a \`.env\` file:
+\`\`\`
+API_URL=https://api.example.com
+API_KEY=your_api_key_here
+\`\`\`
+
+Then install \`react-native-dotenv\` and configure in \`babel.config.js\`.
+
+## 🤝 Contributing
+
+This app was automatically generated. To contribute:
+1. Edit the source components
+2. Add new features as needed
+3. Rebuild the app
+
+## 📄 License
+
+Generated by AI Meta-Software Factory. All rights reserved.
+
+## 🙏 Acknowledgments
+
+- Built with [React Native](https://reactnative.dev/)
+- Powered by [Expo](https://expo.dev/)
+- Generated by AI Meta-Software Factory
+
+---
+
+*Generated on ${currentDate}*
+`;
+  }
+
+  private static generateProjectId(): string {
+    // Generate a random project ID in Expo format
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 32; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
+}

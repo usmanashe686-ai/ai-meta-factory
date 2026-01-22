@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /account/
+Crawl-delay: 10
+
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+Crawl-delay: 5
+
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+Crawl-delay: 5
+
+Sitemap: https://usman-umer.web.app/sitemap.xml
