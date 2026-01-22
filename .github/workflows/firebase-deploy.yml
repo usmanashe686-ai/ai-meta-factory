@@ -3,7 +3,7 @@ name: Deploy AI Meta-Factory
 on:
   push:
     branches:
-      - main  # triggers on push to main
+      - main
 
 jobs:
   build-and-deploy:
@@ -21,6 +21,8 @@ jobs:
         run: npm install
 
       - name: Build Next.js
+        env:
+          NEXT_PRIVATE_METHODS: "true"  # ensures private class methods are handled
         run: npm run build
 
       - name: Deploy to Firebase Hosting
