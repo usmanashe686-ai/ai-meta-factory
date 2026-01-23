@@ -2,55 +2,35 @@ name: Deploy to Firebase
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
-  build:
+  build_and_deploy:
     runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-    
-    - name: Install dependencies
-  run: npm install --legacy-peer-deps --no-audit --no-fund
-    
-    - name: Build
-      run: |
-        export NEXT_DISABLE_SWC=1
-        npm run build
-    
-    - name: Archive Build
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-output
-        path: |
-          out/
-          .next/
-        retention-days: 1
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Download Build
-      uses: actions/download-artifact@v4
-      with:
-        name: build-output
-        
-    - name: Deploy to Firebase
-      uses: w9jds/firebase-action@master
-      with:
-        args: deploy --only hosting --force
-      env:
-        FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Clean install dependencies
+        run: |
+          rm -f package-lock.json
+          npm install
+
+      - name: Build Next.js (static export)
+        run: npm run build
+
+      - name: Deploy to Firebase
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: ai-meta-factory
