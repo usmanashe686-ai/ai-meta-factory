@@ -1,13 +1,12 @@
-import Seo from '/components/seo/Seo'
-import GoogleAnalytics from '@/components/analytics/GoogleAnalytics'
-import { ErrorBoundary } from '@/components/error/ErrorBoundary'
-import { AnalyticsProvider } from '@/components/analytics/AnalyticsProvider'
-import GoogleAnalytics from '@/components/analytics/GoogleAnalytics'
-import { ErrorBoundary } from '@/components/error/ErrorBoundary'
-import { AnalyticsProvider } from '@/components/analytics/AnalyticsProvider'
-export const metadata = {
-  title: 'AI Meta-Factory - Test Build',
-  description: 'Performance optimized build for Android ARM',
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
+
+const inter = Inter({ subsets: ['latin'] })
+
+export const metadata: Metadata = {
+  title: 'AI Meta Factory',
+  description: 'Build AI-powered applications in minutes',
 }
 
 export default function RootLayout({
@@ -17,9 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, padding: 0 }}>
-        {children}
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   )
 }

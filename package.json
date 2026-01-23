@@ -3,33 +3,25 @@
   "version": "6.0.0",
   "private": true,
   "scripts": {
-    "dev": "NEXT_DISABLE_SWC=1 next dev",
-    "build": "NEXT_DISABLE_SWC=1 next build",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "deploy": "npm run build && firebase deploy --only hosting"
   },
   "dependencies": {
-    "next": "14.2.5",
+    "next": "14.2.35",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "firebase": "^10.14.1",
-    "lucide-react": "^0.378.0",
-    "zustand": "^4.5.2",
-    "react-hot-toast": "^2.4.1",
-    "class-variance-authority": "^0.7.0",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^2.3.0",
-    "tailwindcss-animate": "^1.0.7",
-    "@radix-ui/react-slot": "^1.0.2"
+    "firebase": "^10.14.1"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.17",
-    "eslint": "^9.0.0",
-    "eslint-config-next": "14.2.5",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "13.5.6",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.0"
