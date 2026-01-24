@@ -1,15 +1,16 @@
 export const dynamic = 'force-dynamic';
+
 'use client';
 
-import { useEffect, useState } from 'react'
-import { Users, FileCode, CreditCard, Zap, TrendingUp, Activity, Download, Globe } from 'lucide-react'
+import { useEffect, useState } from 'react';
+import { Users, FileCode, CreditCard, Zap, TrendingUp, Activity, Download, Globe } from 'lucide-react';
 
 const initialStats = [
   { label: 'Total Users', value: '1,234', icon: Users, change: '+12%', color: 'text-blue-600' },
   { label: 'Projects Created', value: '5,678', icon: FileCode, change: '+23%', color: 'text-green-600' },
   { label: 'Revenue', value: '$4,567', icon: CreditCard, change: '+34%', color: 'text-purple-600' },
   { label: 'AI Generations', value: '12,345', icon: Zap, change: '+45%', color: 'text-orange-600' },
-]
+];
 
 const topComponents = [
   { name: 'Login Form', uses: 987, growth: 12 },
@@ -17,28 +18,27 @@ const topComponents = [
   { name: 'Dashboard Layout', uses: 723, growth: 15 },
   { name: 'Contact Form', uses: 654, growth: 5 },
   { name: 'Pricing Table', uses: 543, growth: 20 },
-]
+];
 
 export default function AnalyticsPage() {
-  const [stats, setStats] = useState(initialStats)
-  const [timeRange, setTimeRange] = useState('7d')
-  const [loading, setLoading] = useState(false)
+  const [stats, setStats] = useState(initialStats);
+  const [timeRange, setTimeRange] = useState('7d');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
-      setLoading(true)
+      setLoading(true);
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (error) {
-        console.error('Failed to fetch analytics:', error)
+        console.error('Failed to fetch analytics:', error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchAnalytics()
-  }, [timeRange])
+    fetchAnalytics();
+  }, [timeRange]);
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -50,9 +50,8 @@ export default function AnalyticsPage() {
             Monitor your platform performance and user activity
           </p>
         </div>
-        
         <div className="flex items-center space-x-2">
-          <select 
+          <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
             className="px-3 py-2 border rounded-lg bg-white"
@@ -181,5 +180,5 @@ export default function AnalyticsPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
