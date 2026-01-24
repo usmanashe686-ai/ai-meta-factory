@@ -1,161 +1,126 @@
-'use client';
+"use client";
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Loader2, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
-import { AIOrchestrator } from '@/lib/ai/orchestrator/pipeline';
-import { toast } from 'react-hot-toast';
+import { X, Sparkles } from 'lucide-react';
 
 interface AIPanelProps {
-  onComponentGenerated: (code: string) => void;
-  projectId: string;
+  onClose: () => void;
+  onGenerate: (code: string) => void;
 }
 
-export default function AIPanel({ onComponentGenerated, projectId }: AIPanelProps) {
+export default function AIPanel({ onClose, onGenerate }: AIPanelProps) {
   const [prompt, setPrompt] = useState('');
-  const [generating, setGenerating] = useState(false);
-  const [pipelineStatus, setPipelineStatus] = useState<string[]>([]);
-  const [orchestrator] = useState(() => new AIOrchestrator());
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [outputType, setOutputType] = useState<'react' | 'full-app' | 'apk'>('react');
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) {
-      toast.error('Please enter a description');
-      return;
-    }
-
-    setGenerating(true);
-    setPipelineStatus(['🚀 Starting AI pipeline...']);
-
+    if (!prompt.trim()) return;
+    
+    setIsGenerating(true);
+    
     try {
-      // Update status as pipeline progresses
-      const statusUpdates = [
-        '🎨 Generating creative design (OpenAI)...',
-        '🏗️ Structuring code (DeepSeek)...',
-        '🛡️ Verifying safety (Gemini)...',
-        '✨ Finalizing component...'
-      ];
-
-      statusUpdates.forEach((status, i) => {
-        setTimeout(() => {
-          setPipelineStatus(prev => [...prev, status]);
-        }, i * 1000);
-      });
-
-      // Execute pipeline
-      const result = await orchestrator.processPipeline(prompt, {
-        projectId,
-        framework: 'nextjs',
-        style: 'modern'
-      });
-
-      // Show results
-      setPipelineStatus(prev => [
-        ...prev,
-        `✅ Pipeline completed in ${result.metadata.timeTaken}ms`,
-        `📊 Tokens used: ${result.metadata.totalTokens}`,
-        `💰 Estimated cost: $${result.metadata.estimatedCost.toFixed(4)}`
-      ]);
-
-      // Send to parent
-      onComponentGenerated(result.finalOutput);
+      // Mock API call - replace with actual AI pipeline
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      toast.success('Component generated successfully!');
-
+      const generatedCode = `
+        <div className="p-6 bg-white rounded-xl shadow-lg">
+          <h2 className="text-2xl font-bold mb-4">${prompt}</h2>
+          <p className="text-gray-600 mb-4">AI Generated Component</p>
+          <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90">
+            Generated Button
+          </button>
+        </div>
+      `;
+      
+      onGenerate(generatedCode);
+      
     } catch (error) {
-      console.error('Generation failed:', error);
-      setPipelineStatus(prev => [...prev, '❌ Pipeline failed']);
-      toast.error('Generation failed. Please try again.');
+      console.error('AI generation failed:', error);
     } finally {
-      setGenerating(false);
+      setIsGenerating(false);
     }
   };
 
   return (
-    <div className="bg-white rounded-lg border p-4 h-full">
-      <div className="mb-6">
-        <h3 className="font-semibold text-lg mb-2 flex items-center">
-          <Sparkles className="w-5 h-5 mr-2 text-purple-600" />
-          AI Component Generator
-        </h3>
-        <p className="text-sm text-gray-600 mb-4">
-          Describe what you want. We'll handle the AI magic internally.
-        </p>
-      </div>
-
-      {/* Simple Input */}
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Describe your component
-          </label>
-          <Input
-            placeholder="e.g., 'A login form with social buttons and validation'"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            disabled={generating}
-            className="w-full"
-          />
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+        <div className="p-6 border-b flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-6 w-6 text-purple-600" />
+            <h2 className="text-xl font-bold">AI Generator</h2>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
-        <Button
-          onClick={handleGenerate}
-          disabled={generating || !prompt.trim()}
-          className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-        >
-          {generating ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Generating with AI...
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-4 h-4 mr-2" />
-              Generate Component
-            </>
-          )}
-        </Button>
-      </div>
-
-      {/* Pipeline Status (Collapsible) */}
-      {pipelineStatus.length > 0 && (
-        <div className="mt-6 border-t pt-4">
-          <details>
-            <summary className="cursor-pointer text-sm font-medium text-gray-700">
-              AI Pipeline Status
-            </summary>
-            <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
-              {pipelineStatus.map((status, index) => (
-                <div
-                  key={index}
-                  className="flex items-start text-sm p-2 rounded bg-gray-50"
-                >
-                  {status.includes('✅') || status.includes('completed') ? (
-                    <CheckCircle className="w-4 h-4 mr-2 text-green-600 mt-0.5" />
-                  ) : status.includes('❌') ? (
-                    <AlertCircle className="w-4 h-4 mr-2 text-red-600 mt-0.5" />
-                  ) : (
-                    <Loader2 className="w-4 h-4 mr-2 text-blue-600 animate-spin mt-0.5" />
-                  )}
-                  <span className={status.includes('❌') ? 'text-red-700' : ''}>
-                    {status}
-                  </span>
-                </div>
-              ))}
+        <div className="p-6 flex-1 overflow-auto">
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium mb-3">
+                What would you like to build?
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { id: 'react', label: 'React Component', icon: '⚛️' },
+                  { id: 'full-app', label: 'Full Web App', icon: '🌐' },
+                  { id: 'apk', label: 'APK (Mobile)', icon: '📱' }
+                ].map((type) => (
+                  <button
+                    key={type.id}
+                    onClick={() => setOutputType(type.id as any)}
+                    className={\`p-4 border rounded-lg flex flex-col items-center gap-2 \${outputType === type.id ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'}\`}
+                  >
+                    <span className="text-2xl">{type.icon}</span>
+                    <span className="text-sm font-medium">{type.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </details>
-        </div>
-      )}
 
-      {/* Cost Display */}
-      <div className="mt-4 text-xs text-gray-500 border-t pt-3">
-        <p>
-          <span className="font-medium">Internal AI Pipeline:</span>{' '}
-          OpenAI → DeepSeek → Gemini
-        </p>
-        <p className="mt-1">
-          You only see the result. The AI orchestration happens automatically.
-        </p>
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Describe what you want:
+              </label>
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Example: A user profile card with avatar, name, bio, and follow button..."
+                className="w-full h-32 p-4 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={isGenerating}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 border-t">
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={onClose}
+              className="px-6 py-2 border rounded-lg hover:bg-gray-50"
+              disabled={isGenerating}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleGenerate}
+              disabled={!prompt.trim() || isGenerating}
+              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isGenerating ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Generate Component
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
