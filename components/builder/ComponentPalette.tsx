@@ -28,7 +28,8 @@ export default function ComponentPalette({ onAddComponent }: ComponentPalettePro
           border: '2px dashed #d1d5db',
           borderRadius: '8px',
           minHeight: '100px',
-          minWidth: '200px'
+          minWidth: '200px',
+          cursor: 'move'
         }
       },
       text: {
@@ -38,7 +39,8 @@ export default function ComponentPalette({ onAddComponent }: ComponentPalettePro
         styles: {
           fontSize: '16px',
           color: '#374151',
-          fontWeight: 'normal'
+          fontWeight: 'normal',
+          cursor: 'move'
         }
       },
       button: {
@@ -51,18 +53,21 @@ export default function ComponentPalette({ onAddComponent }: ComponentPalettePro
           color: 'white',
           borderRadius: '6px',
           border: 'none',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          fontWeight: 'bold'
         }
       },
       input: {
         type: 'input' as const,
-        content: 'Input field',
+        content: 'Enter text...',
         position: { x: 250, y: 250 },
         styles: {
           padding: '8px 12px',
           border: '1px solid #d1d5db',
           borderRadius: '6px',
-          width: '200px'
+          width: '200px',
+          backgroundColor: 'white',
+          cursor: 'text'
         }
       },
       card: {
@@ -74,7 +79,25 @@ export default function ComponentPalette({ onAddComponent }: ComponentPalettePro
           backgroundColor: 'white',
           borderRadius: '12px',
           boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-          width: '300px'
+          width: '300px',
+          minHeight: '150px',
+          cursor: 'move'
+        }
+      },
+      navbar: {
+        type: 'container' as const,
+        content: 'Navigation Bar',
+        position: { x: 100, y: 400 },
+        styles: {
+          padding: '16px 24px',
+          backgroundColor: '#1f2937',
+          color: 'white',
+          borderRadius: '0',
+          width: '100%',
+          minHeight: '60px',
+          display: 'flex',
+          alignItems: 'center',
+          cursor: 'move'
         }
       }
     };
@@ -102,13 +125,67 @@ export default function ComponentPalette({ onAddComponent }: ComponentPalettePro
       <div className="mt-8">
         <h3 className="font-semibold mb-4 text-gray-700">AI Templates</h3>
         <div className="space-y-2">
-          <button className="w-full p-3 border border-dashed border-blue-300 rounded-lg text-blue-600 hover:bg-blue-50">
+          <button 
+            onClick={() => {
+              onAddComponent({
+                type: 'container' as const,
+                content: 'Product Card\n$99.99\nBuy Now',
+                position: { x: 100, y: 100 },
+                styles: {
+                  padding: '20px',
+                  backgroundColor: 'white',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  width: '250px',
+                  textAlign: 'center',
+                  cursor: 'move'
+                }
+              });
+            }}
+            className="w-full p-3 border border-dashed border-blue-300 rounded-lg text-blue-600 hover:bg-blue-50"
+          >
             🛒 E-commerce Product Card
           </button>
-          <button className="w-full p-3 border border-dashed border-green-300 rounded-lg text-green-600 hover:bg-green-50">
+          <button 
+            onClick={() => {
+              onAddComponent({
+                type: 'container' as const,
+                content: 'Dashboard\n📈 Analytics\n📊 Stats',
+                position: { x: 200, y: 200 },
+                styles: {
+                  padding: '24px',
+                  backgroundColor: '#f8fafc',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '12px',
+                  width: '300px',
+                  minHeight: '200px',
+                  cursor: 'move'
+                }
+              });
+            }}
+            className="w-full p-3 border border-dashed border-green-300 rounded-lg text-green-600 hover:bg-green-50"
+          >
             📊 Analytics Dashboard
           </button>
-          <button className="w-full p-3 border border-dashed border-purple-300 rounded-lg text-purple-600 hover:bg-purple-50">
+          <button 
+            onClick={() => {
+              onAddComponent({
+                type: 'container' as const,
+                content: 'Contact Form\nName: ______\nEmail: ______\nMessage: ______\nSubmit',
+                position: { x: 300, y: 300 },
+                styles: {
+                  padding: '24px',
+                  backgroundColor: 'white',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  width: '320px',
+                  minHeight: '250px',
+                  cursor: 'move'
+                }
+              });
+            }}
+            className="w-full p-3 border border-dashed border-purple-300 rounded-lg text-purple-600 hover:bg-purple-50"
+          >
             📝 Contact Form
           </button>
         </div>

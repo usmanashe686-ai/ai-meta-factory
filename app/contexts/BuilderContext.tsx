@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode } from 'react';
 
-interface CanvasComponent {
+export interface CanvasComponent {
   id: string;
   type: 'container' | 'text' | 'button' | 'input' | 'custom';
   content: string;
@@ -11,7 +11,7 @@ interface CanvasComponent {
   code?: string;
 }
 
-interface BuilderContextType {
+export interface BuilderContextType {
   components: CanvasComponent[];
   addComponent: (component: Omit<CanvasComponent, 'id'>) => void;
   updateComponent: (id: string, updates: Partial<CanvasComponent>) => void;
@@ -27,13 +27,16 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
     {
       id: 'welcome-component',
       type: 'container',
-      content: 'Welcome to Meta Factory Builder',
+      content: 'Welcome to Meta Factory Builder\nDrag me around!',
       position: { x: 100, y: 100 },
       styles: {
         padding: '20px',
         backgroundColor: 'white',
         borderRadius: '8px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        minWidth: '200px',
+        minHeight: '100px',
+        cursor: 'move'
       }
     }
   ]);

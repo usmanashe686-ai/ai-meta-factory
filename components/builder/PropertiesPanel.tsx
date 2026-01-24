@@ -1,246 +1,172 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Trash2, Copy, Eye } from 'lucide-react'
+import { useBuilder } from '@/app/contexts/BuilderContext';
+import { Palette, Type, Layout, Box } from 'lucide-react';
 
-export default function PropertiesPanel({ component, onUpdate, onDelete }) {
-  const [activeTab, setActiveTab] = useState('properties')
+export default function PropertiesPanel() {
+  const { selectedComponent, components, updateComponent } = useBuilder();
   
+  const component = components.find(c => c.id === selectedComponent);
+
   if (!component) {
     return (
-      <div className="p-4 text-center">
-        <div className="w-16 h-16 border-4 border-dashed border-gray-300 rounded-full mx-auto mb-4"></div>
-        <p className="font-medium">No component selected</p>
-        <p className="text-sm text-gray-500 mt-1">
-          Click on a component to edit its properties
-        </p>
+      <div className="p-6">
+        <h3 className="font-semibold mb-4 text-gray-700">Properties</h3>
+        <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
+          <Box className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500">Select a component to edit properties</p>
+        </div>
       </div>
-    )
+    );
   }
 
+  const updateStyle = (property: string, value: string) => {
+    updateComponent(component.id, {
+      styles: { ...component.styles, [property]: value }
+    });
+  };
+
+  const colorOptions = [
+    { label: 'White', value: '#ffffff' },
+    { label: 'Gray', value: '#f3f4f6' },
+    { label: 'Blue', value: '#3b82f6' },
+    { label: 'Purple', value: '#8b5cf6' },
+    { label: 'Red', value: '#ef4444' },
+    { label: 'Green', value: '#10b981' },
+  ];
+
   return (
-    <div className="p-4">
-      {/* Component Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-6">
+      <h3 className="font-semibold mb-4 text-gray-700">Properties</h3>
+      
+      <div className="space-y-6">
+        {/* Component Info */}
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-white rounded">
+              <Box className="h-4 w-4 text-gray-600" />
+            </div>
+            <div>
+              <p className="font-medium">{component.type.charAt(0).toUpperCase() + component.type.slice(1)}</p>
+              <p className="text-sm text-gray-500">ID: {component.id.substring(0, 8)}...</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Editor */}
         <div>
-          <h3 className="font-semibold capitalize">{component.type} Properties</h3>
-          <p className="text-sm text-gray-500">ID: {component.id.slice(0, 8)}...</p>
-        </div>
-        <div className="flex space-x-2">
-          <Button variant="outline" size="sm">
-            <Copy className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="sm">
-            <Eye className="w-4 h-4" />
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={onDelete}
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex border-b mb-4">
-        <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === 'properties' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('properties')}
-        >
-          Properties
-        </button>
-        <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === 'styles' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('styles')}
-        >
-          Styles
-        </button>
-        <button
-          className={`px-4 py-2 text-sm font-medium ${activeTab === 'layout' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('layout')}
-        >
-          Layout
-        </button>
-      </div>
-
-      {/* Properties Content */}
-      <div className="space-y-4">
-        {activeTab === 'properties' && (
-          <>
-            {/* Position */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="posX">X Position</Label>
-                <Input
-                  id="posX"
-                  type="number"
-                  value={component.position.x}
-                  onChange={(e) => onUpdate({
-                    position: { ...component.position, x: parseInt(e.target.value) || 0 }
-                  })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="posY">Y Position</Label>
-                <Input
-                  id="posY"
-                  type="number"
-                  value={component.position.y}
-                  onChange={(e) => onUpdate({
-                    position: { ...component.position, y: parseInt(e.target.value) || 0 }
-                  })}
-                />
-              </div>
-            </div>
-
-            {/* Component-specific properties */}
-            {component.type === 'button' && (
-              <>
-                <div>
-                  <Label htmlFor="buttonText">Button Text</Label>
-                  <Input
-                    id="buttonText"
-                    value={component.props.text || ''}
-                    onChange={(e) => onUpdate({
-                      props: { ...component.props, text: e.target.value }
-                    })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="buttonColor">Color</Label>
-                  <Input
-                    id="buttonColor"
-                    type="color"
-                    value={component.props.color || '#3B82F6'}
-                    onChange={(e) => onUpdate({
-                      props: { ...component.props, color: e.target.value }
-                    })}
-                    className="h-10"
-                  />
-                </div>
-              </>
-            )}
-
-            {component.type === 'input' && (
-              <>
-                <div>
-                  <Label htmlFor="inputLabel">Label</Label>
-                  <Input
-                    id="inputLabel"
-                    value={component.props.label || ''}
-                    onChange={(e) => onUpdate({
-                      props: { ...component.props, label: e.target.value }
-                    })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="inputPlaceholder">Placeholder</Label>
-                  <Input
-                    id="inputPlaceholder"
-                    value={component.props.placeholder || ''}
-                    onChange={(e) => onUpdate({
-                      props: { ...component.props, placeholder: e.target.value }
-                    })}
-                  />
-                </div>
-              </>
-            )}
-
-            {component.type === 'text' && (
-              <div>
-                <Label htmlFor="textContent">Content</Label>
-                <textarea
-                  id="textContent"
-                  className="w-full px-3 py-2 border rounded text-sm"
-                  rows={3}
-                  value={component.props.content || ''}
-                  onChange={(e) => onUpdate({
-                    props: { ...component.props, content: e.target.value }
-                  })}
-                />
-              </div>
-            )}
-
-            {component.type === 'card' && (
-              <>
-                <div>
-                  <Label htmlFor="cardTitle">Title</Label>
-                  <Input
-                    id="cardTitle"
-                    value={component.props.title || ''}
-                    onChange={(e) => onUpdate({
-                      props: { ...component.props, title: e.target.value }
-                    })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="cardContent">Content</Label>
-                  <textarea
-                    id="cardContent"
-                    className="w-full px-3 py-2 border rounded text-sm"
-                    rows={3}
-                    value={component.props.content || ''}
-                    onChange={(e) => onUpdate({
-                      props: { ...component.props, content: e.target.value }
-                    })}
-                  />
-                </div>
-              </>
-            )}
-          </>
-        )}
-
-        {activeTab === 'styles' && (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-500">
-              Style editing coming soon. For now, edit in the Properties tab.
-            </p>
+          <div className="flex items-center gap-2 mb-3">
+            <Type className="h-4 w-4 text-gray-600" />
+            <label className="text-sm font-medium">Content</label>
           </div>
-        )}
+          <textarea
+            value={component.content}
+            onChange={(e) => updateComponent(component.id, { content: e.target.value })}
+            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            rows={3}
+          />
+        </div>
 
-        {activeTab === 'layout' && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="width">Width</Label>
-                <Input
-                  id="width"
-                  type="number"
-                  value={component.size?.width || ''}
-                  onChange={(e) => onUpdate({
-                    size: { 
-                      ...component.size, 
-                      width: parseInt(e.target.value) || undefined 
-                    }
-                  })}
-                  placeholder="Auto"
-                />
-              </div>
-              <div>
-                <Label htmlFor="height">Height</Label>
-                <Input
-                  id="height"
-                  type="number"
-                  value={component.size?.height || ''}
-                  onChange={(e) => onUpdate({
-                    size: { 
-                      ...component.size, 
-                      height: parseInt(e.target.value) || undefined 
-                    }
-                  })}
-                  placeholder="Auto"
-                />
-              </div>
+        {/* Color Picker */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Palette className="h-4 w-4 text-gray-600" />
+            <label className="text-sm font-medium">Background Color</label>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {colorOptions.map((color) => (
+              <button
+                key={color.value}
+                onClick={() => updateStyle('backgroundColor', color.value)}
+                className={`h-8 rounded border ${component.styles.backgroundColor === color.value ? 'ring-2 ring-blue-500' : ''}`}
+                style={{ backgroundColor: color.value }}
+                title={color.label}
+              />
+            ))}
+          </div>
+          <input
+            type="color"
+            value={component.styles.backgroundColor || '#ffffff'}
+            onChange={(e) => updateStyle('backgroundColor', e.target.value)}
+            className="w-full mt-2 h-8 cursor-pointer"
+          />
+        </div>
+
+        {/* Padding */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Layout className="h-4 w-4 text-gray-600" />
+            <label className="text-sm font-medium">Padding</label>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {['8px', '16px', '24px', '32px'].map((padding) => (
+              <button
+                key={padding}
+                onClick={() => updateStyle('padding', padding)}
+                className={`p-2 text-sm border rounded ${
+                  component.styles.padding === padding ? 'bg-blue-100 border-blue-500' : 'hover:bg-gray-50'
+                }`}
+              >
+                {padding}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Position */}
+        <div>
+          <label className="block text-sm font-medium mb-3">Position</label>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-gray-500">X</label>
+              <input
+                type="number"
+                value={component.position.x}
+                onChange={(e) => updateComponent(component.id, {
+                  position: { ...component.position, x: parseInt(e.target.value) || 0 }
+                })}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500">Y</label>
+              <input
+                type="number"
+                value={component.position.y}
+                onChange={(e) => updateComponent(component.id, {
+                  position: { ...component.position, y: parseInt(e.target.value) || 0 }
+                })}
+                className="w-full p-2 border rounded"
+              />
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Additional Styles */}
+        <div>
+          <label className="block text-sm font-medium mb-3">Custom CSS</label>
+          <textarea
+            value={Object.entries(component.styles)
+              .filter(([key]) => !['position', 'left', 'top'].includes(key))
+              .map(([key, value]) => `${key}: ${value};`)
+              .join('\n')}
+            onChange={(e) => {
+              const styles: Record<string, string> = {};
+              e.target.value.split('\n').forEach(line => {
+                const [key, ...valueParts] = line.split(':');
+                if (key && valueParts.length) {
+                  styles[key.trim()] = valueParts.join(':').replace(';', '').trim();
+                }
+              });
+              updateComponent(component.id, { styles });
+            }}
+            className="w-full h-24 p-3 font-mono text-sm border rounded-lg focus:ring-2 focus:ring-blue-500"
+            placeholder="fontSize: 16px;
+color: #374151;
+borderRadius: 8px;"
+          />
+        </div>
       </div>
     </div>
-  )
+  );
 }

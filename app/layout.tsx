@@ -5,8 +5,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'AI Meta Factory',
-  description: 'Build AI-powered applications in minutes',
+  title: 'Meta Factory AI Builder',
+  description: 'Build components and apps with AI',
 }
 
 export default function RootLayout({
@@ -16,7 +16,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+          {children}
+        </div>
+      </body>
     </html>
   )
 }
