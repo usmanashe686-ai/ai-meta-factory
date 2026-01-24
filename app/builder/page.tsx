@@ -1,6 +1,6 @@
 "use client";
 
-import { DndContext, DragEndEvent, DragOverlay, closestCenter } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
 import { BuilderProvider, useBuilder } from '@/contexts/BuilderContext';
 import DraggableComponent from '@/components/builder/DraggableComponent';
 import ComponentLibrary from '@/components/builder/ComponentLibrary';
@@ -10,9 +10,10 @@ function BuilderContent() {
   const { 
     components, 
     selectedComponent, 
-    selectComponent, 
+    addComponent, 
     updateComponent, 
-    removeComponent 
+    removeComponent, 
+    selectComponent 
   } = useBuilder();
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -25,6 +26,26 @@ function BuilderContent() {
         y: component.y + delta.y
       });
     }
+  };
+
+  const handleGenerateAI = async (prompt: string) => {
+    // Mock AI generation for now
+    const aiComponent = {
+      id: Date.now().toString(),
+      type: 'card',
+      content: `AI Generated: ${prompt}`,
+      x: 200,
+      y: 200,
+      width: 320,
+      height: 180,
+      bgColor: '#e0f2fe',
+      textColor: '#0369a1',
+      fontSize: 20,
+      borderRadius: 16
+    };
+
+    updateComponent(aiComponent.id, aiComponent);
+    selectComponent(aiComponent);
   };
 
   return (
@@ -53,10 +74,10 @@ function BuilderContent() {
                 <span className="font-medium">{components.length}</span> components
               </div>
               <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
-                📦 Export Project
+                📦 Export
               </button>
               <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-                🚀 Deploy to Vercel
+                🚀 Deploy
               </button>
             </div>
           </div>
@@ -66,7 +87,10 @@ function BuilderContent() {
         <div className="flex-1 flex overflow-hidden">
           {/* Left Sidebar - Component Library */}
           <div className="w-80 bg-white border-r shadow-inner">
-            <ComponentLibrary />
+            <ComponentLibrary 
+              onAddComponent={addComponent}
+              onGenerateAI={handleGenerateAI}
+            />
           </div>
 
           {/* Canvas Area */}
@@ -83,16 +107,15 @@ function BuilderContent() {
               ))}
             </div>
             
-            {/* Canvas Overlay */}
-            <div className="absolute bottom-4 right-4">
-              <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg">
-                <div className="text-sm text-gray-600">
-                  <div className="font-medium">Canvas Controls</div>
-                  <div className="mt-2 space-y-1">
-                    <div>• Click to select components</div>
-                    <div>• Drag to move components</div>
-                    <div>• Edit properties on the right</div>
-                  </div>
+            {/* Canvas Guide */}
+            <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg">
+              <div className="text-sm text-gray-600">
+                <div className="font-medium">Canvas Guide</div>
+                <div className="mt-2 space-y-1 text-xs">
+                  <div>• Click to select components</div>
+                  <div>• Drag to move components</div>
+                  <div>• Edit properties on the right</div>
+                  <div>• Use AI generator on the left</div>
                 </div>
               </div>
             </div>
@@ -108,27 +131,14 @@ function BuilderContent() {
         <footer className="bg-white border-t px-6 py-3">
           <div className="flex justify-between items-center text-sm">
             <div className="text-gray-600">
-              <span className="font-medium">Status:</span> Ready • Drag components to reposition
+              <span className="font-medium">Status:</span> Drag & Drop Active
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="font-medium">Phase 1 Active</span>
+              <span className="font-medium">Phase 1 Complete</span>
             </div>
           </div>
         </footer>
-
-        <DragOverlay>
-          {selectedComponent && (
-            <div className="opacity-80">
-              <DraggableComponent
-                component={selectedComponent}
-                isSelected={true}
-                onClick={() => {}}
-                onDelete={() => {}}
-              />
-            </div>
-          )}
-        </DragOverlay>
       </div>
     </DndContext>
   );

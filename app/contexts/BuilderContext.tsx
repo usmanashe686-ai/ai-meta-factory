@@ -4,7 +4,7 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 
 export type Component = {
   id: string;
-  type: 'text' | 'button' | 'card' | 'input' | 'image';
+  type: string;
   content: string;
   x: number;
   y: number;
@@ -19,11 +19,10 @@ export type Component = {
 type BuilderContextType = {
   components: Component[];
   selectedComponent: Component | null;
-  addComponent: (type: Component['type']) => void;
+  addComponent: (type: string) => void;
   updateComponent: (id: string, updates: Partial<Component>) => void;
   removeComponent: (id: string) => void;
   selectComponent: (component: Component | null) => void;
-  generateAIComponent: (prompt: string) => Promise<void>;
 };
 
 const BuilderContext = createContext<BuilderContextType | undefined>(undefined);
@@ -33,10 +32,10 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
     {
       id: '1',
       type: 'text',
-      content: 'Welcome to Meta Factory',
+      content: 'Welcome to Meta Factory AI Builder',
       x: 100,
       y: 100,
-      width: 300,
+      width: 350,
       height: 80,
       bgColor: '#ffffff',
       textColor: '#000000',
@@ -49,8 +48,8 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
       content: 'Click Me',
       x: 150,
       y: 200,
-      width: 120,
-      height: 40,
+      width: 140,
+      height: 48,
       bgColor: '#3b82f6',
       textColor: '#ffffff',
       fontSize: 16,
@@ -59,11 +58,11 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
     {
       id: '3',
       type: 'card',
-      content: 'AI Generated Card',
+      content: 'AI Generated Component',
       x: 300,
       y: 150,
-      width: 250,
-      height: 150,
+      width: 280,
+      height: 160,
       bgColor: '#f8fafc',
       textColor: '#334155',
       fontSize: 18,
@@ -73,7 +72,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
 
   const [selectedComponent, setSelectedComponent] = useState<Component | null>(null);
 
-  const addComponent = (type: Component['type']) => {
+  const addComponent = (type: string) => {
     const newComponent: Component = {
       id: Date.now().toString(),
       type,
@@ -82,12 +81,12 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
                type === 'input' ? 'Enter text...' : 'Text Content',
       x: 50 + Math.random() * 500,
       y: 50 + Math.random() * 300,
-      width: type === 'button' ? 120 : 
+      width: type === 'button' ? 140 : 
              type === 'input' ? 200 : 
-             type === 'card' ? 250 : 300,
-      height: type === 'button' ? 40 : 
+             type === 'card' ? 280 : 350,
+      height: type === 'button' ? 48 : 
               type === 'input' ? 40 : 
-              type === 'card' ? 150 : 100,
+              type === 'card' ? 160 : 100,
       bgColor: type === 'button' ? '#3b82f6' : 
                type === 'card' ? '#f8fafc' : '#ffffff',
       textColor: type === 'button' ? '#ffffff' : '#000000',
@@ -122,26 +121,6 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
     setSelectedComponent(component);
   };
 
-  const generateAIComponent = async (prompt: string) => {
-    // Mock AI generation for now
-    const aiComponent: Component = {
-      id: Date.now().toString(),
-      type: 'card',
-      content: `AI: ${prompt}`,
-      x: 200,
-      y: 200,
-      width: 300,
-      height: 180,
-      bgColor: '#e0f2fe',
-      textColor: '#0369a1',
-      fontSize: 20,
-      borderRadius: 16
-    };
-
-    setComponents(prev => [...prev, aiComponent]);
-    setSelectedComponent(aiComponent);
-  };
-
   return (
     <BuilderContext.Provider value={{
       components,
@@ -149,8 +128,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
       addComponent,
       updateComponent,
       removeComponent,
-      selectComponent,
-      generateAIComponent
+      selectComponent
     }}>
       {children}
     </BuilderContext.Provider>

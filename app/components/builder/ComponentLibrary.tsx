@@ -1,27 +1,33 @@
 "use client";
 
-import { useBuilder } from '@/contexts/BuilderContext';
 import { useState } from 'react';
 
-const componentTypes = [
-  { type: 'text' as const, label: 'Text', icon: '📝', color: 'bg-blue-100' },
-  { type: 'button' as const, label: 'Button', icon: '🔼', color: 'bg-green-100' },
-  { type: 'card' as const, label: 'Card', icon: '🃏', color: 'bg-purple-100' },
-  { type: 'input' as const, label: 'Input', icon: '⌨️', color: 'bg-yellow-100' },
-  { type: 'image' as const, label: 'Image', icon: '🖼️', color: 'bg-pink-100' },
-];
+interface ComponentLibraryProps {
+  onAddComponent: (type: string) => void;
+  onGenerateAI: (prompt: string) => void;
+}
 
-export default function ComponentLibrary() {
-  const { addComponent, generateAIComponent } = useBuilder();
+export default function ComponentLibrary({ 
+  onAddComponent, 
+  onGenerateAI 
+}: ComponentLibraryProps) {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+
+  const componentTypes = [
+    { type: 'text', label: 'Text Box', icon: '📝', color: 'bg-blue-100' },
+    { type: 'button', label: 'Button', icon: '🔼', color: 'bg-green-100' },
+    { type: 'card', label: 'Card', icon: '🃏', color: 'bg-purple-100' },
+    { type: 'input', label: 'Input Field', icon: '⌨️', color: 'bg-yellow-100' },
+    { type: 'image', label: 'Image', icon: '🖼️', color: 'bg-pink-100' },
+  ];
 
   const handleAIGenerate = async () => {
     if (!aiPrompt.trim()) return;
     
     setIsGenerating(true);
     try {
-      await generateAIComponent(aiPrompt);
+      await onGenerateAI(aiPrompt);
       setAiPrompt('');
     } catch (error) {
       console.error('AI generation error:', error);
@@ -34,7 +40,7 @@ export default function ComponentLibrary() {
     <div className="h-full flex flex-col">
       <div className="p-4 border-b">
         <h3 className="font-bold text-lg">Component Library</h3>
-        <p className="text-sm text-gray-600">Drag components to canvas</p>
+        <p className="text-sm text-gray-600">Add components to canvas</p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
@@ -42,7 +48,7 @@ export default function ComponentLibrary() {
           {componentTypes.map((item) => (
             <button
               key={item.type}
-              onClick={() => addComponent(item.type)}
+              onClick={() => onAddComponent(item.type)}
               className="w-full p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
             >
               <div className="flex items-center gap-4">
@@ -51,7 +57,7 @@ export default function ComponentLibrary() {
                 </div>
                 <div>
                   <div className="font-medium text-gray-900">{item.label}</div>
-                  <div className="text-sm text-gray-500">Click to add to canvas</div>
+                  <div className="text-sm text-gray-500">Click to add</div>
                 </div>
               </div>
             </button>

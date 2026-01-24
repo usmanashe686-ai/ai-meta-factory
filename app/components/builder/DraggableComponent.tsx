@@ -2,7 +2,20 @@
 
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Component } from '@/contexts/BuilderContext';
+
+interface Component {
+  id: string;
+  type: string;
+  content: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  bgColor: string;
+  textColor: string;
+  fontSize: number;
+  borderRadius: number;
+}
 
 interface DraggableComponentProps {
   component: Component;
@@ -29,14 +42,14 @@ export default function DraggableComponent({
 
   const style = {
     transform: CSS.Translate.toString(transform),
-    left: component.x,
-    top: component.y,
-    width: component.width,
-    height: component.height,
+    left: `${component.x}px`,
+    top: `${component.y}px`,
+    width: `${component.width}px`,
+    height: `${component.height}px`,
     backgroundColor: component.bgColor,
     color: component.textColor,
-    fontSize: component.fontSize,
-    borderRadius: component.borderRadius,
+    fontSize: `${component.fontSize}px`,
+    borderRadius: `${component.borderRadius}px`,
     border: isSelected ? '3px solid #3b82f6' : '1px solid #d1d5db',
     opacity: isDragging ? 0.5 : 1,
     cursor: 'move',
@@ -72,7 +85,7 @@ export default function DraggableComponent({
         {component.content}
       </div>
       <div className="mt-2 text-xs text-gray-500 opacity-70">
-        Drag to move
+        Drag to move • Click to select
       </div>
     </div>
   );
