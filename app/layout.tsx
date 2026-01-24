@@ -6,7 +6,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'Meta Factory AI Builder',
-  description: 'Build components and apps with AI',
+  description: 'Build apps with AI',
 }
 
 export default function RootLayout({
@@ -17,9 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-          {children}
-        </div>
+        {children}
       </body>
     </html>
   )
