@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic';
 
-'use client';
 
 import { useEffect, useState } from 'react';
 import { Users, FileCode, CreditCard, Zap, TrendingUp, Activity, Download, Globe } from 'lucide-react';
