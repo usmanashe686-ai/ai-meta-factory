@@ -1,88 +1,143 @@
 "use client";
 
-import { useState } from 'react';
+import { DndContext, DragEndEvent, DragOverlay, closestCenter } from '@dnd-kit/core';
+import { BuilderProvider, useBuilder } from '@/contexts/BuilderContext';
+import DraggableComponent from '@/components/builder/DraggableComponent';
+import ComponentLibrary from '@/components/builder/ComponentLibrary';
+import PropertiesPanel from '@/components/builder/PropertiesPanel';
 
-export default function BuilderPage() {
-  const [count, setCount] = useState(0);
+function BuilderContent() {
+  const { 
+    components, 
+    selectedComponent, 
+    selectComponent, 
+    updateComponent, 
+    removeComponent 
+  } = useBuilder();
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, delta } = event;
+    
+    const component = components.find(c => c.id === active.id);
+    if (component) {
+      updateComponent(component.id, {
+        x: component.x + delta.x,
+        y: component.y + delta.y
+      });
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-8">
-      <div className="max-w-6xl mx-auto">
-        <header className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            🏭 Meta Factory AI Builder
-          </h1>
-          <p className="text-xl text-gray-600">
-            Drag-and-drop interface loading...
-          </p>
+    <DndContext
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="h-screen flex flex-col bg-gray-50">
+        {/* Header */}
+        <header className="bg-white shadow-lg border-b px-6 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                <span className="text-3xl">🏭</span>
+                <div>
+                  <div>Meta Factory AI Builder</div>
+                  <div className="text-sm font-normal text-gray-600">
+                    Phase 1 - Real Drag & Drop
+                  </div>
+                </div>
+              </h1>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-gray-500">
+                <span className="font-medium">{components.length}</span> components
+              </div>
+              <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
+                📦 Export Project
+              </button>
+              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                🚀 Deploy to Vercel
+              </button>
+            </div>
+          </div>
         </header>
 
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <div className="grid md:grid-cols-3 gap-8 mb-12">
-            <div className="text-center p-8 border-2 border-dashed border-blue-300 rounded-xl">
-              <div className="text-5xl mb-6">🎨</div>
-              <h3 className="text-xl font-bold mb-4">Visual Builder</h3>
-              <p className="text-gray-600">
-                Drag components, edit properties in real-time
-              </p>
-            </div>
-            
-            <div className="text-center p-8 border-2 border-dashed border-purple-300 rounded-xl">
-              <div className="text-5xl mb-6">✨</div>
-              <h3 className="text-xl font-bold mb-4">AI Generation</h3>
-              <p className="text-gray-600">
-                Describe what you want, AI creates components
-              </p>
-            </div>
-            
-            <div className="text-center p-8 border-2 border-dashed border-green-300 rounded-xl">
-              <div className="text-5xl mb-6">🚀</div>
-              <h3 className="text-xl font-bold mb-4">Export & Deploy</h3>
-              <p className="text-gray-600">
-                Download code or deploy directly to Vercel
-              </p>
-            </div>
+        {/* Main Content */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Sidebar - Component Library */}
+          <div className="w-80 bg-white border-r shadow-inner">
+            <ComponentLibrary />
           </div>
 
-          {/* Interactive Demo */}
-          <div className="text-center border-t pt-12">
-            <h3 className="text-2xl font-bold mb-6">Interactive Preview</h3>
-            <div className="inline-flex items-center gap-8 mb-8">
-              <button
-                onClick={() => setCount(c => c - 1)}
-                className="px-8 py-4 bg-red-500 text-white text-lg font-bold rounded-xl hover:bg-red-600"
-              >
-                Decrease
-              </button>
-              
-              <div className="text-6xl font-bold text-blue-600 min-w-[120px]">
-                {count}
+          {/* Canvas Area */}
+          <div className="flex-1 relative overflow-auto bg-gradient-to-br from-gray-100 to-gray-200">
+            <div className="absolute inset-0 p-8">
+              {components.map((component) => (
+                <DraggableComponent
+                  key={component.id}
+                  component={component}
+                  isSelected={selectedComponent?.id === component.id}
+                  onClick={() => selectComponent(component)}
+                  onDelete={() => removeComponent(component.id)}
+                />
+              ))}
+            </div>
+            
+            {/* Canvas Overlay */}
+            <div className="absolute bottom-4 right-4">
+              <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg">
+                <div className="text-sm text-gray-600">
+                  <div className="font-medium">Canvas Controls</div>
+                  <div className="mt-2 space-y-1">
+                    <div>• Click to select components</div>
+                    <div>• Drag to move components</div>
+                    <div>• Edit properties on the right</div>
+                  </div>
+                </div>
               </div>
-              
-              <button
-                onClick={() => setCount(c => c + 1)}
-                className="px-8 py-4 bg-blue-600 text-white text-lg font-bold rounded-xl hover:bg-blue-700"
-              >
-                Increase
-              </button>
             </div>
-            <p className="text-gray-600 mb-2">
-              This interactive demo proves React is working!
-            </p>
-            <p className="text-sm text-gray-500">
-              Full drag-and-drop builder coming in next update
-            </p>
           </div>
 
-          {/* Status */}
-          <div className="mt-12 pt-8 border-t">
-            <div className="flex justify-center items-center gap-4">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="font-medium">Builder Status: Ready for Phase 1</span>
-            </div>
+          {/* Right Sidebar - Properties */}
+          <div className="w-96 bg-white border-l shadow-inner">
+            <PropertiesPanel />
           </div>
         </div>
+
+        {/* Status Bar */}
+        <footer className="bg-white border-t px-6 py-3">
+          <div className="flex justify-between items-center text-sm">
+            <div className="text-gray-600">
+              <span className="font-medium">Status:</span> Ready • Drag components to reposition
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="font-medium">Phase 1 Active</span>
+            </div>
+          </div>
+        </footer>
+
+        <DragOverlay>
+          {selectedComponent && (
+            <div className="opacity-80">
+              <DraggableComponent
+                component={selectedComponent}
+                isSelected={true}
+                onClick={() => {}}
+                onDelete={() => {}}
+              />
+            </div>
+          )}
+        </DragOverlay>
       </div>
-    </div>
+    </DndContext>
+  );
+}
+
+export default function BuilderPage() {
+  return (
+    <BuilderProvider>
+      <BuilderContent />
+    </BuilderProvider>
   );
 }
