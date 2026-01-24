@@ -46,7 +46,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
   const addComponent = (componentData: Omit<CanvasComponent, 'id'>) => {
     const newComponent: CanvasComponent = {
       ...componentData,
-      id: \`component-\${Date.now()}-\${Math.random().toString(36).substr(2, 9)}\`
+      id: `component-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     };
     setComponents([...components, newComponent]);
     setSelectedComponent(newComponent.id);
