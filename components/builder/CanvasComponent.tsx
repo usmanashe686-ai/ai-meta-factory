@@ -39,11 +39,13 @@ export default function CanvasComponent({
     zIndex: isSelected ? 10 : 1
   };
 
+  const className = `relative group ${isDragging ? 'cursor-grabbing' : 'cursor-move'}`;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={\`relative group \${isDragging ? 'cursor-grabbing' : 'cursor-move'}\`}
+      className={className}
       onClick={onClick}
     >
       {/* Drag handle */}

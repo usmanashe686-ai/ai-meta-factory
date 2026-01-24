@@ -35,6 +35,19 @@ export default function PropertiesPanel() {
     { label: 'Green', value: '#10b981' },
   ];
 
+  const isSelectedColor = (colorValue: string) => {
+    return component.styles.backgroundColor === colorValue;
+  };
+
+  const isSelectedPadding = (padding: string) => {
+    return component.styles.padding === padding;
+  };
+
+  const customStylesText = Object.entries(component.styles)
+    .filter(([key]) => !['position', 'left', 'top'].includes(key))
+    .map(([key, value]) => `${key}: ${value};`)
+    .join('\n');
+
   return (
     <div className="p-6">
       <h3 className="font-semibold mb-4 text-gray-700">Properties</h3>
@@ -78,7 +91,7 @@ export default function PropertiesPanel() {
               <button
                 key={color.value}
                 onClick={() => updateStyle('backgroundColor', color.value)}
-                className={\`h-8 rounded border \${component.styles.backgroundColor === color.value ? 'ring-2 ring-blue-500' : ''}\`}
+                className={`h-8 rounded border ${isSelectedColor(color.value) ? 'ring-2 ring-blue-500' : ''}`}
                 style={{ backgroundColor: color.value }}
                 title={color.label}
               />
@@ -103,7 +116,7 @@ export default function PropertiesPanel() {
               <button
                 key={padding}
                 onClick={() => updateStyle('padding', padding)}
-                className={\`p-2 text-sm border rounded \${component.styles.padding === padding ? 'bg-blue-100 border-blue-500' : 'hover:bg-gray-50'}\`}
+                className={`p-2 text-sm border rounded ${isSelectedPadding(padding) ? 'bg-blue-100 border-blue-500' : 'hover:bg-gray-50'}`}
               >
                 {padding}
               </button>
@@ -144,13 +157,10 @@ export default function PropertiesPanel() {
         <div>
           <label className="block text-sm font-medium mb-3">Custom CSS</label>
           <textarea
-            value={Object.entries(component.styles)
-              .filter(([key]) => !['position', 'left', 'top'].includes(key))
-              .map(([key, value]) => \`\${key}: \${value};\`)
-              .join('\\n')}
+            value={customStylesText}
             onChange={(e) => {
               const styles: Record<string, string> = {};
-              e.target.value.split('\\n').forEach(line => {
+              e.target.value.split('\n').forEach(line => {
                 const [key, ...valueParts] = line.split(':');
                 if (key && valueParts.length) {
                   styles[key.trim()] = valueParts.join(':').replace(';', '').trim();
