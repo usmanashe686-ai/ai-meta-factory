@@ -131,7 +131,7 @@ function BuilderContent() {
             onGenerate={(code) => {
               addComponent({
                 type: 'custom',
-                content: 'AI Generated Component\\n' + code.substring(0, 100) + '...',
+                content: 'AI Generated Component\n' + code.substring(0, 100) + '...',
                 position: { x: 200, y: 200 },
                 styles: {
                   padding: '24px',

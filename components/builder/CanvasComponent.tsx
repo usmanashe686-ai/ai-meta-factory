@@ -43,7 +43,7 @@ export default function CanvasComponent({
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative group ${isDragging ? 'cursor-grabbing' : 'cursor-move'}`}
+      className={\`relative group \${isDragging ? 'cursor-grabbing' : 'cursor-move'}\`}
       onClick={onClick}
     >
       {/* Drag handle */}
