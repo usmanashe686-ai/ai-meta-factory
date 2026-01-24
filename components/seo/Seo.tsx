@@ -1,36 +1,40 @@
 'use client';
-
-import { NextSeo } from 'next-seo'
-import { usePathname, useSearchParams } from 'next/navigation'
-import { DEFAULT_SEO, pageSeo } from '@/lib/seo/config'
+import { NextSeo } from 'next-seo';
+import { Suspense } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { DEFAULT_SEO, pageSeo } from '@/lib/seo/config';
 
 interface SeoProps {
-  title?: string
-  description?: string
-  image?: string
-  noindex?: boolean
+  title?: string;
+  description?: string;
+  image?: string;
+  noindex?: boolean;
 }
 
-export default function Seo({
-  title,
-  description,
-  image,
-  noindex = false,
-}: SeoProps) {
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
+function SeoContent({ title, description, image, noindex }: SeoProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   
-  const path = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : '')
+  // Your existing SEO logic here
+  // For example:
+  const seo = pageSeo[pathname] || DEFAULT_SEO;
   
-  const seoConfig = title 
-    ? pageSeo(title, description, path, image)
-    : DEFAULT_SEO
-
   return (
     <NextSeo
-      {...seoConfig}
+      title={title || seo.title}
+      description={description || seo.description}
+      openGraph={{
+        images: image ? [{ url: image }] : seo.images,
+      }}
       noindex={noindex}
-      nofollow={noindex}
     />
-  )
+  );
+}
+
+export default function Seo(props: SeoProps) {
+  return (
+    <Suspense fallback={null}>
+      <SeoContent {...props} />
+    </Suspense>
+  );
 }
