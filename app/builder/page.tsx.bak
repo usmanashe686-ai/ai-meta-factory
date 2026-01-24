@@ -1,0 +1,13 @@
+"use client";
+
+import { useState } from 'react';
+import { BuilderProvider } from '@/app/contexts/BuilderContext';
+import BuilderContent from './BuilderContent';
+
+export default function BuilderPage() {
+  return (
+    <BuilderProvider>
+      <BuilderContent />
+    </BuilderProvider>
+  );
+}
