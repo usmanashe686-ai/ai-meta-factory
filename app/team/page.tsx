@@ -1,6 +1,6 @@
 'use client';
 
-import { TemplateGallery } from '@/components/templates/TemplateGallery';
+import TemplateGallery from '@/components/templates/TemplateGallery';
 import { Button } from '@/components/ui/button';
 import { useTeamStore } from '@/store/team-store';
 import { Users, Globe, Shield, Zap } from 'lucide-react';
