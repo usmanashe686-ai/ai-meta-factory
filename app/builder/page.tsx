@@ -217,7 +217,6 @@ export default function BuilderPage() {
         setAiPrompt('');
         setAiStatus('✅ AI component generated successfully!');
         
-        // Clear status after 3 seconds
         setTimeout(() => setAiStatus(''), 3000);
       } else {
         throw new Error(data.error || 'AI generation failed');
