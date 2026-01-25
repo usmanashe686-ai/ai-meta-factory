@@ -116,39 +116,23 @@ function ComponentLibrary({
 }) {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [aiStatus, setAiStatus] = useState('');
 
   const componentTypes = [
     { type: 'text', label: 'Text Box', icon: '📝', color: 'bg-blue-100' },
     { type: 'button', label: 'Button', icon: '🔼', color: 'bg-green-100' },
     { type: 'card', label: 'Card', icon: '🃏', color: 'bg-purple-100' },
     { type: 'input', label: 'Input Field', icon: '⌨️', color: 'bg-yellow-100' },
-    { type: 'image', label: 'Image', icon: '🖼️', color: 'bg-pink-100' },
   ];
 
   const handleAIGenerate = async () => {
     if (!aiPrompt.trim()) return;
     
     setIsGenerating(true);
-    setAiStatus('Analyzing prompt with AI...');
-    
     try {
       await onGenerateAI(aiPrompt);
       setAiPrompt('');
-      setAiStatus('✅ Component generated successfully!');
-      
-      // Clear status after 3 seconds
-      setTimeout(() => setAiStatus(''), 3000);
     } catch (error) {
       console.error('AI generation error:', error);
-      setAiStatus('❌ Failed to generate. Using mock response.');
-      
-      // Use mock as fallback
-      setTimeout(() => {
-        onGenerateAI(aiPrompt);
-        setAiPrompt('');
-        setAiStatus('');
-      }, 1000);
     } finally {
       setIsGenerating(false);
     }
@@ -183,59 +167,20 @@ function ComponentLibrary({
         </div>
 
         <div className="mt-8 pt-6 border-t">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xl">✨</span>
-            <h4 className="font-bold">AI Generator</h4>
-            <span className="text-xs bg-gradient-to-r from-blue-600 to-purple-600 text-white px-2 py-1 rounded">
-              Phase 2
-            </span>
-          </div>
-          
-          {aiStatus && (
-            <div className={`mb-3 p-3 rounded-lg text-sm ${
-              aiStatus.includes('✅') ? 'bg-green-50 text-green-800' : 
-              aiStatus.includes('❌') ? 'bg-red-50 text-red-800' : 
-              'bg-blue-50 text-blue-800'
-            }`}>
-              {aiStatus}
-            </div>
-          )}
-          
+          <h4 className="font-bold mb-3">✨ AI Generator</h4>
           <textarea
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}
-            placeholder="Describe a component (e.g., 'A blue login button with rounded corners')"
-            className="w-full h-28 p-3 border border-gray-300 rounded-lg mb-3 focus:ring-2 focus:ring-blue-500"
+            placeholder="Describe a component..."
+            className="w-full h-28 p-3 border border-gray-300 rounded-lg mb-3"
           />
           <button
             onClick={handleAIGenerate}
-            disabled={isGenerating || !aiPrompt.trim()}
-            className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition flex items-center justify-center gap-2"
+            disabled={isGenerating}
+            className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90"
           >
-            {isGenerating ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Generating with AI...
-              </>
-            ) : (
-              '✨ Generate with AI'
-            )}
+            {isGenerating ? 'Generating...' : '✨ Generate with AI'}
           </button>
-          
-          <div className="mt-3 text-xs text-gray-500">
-            <div className="flex items-center gap-1 mb-1">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span>OpenAI: Idea analysis</span>
-            </div>
-            <div className="flex items-center gap-1 mb-1">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span>DeepSeek: Code generation</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-              <span>Gemini: Optimization</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -265,196 +210,52 @@ function PropertiesPanel({
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-lg">Properties</h3>
-          <div className="flex items-center gap-2">
-            <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
-              {selectedComponent.type}
-            </span>
-            {selectedComponent.isAI && (
-              <span className="text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded">
-                AI Generated
-              </span>
-            )}
-          </div>
-        </div>
-        <p className="text-sm text-gray-600 mt-1">ID: {selectedComponent.id}</p>
-      </div>
-
-      <div className="flex border-b">
-        <button
-          className={`flex-1 py-3 text-sm font-medium ${activeTab === 'style' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('style')}
-        >
-          Style
-        </button>
-        <button
-          className={`flex-1 py-3 text-sm font-medium ${activeTab === 'content' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('content')}
-        >
-          Content
-        </button>
-        <button
-          className={`flex-1 py-3 text-sm font-medium ${activeTab === 'layout' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('layout')}
-        >
-          Layout
-        </button>
+        <h3 className="font-bold text-lg">Properties</h3>
+        <p className="text-sm text-gray-600">{selectedComponent.type}</p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {activeTab === 'content' && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Text Content</label>
-              <textarea
-                value={selectedComponent.content}
-                onChange={(e) => updateComponent(selectedComponent.id, { content: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                rows={4}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Font Size (px)</label>
-              <input
-                type="range"
-                min="12"
-                max="48"
-                value={selectedComponent.fontSize}
-                onChange={(e) => updateComponent(selectedComponent.id, { fontSize: parseInt(e.target.value) })}
-                className="w-full"
-              />
-              <div className="text-center text-sm text-gray-600 mt-1">
-                {selectedComponent.fontSize}px
-              </div>
-            </div>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Content</label>
+            <textarea
+              value={selectedComponent.content}
+              onChange={(e) => updateComponent(selectedComponent.id, { content: e.target.value })}
+              className="w-full p-3 border rounded-lg"
+              rows={3}
+            />
           </div>
-        )}
-
-        {activeTab === 'style' && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Background Color</label>
-              <input
-                type="color"
-                value={selectedComponent.bgColor}
-                onChange={(e) => updateComponent(selectedComponent.id, { bgColor: e.target.value })}
-                className="w-full h-12 cursor-pointer rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Text Color</label>
-              <input
-                type="color"
-                value={selectedComponent.textColor}
-                onChange={(e) => updateComponent(selectedComponent.id, { textColor: e.target.value })}
-                className="w-full h-12 cursor-pointer rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Border Radius (px)</label>
-              <input
-                type="range"
-                min="0"
-                max="24"
-                value={selectedComponent.borderRadius}
-                onChange={(e) => updateComponent(selectedComponent.id, { borderRadius: parseInt(e.target.value) })}
-                className="w-full"
-              />
-              <div className="text-center text-sm text-gray-600 mt-1">
-                {selectedComponent.borderRadius}px
-              </div>
-            </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-2">Background Color</label>
+            <input
+              type="color"
+              value={selectedComponent.bgColor}
+              onChange={(e) => updateComponent(selectedComponent.id, { bgColor: e.target.value })}
+              className="w-full h-10 cursor-pointer"
+            />
           </div>
-        )}
-
-        {activeTab === 'layout' && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Position</label>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-gray-500">X Position</label>
-                  <input
-                    type="number"
-                    value={selectedComponent.x}
-                    onChange={(e) => updateComponent(selectedComponent.id, { x: parseInt(e.target.value) || 0 })}
-                    className="w-full p-2 border border-gray-300 rounded"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500">Y Position</label>
-                  <input
-                    type="number"
-                    value={selectedComponent.y}
-                    onChange={(e) => updateComponent(selectedComponent.id, { y: parseInt(e.target.value) || 0 })}
-                    className="w-full p-2 border border-gray-300 rounded"
-                  />
-                </div>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Size</label>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-gray-500">Width</label>
-                  <input
-                    type="number"
-                    value={selectedComponent.width}
-                    onChange={(e) => updateComponent(selectedComponent.id, { width: parseInt(e.target.value) || 100 })}
-                    className="w-full p-2 border border-gray-300 rounded"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500">Height</label>
-                  <input
-                    type="number"
-                    value={selectedComponent.height}
-                    onChange={(e) => updateComponent(selectedComponent.id, { height: parseInt(e.target.value) || 100 })}
-                    className="w-full p-2 border border-gray-300 rounded"
-                  />
-                </div>
-              </div>
-            </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-2">Text Color</label>
+            <input
+              type="color"
+              value={selectedComponent.textColor}
+              onChange={(e) => updateComponent(selectedComponent.id, { textColor: e.target.value })}
+              className="w-full h-10 cursor-pointer"
+            />
           </div>
-        )}
-
-        {/* Quick Actions */}
-        <div className="mt-8 pt-6 border-t">
-          <h4 className="font-medium mb-3">Quick Actions</h4>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => updateComponent(selectedComponent.id, { 
-                bgColor: '#3b82f6', 
-                textColor: '#ffffff',
-                borderRadius: 8
-              })}
-              className="p-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm"
-            >
-              Blue Theme
-            </button>
-            <button
-              onClick={() => updateComponent(selectedComponent.id, { 
-                bgColor: '#10b981', 
-                textColor: '#ffffff',
-                borderRadius: 8
-              })}
-              className="p-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 text-sm"
-            >
-              Green Theme
-            </button>
-            <button
-              onClick={() => updateComponent(selectedComponent.id, { borderRadius: 0 })}
-              className="p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm"
-            >
-              Square Corners
-            </button>
-            <button
-              onClick={() => updateComponent(selectedComponent.id, { borderRadius: 16 })}
-              className="p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm"
-            >
-              Rounded
-            </button>
+          
+          <div>
+            <label className="block text-sm font-medium mb-2">Font Size: {selectedComponent.fontSize}px</label>
+            <input
+              type="range"
+              min="12"
+              max="48"
+              value={selectedComponent.fontSize}
+              onChange={(e) => updateComponent(selectedComponent.id, { fontSize: parseInt(e.target.value) })}
+              className="w-full"
+            />
           </div>
         </div>
       </div>
@@ -490,45 +291,21 @@ export default function BuilderPage() {
       textColor: '#ffffff',
       fontSize: 16,
       borderRadius: 8
-    },
-    {
-      id: '3',
-      type: 'card',
-      content: 'AI Generated Component',
-      x: 300,
-      y: 150,
-      width: 280,
-      height: 160,
-      bgColor: '#f8fafc',
-      textColor: '#334155',
-      fontSize: 18,
-      borderRadius: 12,
-      isAI: true,
-      aiPrompt: 'A modern card component'
     }
   ]);
 
   const [selectedComponent, setSelectedComponent] = useState<Component | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportStatus, setExportStatus] = useState('');
 
   const addComponent = useCallback((type: string) => {
     const newComponent: Component = {
       id: Date.now().toString(),
       type,
-      content: type === 'button' ? 'Click Me' : 
-               type === 'card' ? 'Card Content' : 
-               type === 'input' ? 'Enter text...' : 'Text Content',
+      content: type === 'button' ? 'Click Me' : 'Text Content',
       x: 50 + Math.random() * 500,
       y: 50 + Math.random() * 300,
-      width: type === 'button' ? 140 : 
-             type === 'input' ? 200 : 
-             type === 'card' ? 280 : 350,
-      height: type === 'button' ? 48 : 
-              type === 'input' ? 40 : 
-              type === 'card' ? 160 : 100,
-      bgColor: type === 'button' ? '#3b82f6' : 
-               type === 'card' ? '#f8fafc' : '#ffffff',
+      width: type === 'button' ? 140 : 350,
+      height: type === 'button' ? 48 : 100,
+      bgColor: type === 'button' ? '#3b82f6' : '#ffffff',
       textColor: type === 'button' ? '#ffffff' : '#000000',
       fontSize: type === 'button' ? 16 : 18,
       borderRadius: 8
@@ -571,12 +348,9 @@ export default function BuilderPage() {
 
   const handleGenerateAI = async (prompt: string) => {
     try {
-      // Try to call our API
       const response = await fetch('/api/ai/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
       });
 
@@ -588,10 +362,10 @@ export default function BuilderPage() {
           id: Date.now().toString(),
           type: aiComponent.type,
           content: aiComponent.content,
-          x: 200 + Math.random() * 300,
-          y: 100 + Math.random() * 200,
-          width: parseInt(aiComponent.styles.width) || 300,
-          height: parseInt(aiComponent.styles.height) || 150,
+          x: 200,
+          y: 200,
+          width: 300,
+          height: 150,
           bgColor: aiComponent.styles.backgroundColor,
           textColor: aiComponent.styles.color,
           fontSize: aiComponent.styles.fontSize,
@@ -600,22 +374,17 @@ export default function BuilderPage() {
           aiPrompt: prompt
         };
 
-        updateComponent(newComponent.id, newComponent);
+        setComponents(prev => [...prev, newComponent]);
         setSelectedComponent(newComponent);
-      } else {
-        // Fallback to mock generation
-        throw new Error('API failed, using mock');
       }
     } catch (error) {
-      console.log('Using mock AI generation:', error);
-      
-      // Mock AI generation as fallback
-      const mockComponent: Component = {
+      // Fallback mock
+      const newComponent: Component = {
         id: Date.now().toString(),
         type: 'card',
-        content: `AI Generated: ${prompt}`,
-        x: 200 + Math.random() * 300,
-        y: 100 + Math.random() * 200,
+        content: `AI: ${prompt}`,
+        x: 200,
+        y: 200,
         width: 320,
         height: 180,
         bgColor: '#e0f2fe',
@@ -626,136 +395,38 @@ export default function BuilderPage() {
         aiPrompt: prompt
       };
 
-      updateComponent(mockComponent.id, mockComponent);
-      setSelectedComponent(mockComponent);
-    }
-  };
-
-  const handleExport = async () => {
-    setIsExporting(true);
-    setExportStatus('Generating project files...');
-    
-    try {
-      // Create project structure
-      const projectData = {
-        name: 'meta-factory-app',
-        version: '1.0.0',
-        components: components.map(comp => ({
-          type: comp.type,
-          content: comp.content,
-          styles: {
-            backgroundColor: comp.bgColor,
-            color: comp.textColor,
-            fontSize: comp.fontSize,
-            borderRadius: comp.borderRadius,
-            position: { x: comp.x, y: comp.y },
-            size: { width: comp.width, height: comp.height }
-          },
-          isAI: comp.isAI || false,
-          aiPrompt: comp.aiPrompt || ''
-        })),
-        metadata: {
-          generatedAt: new Date().toISOString(),
-          totalComponents: components.length,
-          aiComponents: components.filter(c => c.isAI).length
-        }
-      };
-
-      // Create downloadable JSON
-      const dataStr = JSON.stringify(projectData, null, 2);
-      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-      
-      setExportStatus('Creating download...');
-      
-      // Trigger download
-      const exportFileName = `meta-factory-project-${Date.now()}.json`;
-      const linkElement = document.createElement('a');
-      linkElement.setAttribute('href', dataUri);
-      linkElement.setAttribute('download', exportFileName);
-      linkElement.click();
-      
-      setExportStatus('✅ Project exported successfully!');
-      
-      // Clear status after 3 seconds
-      setTimeout(() => {
-        setExportStatus('');
-        setIsExporting(false);
-      }, 3000);
-      
-    } catch (error) {
-      console.error('Export error:', error);
-      setExportStatus('❌ Export failed');
-      setIsExporting(false);
+      setComponents(prev => [...prev, newComponent]);
+      setSelectedComponent(newComponent);
     }
   };
 
   return (
-    <DndContext
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-    >
+    <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
       <div className="h-screen flex flex-col bg-gray-50">
         <header className="bg-white shadow-lg border-b px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                <span className="text-3xl">🏭</span>
-                <div>
-                  <div>Meta Factory AI Builder</div>
-                  <div className="text-sm font-normal text-gray-600">
-                    Phase 2 - AI Integration Active
-                  </div>
-                </div>
-              </h1>
+              <h1 className="text-2xl font-bold text-gray-900">🏭 Meta Factory AI Builder</h1>
+              <p className="text-gray-600">Phase 2 - AI Integration</p>
             </div>
-            
             <div className="flex items-center gap-4">
-              <div className="text-sm text-gray-500">
-                <span className="font-medium">{components.length}</span> components
-                <span className="mx-2">•</span>
-                <span className="font-medium">{components.filter(c => c.isAI).length}</span> AI generated
-              </div>
-              
-              {exportStatus && (
-                <div className={`px-3 py-1 rounded text-sm ${
-                  exportStatus.includes('✅') ? 'bg-green-100 text-green-800' : 
-                  exportStatus.includes('❌') ? 'bg-red-100 text-red-800' : 
-                  'bg-blue-100 text-blue-800'
-                }`}>
-                  {exportStatus}
-                </div>
-              )}
-              
-              <button
-                onClick={handleExport}
-                disabled={isExporting}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50 flex items-center gap-2"
-              >
-                {isExporting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Exporting...
-                  </>
-                ) : (
-                  '📦 Export Project'
-                )}
-              </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-                🚀 Deploy to Vercel
+              <span className="text-sm">{components.length} components</span>
+              <button className="px-4 py-2 bg-green-600 text-white rounded-lg">
+                📦 Export
               </button>
             </div>
           </div>
         </header>
 
         <div className="flex-1 flex overflow-hidden">
-          <div className="w-80 bg-white border-r shadow-inner">
+          <div className="w-80 bg-white border-r">
             <ComponentLibrary 
               onAddComponent={addComponent}
               onGenerateAI={handleGenerateAI}
             />
           </div>
 
-          <div className="flex-1 relative overflow-auto bg-gradient-to-br from-gray-100 to-gray-200">
+          <div className="flex-1 relative overflow-auto bg-gray-100">
             <div className="absolute inset-0 p-8">
               {components.map((component) => (
                 <DraggableComponent
@@ -767,50 +438,15 @@ export default function BuilderPage() {
                 />
               ))}
             </div>
-            
-            <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg">
-              <div className="text-sm text-gray-600">
-                <div className="font-medium">AI Pipeline Active</div>
-                <div className="mt-2 space-y-1 text-xs">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span>OpenAI: Idea Analysis</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span>DeepSeek: Code Generation</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                    <span>Gemini: Optimization</span>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
-          <div className="w-96 bg-white border-l shadow-inner">
+          <div className="w-96 bg-white border-l">
             <PropertiesPanel 
               selectedComponent={selectedComponent}
               updateComponent={updateComponent}
             />
           </div>
         </div>
-
-        <footer className="bg-white border-t px-6 py-3">
-          <div className="flex justify-between items-center text-sm">
-            <div className="text-gray-600">
-              <span className="font-medium">Status:</span> 
-              <span className="ml-2">AI Pipeline Active</span>
-              <span className="mx-2">•</span>
-              <span>Phase 2: Real AI Integration</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="font-medium">All Systems Go</span>
-            </div>
-          </div>
-        </footer>
       </div>
     </DndContext>
   );
