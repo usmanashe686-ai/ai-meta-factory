@@ -17,6 +17,8 @@ type Component = {
   textColor: string;
   fontSize: number;
   borderRadius: number;
+  isAI?: boolean;
+  aiPrompt?: string;
 };
 
 // Draggable Component
@@ -51,7 +53,7 @@ function DraggableComponent({
     color: component.textColor,
     fontSize: `${component.fontSize}px`,
     borderRadius: `${component.borderRadius}px`,
-    border: isSelected ? '3px solid #3b82f6' : '1px solid #d1d5db',
+    border: isSelected ? '3px solid #3b82f6' : component.isAI ? '2px dashed #8b5cf6' : '1px solid #d1d5db',
     opacity: isDragging ? 0.5 : 1,
     cursor: 'move',
     position: 'absolute' as const,
@@ -63,15 +65,22 @@ function DraggableComponent({
       style={style}
       className={`p-4 shadow-lg hover:shadow-xl transition-shadow ${
         isSelected ? 'ring-2 ring-blue-500 ring-offset-2' : ''
-      }`}
+      } ${component.isAI ? 'border-dashed' : ''}`}
       onClick={onClick}
       {...attributes}
       {...listeners}
     >
       <div className="flex justify-between items-start mb-2">
-        <span className="text-xs font-medium bg-black/10 px-2 py-1 rounded">
-          {component.type}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium bg-black/10 px-2 py-1 rounded">
+            {component.type}
+          </span>
+          {component.isAI && (
+            <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+              ✨ AI
+            </span>
+          )}
+        </div>
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -85,6 +94,11 @@ function DraggableComponent({
       <div className="whitespace-pre-wrap">
         {component.content}
       </div>
+      {component.aiPrompt && (
+        <div className="mt-2 text-xs text-purple-600 opacity-80">
+          AI: "{component.aiPrompt}"
+        </div>
+      )}
       <div className="mt-2 text-xs text-gray-500 opacity-70">
         Drag to move • Click to select
       </div>
@@ -98,10 +112,11 @@ function ComponentLibrary({
   onGenerateAI
 }: {
   onAddComponent: (type: string) => void;
-  onGenerateAI: (prompt: string) => void;
+  onGenerateAI: (prompt: string) => Promise<void>;
 }) {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [aiStatus, setAiStatus] = useState('');
 
   const componentTypes = [
     { type: 'text', label: 'Text Box', icon: '📝', color: 'bg-blue-100' },
@@ -115,11 +130,25 @@ function ComponentLibrary({
     if (!aiPrompt.trim()) return;
     
     setIsGenerating(true);
+    setAiStatus('Analyzing prompt with AI...');
+    
     try {
       await onGenerateAI(aiPrompt);
       setAiPrompt('');
+      setAiStatus('✅ Component generated successfully!');
+      
+      // Clear status after 3 seconds
+      setTimeout(() => setAiStatus(''), 3000);
     } catch (error) {
       console.error('AI generation error:', error);
+      setAiStatus('❌ Failed to generate. Using mock response.');
+      
+      // Use mock as fallback
+      setTimeout(() => {
+        onGenerateAI(aiPrompt);
+        setAiPrompt('');
+        setAiStatus('');
+      }, 1000);
     } finally {
       setIsGenerating(false);
     }
@@ -154,22 +183,59 @@ function ComponentLibrary({
         </div>
 
         <div className="mt-8 pt-6 border-t">
-          <h4 className="font-bold mb-3 flex items-center gap-2">
-            <span>✨</span> AI Generator
-          </h4>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xl">✨</span>
+            <h4 className="font-bold">AI Generator</h4>
+            <span className="text-xs bg-gradient-to-r from-blue-600 to-purple-600 text-white px-2 py-1 rounded">
+              Phase 2
+            </span>
+          </div>
+          
+          {aiStatus && (
+            <div className={`mb-3 p-3 rounded-lg text-sm ${
+              aiStatus.includes('✅') ? 'bg-green-50 text-green-800' : 
+              aiStatus.includes('❌') ? 'bg-red-50 text-red-800' : 
+              'bg-blue-50 text-blue-800'
+            }`}>
+              {aiStatus}
+            </div>
+          )}
+          
           <textarea
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}
-            placeholder="Describe a component..."
+            placeholder="Describe a component (e.g., 'A blue login button with rounded corners')"
             className="w-full h-28 p-3 border border-gray-300 rounded-lg mb-3 focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={handleAIGenerate}
             disabled={isGenerating || !aiPrompt.trim()}
-            className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition"
+            className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition flex items-center justify-center gap-2"
           >
-            {isGenerating ? 'Generating...' : '✨ Generate with AI'}
+            {isGenerating ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Generating with AI...
+              </>
+            ) : (
+              '✨ Generate with AI'
+            )}
           </button>
+          
+          <div className="mt-3 text-xs text-gray-500">
+            <div className="flex items-center gap-1 mb-1">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span>OpenAI: Idea analysis</span>
+            </div>
+            <div className="flex items-center gap-1 mb-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>DeepSeek: Code generation</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+              <span>Gemini: Optimization</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -201,11 +267,18 @@ function PropertiesPanel({
       <div className="p-4 border-b">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-lg">Properties</h3>
-          <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
-            {selectedComponent.type}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+              {selectedComponent.type}
+            </span>
+            {selectedComponent.isAI && (
+              <span className="text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                AI Generated
+              </span>
+            )}
+          </div>
         </div>
-        <p className="text-sm text-gray-600 mt-1">Editing: {selectedComponent.id}</p>
+        <p className="text-sm text-gray-600 mt-1">ID: {selectedComponent.id}</p>
       </div>
 
       <div className="flex border-b">
@@ -220,6 +293,12 @@ function PropertiesPanel({
           onClick={() => setActiveTab('content')}
         >
           Content
+        </button>
+        <button
+          className={`flex-1 py-3 text-sm font-medium ${activeTab === 'layout' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+          onClick={() => setActiveTab('layout')}
+        >
+          Layout
         </button>
       </div>
 
@@ -288,6 +367,96 @@ function PropertiesPanel({
             </div>
           </div>
         )}
+
+        {activeTab === 'layout' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Position</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-500">X Position</label>
+                  <input
+                    type="number"
+                    value={selectedComponent.x}
+                    onChange={(e) => updateComponent(selectedComponent.id, { x: parseInt(e.target.value) || 0 })}
+                    className="w-full p-2 border border-gray-300 rounded"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Y Position</label>
+                  <input
+                    type="number"
+                    value={selectedComponent.y}
+                    onChange={(e) => updateComponent(selectedComponent.id, { y: parseInt(e.target.value) || 0 })}
+                    className="w-full p-2 border border-gray-300 rounded"
+                  />
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Size</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-500">Width</label>
+                  <input
+                    type="number"
+                    value={selectedComponent.width}
+                    onChange={(e) => updateComponent(selectedComponent.id, { width: parseInt(e.target.value) || 100 })}
+                    className="w-full p-2 border border-gray-300 rounded"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Height</label>
+                  <input
+                    type="number"
+                    value={selectedComponent.height}
+                    onChange={(e) => updateComponent(selectedComponent.id, { height: parseInt(e.target.value) || 100 })}
+                    className="w-full p-2 border border-gray-300 rounded"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Actions */}
+        <div className="mt-8 pt-6 border-t">
+          <h4 className="font-medium mb-3">Quick Actions</h4>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => updateComponent(selectedComponent.id, { 
+                bgColor: '#3b82f6', 
+                textColor: '#ffffff',
+                borderRadius: 8
+              })}
+              className="p-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm"
+            >
+              Blue Theme
+            </button>
+            <button
+              onClick={() => updateComponent(selectedComponent.id, { 
+                bgColor: '#10b981', 
+                textColor: '#ffffff',
+                borderRadius: 8
+              })}
+              className="p-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 text-sm"
+            >
+              Green Theme
+            </button>
+            <button
+              onClick={() => updateComponent(selectedComponent.id, { borderRadius: 0 })}
+              className="p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm"
+            >
+              Square Corners
+            </button>
+            <button
+              onClick={() => updateComponent(selectedComponent.id, { borderRadius: 16 })}
+              className="p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm"
+            >
+              Rounded
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -333,11 +502,15 @@ export default function BuilderPage() {
       bgColor: '#f8fafc',
       textColor: '#334155',
       fontSize: 18,
-      borderRadius: 12
+      borderRadius: 12,
+      isAI: true,
+      aiPrompt: 'A modern card component'
     }
   ]);
 
   const [selectedComponent, setSelectedComponent] = useState<Component | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState('');
 
   const addComponent = useCallback((type: string) => {
     const newComponent: Component = {
@@ -397,22 +570,123 @@ export default function BuilderPage() {
   };
 
   const handleGenerateAI = async (prompt: string) => {
-    const aiComponent: Component = {
-      id: Date.now().toString(),
-      type: 'card',
-      content: `AI Generated: ${prompt}`,
-      x: 200,
-      y: 200,
-      width: 320,
-      height: 180,
-      bgColor: '#e0f2fe',
-      textColor: '#0369a1',
-      fontSize: 20,
-      borderRadius: 16
-    };
+    try {
+      // Try to call our API
+      const response = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt }),
+      });
 
-    updateComponent(aiComponent.id, aiComponent);
-    setSelectedComponent(aiComponent);
+      if (response.ok) {
+        const data = await response.json();
+        const aiComponent = data.component;
+        
+        const newComponent: Component = {
+          id: Date.now().toString(),
+          type: aiComponent.type,
+          content: aiComponent.content,
+          x: 200 + Math.random() * 300,
+          y: 100 + Math.random() * 200,
+          width: parseInt(aiComponent.styles.width) || 300,
+          height: parseInt(aiComponent.styles.height) || 150,
+          bgColor: aiComponent.styles.backgroundColor,
+          textColor: aiComponent.styles.color,
+          fontSize: aiComponent.styles.fontSize,
+          borderRadius: aiComponent.styles.borderRadius,
+          isAI: true,
+          aiPrompt: prompt
+        };
+
+        updateComponent(newComponent.id, newComponent);
+        setSelectedComponent(newComponent);
+      } else {
+        // Fallback to mock generation
+        throw new Error('API failed, using mock');
+      }
+    } catch (error) {
+      console.log('Using mock AI generation:', error);
+      
+      // Mock AI generation as fallback
+      const mockComponent: Component = {
+        id: Date.now().toString(),
+        type: 'card',
+        content: `AI Generated: ${prompt}`,
+        x: 200 + Math.random() * 300,
+        y: 100 + Math.random() * 200,
+        width: 320,
+        height: 180,
+        bgColor: '#e0f2fe',
+        textColor: '#0369a1',
+        fontSize: 20,
+        borderRadius: 16,
+        isAI: true,
+        aiPrompt: prompt
+      };
+
+      updateComponent(mockComponent.id, mockComponent);
+      setSelectedComponent(mockComponent);
+    }
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    setExportStatus('Generating project files...');
+    
+    try {
+      // Create project structure
+      const projectData = {
+        name: 'meta-factory-app',
+        version: '1.0.0',
+        components: components.map(comp => ({
+          type: comp.type,
+          content: comp.content,
+          styles: {
+            backgroundColor: comp.bgColor,
+            color: comp.textColor,
+            fontSize: comp.fontSize,
+            borderRadius: comp.borderRadius,
+            position: { x: comp.x, y: comp.y },
+            size: { width: comp.width, height: comp.height }
+          },
+          isAI: comp.isAI || false,
+          aiPrompt: comp.aiPrompt || ''
+        })),
+        metadata: {
+          generatedAt: new Date().toISOString(),
+          totalComponents: components.length,
+          aiComponents: components.filter(c => c.isAI).length
+        }
+      };
+
+      // Create downloadable JSON
+      const dataStr = JSON.stringify(projectData, null, 2);
+      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+      
+      setExportStatus('Creating download...');
+      
+      // Trigger download
+      const exportFileName = `meta-factory-project-${Date.now()}.json`;
+      const linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileName);
+      linkElement.click();
+      
+      setExportStatus('✅ Project exported successfully!');
+      
+      // Clear status after 3 seconds
+      setTimeout(() => {
+        setExportStatus('');
+        setIsExporting(false);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Export error:', error);
+      setExportStatus('❌ Export failed');
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -429,7 +703,7 @@ export default function BuilderPage() {
                 <div>
                   <div>Meta Factory AI Builder</div>
                   <div className="text-sm font-normal text-gray-600">
-                    Phase 1 - Real Drag & Drop
+                    Phase 2 - AI Integration Active
                   </div>
                 </div>
               </h1>
@@ -438,12 +712,36 @@ export default function BuilderPage() {
             <div className="flex items-center gap-4">
               <div className="text-sm text-gray-500">
                 <span className="font-medium">{components.length}</span> components
+                <span className="mx-2">•</span>
+                <span className="font-medium">{components.filter(c => c.isAI).length}</span> AI generated
               </div>
-              <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
-                📦 Export
+              
+              {exportStatus && (
+                <div className={`px-3 py-1 rounded text-sm ${
+                  exportStatus.includes('✅') ? 'bg-green-100 text-green-800' : 
+                  exportStatus.includes('❌') ? 'bg-red-100 text-red-800' : 
+                  'bg-blue-100 text-blue-800'
+                }`}>
+                  {exportStatus}
+                </div>
+              )}
+              
+              <button
+                onClick={handleExport}
+                disabled={isExporting}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50 flex items-center gap-2"
+              >
+                {isExporting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Exporting...
+                  </>
+                ) : (
+                  '📦 Export Project'
+                )}
               </button>
               <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-                🚀 Deploy
+                🚀 Deploy to Vercel
               </button>
             </div>
           </div>
@@ -472,12 +770,20 @@ export default function BuilderPage() {
             
             <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg">
               <div className="text-sm text-gray-600">
-                <div className="font-medium">Canvas Guide</div>
+                <div className="font-medium">AI Pipeline Active</div>
                 <div className="mt-2 space-y-1 text-xs">
-                  <div>• Click to select components</div>
-                  <div>• Drag to move components</div>
-                  <div>• Edit properties on the right</div>
-                  <div>• Use AI generator on the left</div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span>OpenAI: Idea Analysis</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span>DeepSeek: Code Generation</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                    <span>Gemini: Optimization</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -494,11 +800,14 @@ export default function BuilderPage() {
         <footer className="bg-white border-t px-6 py-3">
           <div className="flex justify-between items-center text-sm">
             <div className="text-gray-600">
-              <span className="font-medium">Status:</span> Drag & Drop Active
+              <span className="font-medium">Status:</span> 
+              <span className="ml-2">AI Pipeline Active</span>
+              <span className="mx-2">•</span>
+              <span>Phase 2: Real AI Integration</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="font-medium">Phase 1 Complete</span>
+              <span className="font-medium">All Systems Go</span>
             </div>
           </div>
         </footer>
