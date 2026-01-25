@@ -80,11 +80,6 @@ function DraggableComponent({
           "{component.aiPrompt}"
         </div>
       )}
-      {component.aiPipeline && (
-        <div className="mt-1 text-xs text-gray-500">
-          {component.aiPipeline}
-        </div>
-      )}
       <div className="mt-2 text-xs text-gray-500 opacity-70">
         Drag to move • Click to select
       </div>
@@ -128,22 +123,18 @@ export default function BuilderPage() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiStatus, setAiStatus] = useState('');
-  const [useRealAI, setUseRealAI] = useState(true);
+  const [useRealAI, setUseRealAI] = useState(false); // Default to false for now
 
   const addComponent = useCallback((type: string) => {
     const newComponent = {
       id: Date.now().toString(),
       type,
-      content: type === 'button' ? 'Click Me' : 
-               type === 'card' ? 'Card Content' : 'Text Content',
+      content: type === 'button' ? 'Click Me' : 'Text Content',
       x: 50 + Math.random() * 500,
       y: 50 + Math.random() * 300,
-      width: type === 'button' ? 140 : 
-             type === 'card' ? 300 : 350,
-      height: type === 'button' ? 48 : 
-              type === 'card' ? 180 : 100,
-      bgColor: type === 'button' ? '#3b82f6' : 
-               type === 'card' ? '#f8fafc' : '#ffffff',
+      width: type === 'button' ? 140 : 350,
+      height: type === 'button' ? 48 : 100,
+      bgColor: type === 'button' ? '#3b82f6' : '#ffffff',
       textColor: type === 'button' ? '#ffffff' : '#000000',
       fontSize: type === 'button' ? 16 : 18,
       borderRadius: 8,
@@ -187,7 +178,7 @@ export default function BuilderPage() {
     setIsGenerating(true);
     
     if (useRealAI) {
-      setAiStatus('🚀 Starting real AI pipeline: OpenAI → DeepSeek → Gemini');
+      setAiStatus('🚀 Starting real AI pipeline...');
     } else {
       setAiStatus('⚡ Using mock AI generation');
     }
@@ -214,15 +205,14 @@ export default function BuilderPage() {
           content: aiComponent.content,
           x: 200 + Math.random() * 300,
           y: 100 + Math.random() * 200,
-          width: parseInt(aiComponent.styles.width) || 300,
-          height: parseInt(aiComponent.styles.height) || 150,
+          width: 300,
+          height: 150,
           bgColor: aiComponent.styles.backgroundColor,
           textColor: aiComponent.styles.color,
           fontSize: aiComponent.styles.fontSize,
           borderRadius: aiComponent.styles.borderRadius,
           isAI: true,
-          aiPrompt: aiPrompt,
-          aiPipeline: useRealAI ? 'Real AI Pipeline' : 'Mock AI'
+          aiPrompt: aiPrompt
         };
 
         setComponents(prev => [...prev, newComponent]);
@@ -251,8 +241,7 @@ export default function BuilderPage() {
         fontSize: 20,
         borderRadius: 16,
         isAI: true,
-        aiPrompt: aiPrompt,
-        aiPipeline: 'Fallback'
+        aiPrompt: aiPrompt
       };
 
       setComponents(prev => [...prev, fallbackComponent]);
@@ -280,14 +269,12 @@ export default function BuilderPage() {
           fontSize: comp.fontSize,
           borderRadius: comp.borderRadius
         },
-        isAI: comp.isAI || false,
-        aiPipeline: comp.aiPipeline || 'manual'
+        isAI: comp.isAI || false
       })),
       metadata: {
         generatedAt: new Date().toISOString(),
         totalComponents: components.length,
-        aiComponents: components.filter(c => c.isAI).length,
-        realAIUsed: useRealAI
+        aiComponents: components.filter(c => c.isAI).length
       }
     };
 
@@ -310,7 +297,7 @@ export default function BuilderPage() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">🏭 Meta Factory AI Builder</h1>
-              <p className="text-gray-600">Phase 5 - Real AI Pipeline</p>
+              <p className="text-gray-600">Phase 5 - Real AI Pipeline Ready</p>
             </div>
             <div className="flex items-center gap-4">
               <div className="text-sm text-gray-500">
@@ -333,7 +320,7 @@ export default function BuilderPage() {
           <div className="col-span-3 bg-white rounded-xl shadow p-6">
             <h2 className="text-lg font-bold mb-6">Component Library</h2>
             <div className="space-y-3">
-              {['text', 'button', 'card', 'input', 'header', 'navbar'].map((type) => (
+              {['text', 'button', 'card', 'input', 'header'].map((type) => (
                 <button
                   key={type}
                   onClick={() => addComponent(type)}
@@ -372,26 +359,11 @@ export default function BuilderPage() {
                 </div>
               )}
               
-              <div className="mb-3">
-                <div className="flex items-center gap-2 text-xs text-gray-600 mb-1">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span>OpenAI: Design Analysis</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-gray-600 mb-1">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>DeepSeek: Code Generation</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-gray-600">
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                  <span>Gemini: Optimization</span>
-                </div>
-              </div>
-              
               <textarea
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 placeholder={useRealAI 
-                  ? "Describe a component for real AI (e.g., 'A dark mode login card with gradient')" 
+                  ? "Describe a component for real AI..." 
                   : "Describe a component for mock AI"}
                 className="w-full h-32 p-3 border rounded-lg mb-3"
               />
@@ -400,25 +372,30 @@ export default function BuilderPage() {
                 disabled={isGenerating || !aiPrompt.trim()}
                 className={`w-full p-3 rounded-lg text-white flex items-center justify-center gap-2 ${
                   useRealAI 
-                    ? 'bg-gradient-to-r from-blue-600 via-green-600 to-yellow-600' 
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600' 
                     : 'bg-gradient-to-r from-purple-600 to-pink-600'
                 } hover:opacity-90 disabled:opacity-50`}
               >
                 {isGenerating ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    {useRealAI ? 'Running AI Pipeline...' : 'Generating...'}
+                    Generating...
                   </>
                 ) : (
                   `✨ Generate with ${useRealAI ? 'Real AI' : 'Mock AI'}`
                 )}
               </button>
               
-              <div className="mt-3 text-xs text-gray-500">
-                {useRealAI 
-                  ? 'Using real OpenAI, DeepSeek, and Gemini APIs'
-                  : 'Using mock AI for testing'}
-              </div>
+              {useRealAI && (
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                  <div className="text-sm font-medium text-blue-800 mb-1">Real AI Status:</div>
+                  <div className="text-xs text-blue-600">
+                    {process.env.NEXT_PUBLIC_SHOW_API_STATUS === 'true' 
+                      ? 'API keys configured in environment'
+                      : 'Toggle on to use real AI APIs'}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -444,25 +421,6 @@ export default function BuilderPage() {
                 ))}
               </div>
             </DndContext>
-            
-            <div className="mt-4 text-sm text-gray-600">
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                  <span>Manual: {components.filter(c => !c.isAI).length}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-purple-500 rounded"></div>
-                  <span>AI Generated: {components.filter(c => c.isAI).length}</span>
-                </div>
-                {components.filter(c => c.aiPipeline === 'Real AI Pipeline').length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-yellow-500 rounded"></div>
-                    <span>Real AI: {components.filter(c => c.aiPipeline === 'Real AI Pipeline').length}</span>
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Right Panel */}
@@ -497,17 +455,6 @@ export default function BuilderPage() {
                     className="w-full h-10 cursor-pointer"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Font Size: {selectedComponent.fontSize}px</label>
-                  <input
-                    type="range"
-                    min="12"
-                    max="48"
-                    value={selectedComponent.fontSize}
-                    onChange={(e) => updateComponent(selectedComponent.id, { fontSize: parseInt(e.target.value) })}
-                    className="w-full"
-                  />
-                </div>
                 <button className="w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                   Save Changes
                 </button>
@@ -526,13 +473,11 @@ export default function BuilderPage() {
           <div className="flex justify-between items-center text-sm text-gray-600">
             <div>
               <span className="font-medium">Status:</span> 
-              <span className="ml-2">{useRealAI ? 'Real AI Pipeline Active' : 'Mock AI Active'}</span>
-              <span className="mx-2">•</span>
-              <span>Phase 5: Production Ready</span>
+              <span className="ml-2">{useRealAI ? 'Real AI Pipeline Ready' : 'Mock AI Active'}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span>All Systems Go</span>
+              <span>Phase 5 Deployed</span>
             </div>
           </div>
         </div>
