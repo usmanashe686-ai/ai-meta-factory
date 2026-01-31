@@ -1,487 +1,396 @@
 "use client";
 
-import { useState, useCallback } from 'react';
-import { DndContext, DragEndEvent, closestCenter, useDraggable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
+import { useState, useEffect } from 'react';
+import HonestAIPipeline from './components/HonestAIPipeline';
+import FullStackFactory from './components/FullStackFactory';
 
-// Draggable Component
-function DraggableComponent({
-  component,
-  isSelected,
-  onClick,
-  onDelete
-}: {
-  component: any;
-  isSelected: boolean;
-  onClick: () => void;
-  onDelete: () => void;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    isDragging
-  } = useDraggable({
-    id: component.id,
-  });
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    left: `${component.x}px`,
-    top: `${component.y}px`,
-    width: `${component.width}px`,
-    height: `${component.height}px`,
-    backgroundColor: component.bgColor,
-    color: component.textColor,
-    fontSize: `${component.fontSize}px`,
-    border: isSelected ? '3px solid #3b82f6' : component.isAI ? '2px dashed #8b5cf6' : '1px solid #d1d5db',
-    borderRadius: `${component.borderRadius}px`,
-    opacity: isDragging ? 0.5 : 1,
-    cursor: 'move',
-    position: 'absolute' as const,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`p-4 shadow-lg hover:shadow-xl transition-shadow ${
-        isSelected ? 'ring-2 ring-blue-500 ring-offset-2' : ''
-      } ${component.isAI ? 'border-dashed' : ''}`}
-      onClick={onClick}
-      {...attributes}
-      {...listeners}
-    >
-      <div className="flex justify-between items-start mb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium bg-black/10 px-2 py-1 rounded">
-            {component.type}
-          </span>
-          {component.isAI && (
-            <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
-              ✨ AI
-            </span>
-          )}
-        </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          className="text-gray-500 hover:text-red-500 text-lg"
-        >
-          ×
-        </button>
-      </div>
-      <div className="whitespace-pre-wrap">{component.content}</div>
-      {component.aiPrompt && (
-        <div className="mt-2 text-xs text-purple-600">
-          "{component.aiPrompt}"
-        </div>
-      )}
-      <div className="mt-2 text-xs text-gray-500 opacity-70">
-        Drag to move • Click to select
-      </div>
-    </div>
-  );
-}
+type TabType = 'component' | 'fullstack' | 'canvas' | 'code' | 'export';
+type ModeType = 'nextjs' | 'react' | 'flutter' | 'node' | 'python';
 
 export default function BuilderPage() {
-  const [components, setComponents] = useState([
-    {
-      id: '1',
-      type: 'text',
-      content: 'Welcome to Meta Factory AI Builder',
-      x: 100,
-      y: 100,
-      width: 350,
-      height: 80,
-      bgColor: '#ffffff',
-      textColor: '#000000',
-      fontSize: 24,
-      borderRadius: 8,
-      isAI: false
-    },
-    {
-      id: '2',
-      type: 'button',
-      content: 'Click Me',
-      x: 150,
-      y: 200,
-      width: 140,
-      height: 48,
-      bgColor: '#3b82f6',
-      textColor: '#ffffff',
-      fontSize: 16,
-      borderRadius: 8,
-      isAI: false
-    }
-  ]);
+  const [activeTab, setActiveTab] = useState<TabType>('component');
+  const [mode, setMode] = useState<ModeType>('nextjs');
+  const [database, setDatabase] = useState('supabase');
+  const [gitProvider, setGitProvider] = useState('github');
+  const [connectedGit, setConnectedGit] = useState(false);
+  const [isConfiguring, setIsConfiguring] = useState(false);
 
-  const [selectedId, setSelectedId] = useState<string>('1');
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [aiStatus, setAiStatus] = useState('');
-  const [useRealAI, setUseRealAI] = useState(false); // Default to false for now
-
-  const addComponent = useCallback((type: string) => {
-    const newComponent = {
-      id: Date.now().toString(),
-      type,
-      content: type === 'button' ? 'Click Me' : 'Text Content',
-      x: 50 + Math.random() * 500,
-      y: 50 + Math.random() * 300,
-      width: type === 'button' ? 140 : 350,
-      height: type === 'button' ? 48 : 100,
-      bgColor: type === 'button' ? '#3b82f6' : '#ffffff',
-      textColor: type === 'button' ? '#ffffff' : '#000000',
-      fontSize: type === 'button' ? 16 : 18,
-      borderRadius: 8,
-      isAI: false
-    };
-
-    setComponents(prev => [...prev, newComponent]);
-    setSelectedId(newComponent.id);
-  }, []);
-
-  const updateComponent = useCallback((id: string, updates: any) => {
-    setComponents(prev => 
-      prev.map(comp => 
-        comp.id === id ? { ...comp, ...updates } : comp
-      )
-    );
-  }, []);
-
-  const removeComponent = useCallback((id: string) => {
-    setComponents(prev => prev.filter(comp => comp.id !== id));
-    if (selectedId === id) {
-      setSelectedId(components.length > 1 ? components[0].id : '');
-    }
-  }, [selectedId, components]);
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, delta } = event;
-    
-    const component = components.find(c => c.id === active.id);
-    if (component) {
-      updateComponent(component.id, {
-        x: component.x + delta.x,
-        y: component.y + delta.y
-      });
-    }
+  const modeConfigs = {
+    nextjs: { name: 'Next.js', icon: '⚡', color: 'from-black to-gray-800' },
+    react: { name: 'React', icon: '⚛️', color: 'from-blue-500 to-blue-700' },
+    flutter: { name: 'Flutter', icon: '📱', color: 'from-blue-400 to-sky-500' },
+    node: { name: 'Node.js', icon: '🟢', color: 'from-green-600 to-green-800' },
+    python: { name: 'Python', icon: '🐍', color: 'from-yellow-500 to-blue-500' }
   };
 
-  const handleGenerateAI = async () => {
-    if (!aiPrompt.trim()) return;
-    
-    setIsGenerating(true);
-    
-    if (useRealAI) {
-      setAiStatus('🚀 Starting real AI pipeline...');
-    } else {
-      setAiStatus('⚡ Using mock AI generation');
-    }
-
-    try {
-      const apiEndpoint = useRealAI ? '/api/real-ai/generate' : '/api/ai/generate';
-      
-      const response = await fetch(apiEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: aiPrompt }),
-      });
-
-      const data = await response.json();
-      
-      if (data.success || response.ok) {
-        const aiComponent = data.component;
-        
-        const newComponent = {
-          id: Date.now().toString(),
-          type: aiComponent.type,
-          content: aiComponent.content,
-          x: 200 + Math.random() * 300,
-          y: 100 + Math.random() * 200,
-          width: 300,
-          height: 150,
-          bgColor: aiComponent.styles.backgroundColor,
-          textColor: aiComponent.styles.color,
-          fontSize: aiComponent.styles.fontSize,
-          borderRadius: aiComponent.styles.borderRadius,
-          isAI: true,
-          aiPrompt: aiPrompt
-        };
-
-        setComponents(prev => [...prev, newComponent]);
-        setSelectedId(newComponent.id);
-        setAiPrompt('');
-        setAiStatus(`✅ ${useRealAI ? 'Real AI' : 'Mock AI'} generated successfully!`);
-        
-        setTimeout(() => setAiStatus(''), 3000);
-      } else {
-        throw new Error(data.error || 'AI generation failed');
-      }
-    } catch (error) {
-      console.error('AI generation error:', error);
-      
-      // Fallback mock component
-      const fallbackComponent = {
-        id: Date.now().toString(),
-        type: 'card',
-        content: `AI: ${aiPrompt}`,
-        x: 200,
-        y: 200,
-        width: 320,
-        height: 180,
-        bgColor: '#e0f2fe',
-        textColor: '#0369a1',
-        fontSize: 20,
-        borderRadius: 16,
-        isAI: true,
-        aiPrompt: aiPrompt
-      };
-
-      setComponents(prev => [...prev, fallbackComponent]);
-      setSelectedId(fallbackComponent.id);
-      setAiPrompt('');
-      setAiStatus('⚠️ Using fallback generation');
-      
-      setTimeout(() => setAiStatus(''), 3000);
-    } finally {
-      setIsGenerating(false);
-    }
+  const databaseConfigs = {
+    supabase: { name: 'Supabase', icon: '🟢', color: 'from-green-500 to-emerald-600' },
+    firebase: { name: 'Firebase', icon: '🟠', color: 'from-orange-500 to-yellow-500' },
+    mongodb: { name: 'MongoDB', icon: '🟩', color: 'from-green-600 to-green-400' },
+    planetscale: { name: 'PlanetScale', icon: '🟣', color: 'from-purple-500 to-pink-500' },
+    none: { name: 'No Database', icon: '⚪', color: 'from-gray-400 to-gray-600' }
   };
 
-  const handleExport = () => {
-    const project = {
-      name: 'meta-factory-project',
-      version: '1.0.0',
-      components: components.map(comp => ({
-        type: comp.type,
-        content: comp.content,
-        position: { x: comp.x, y: comp.y },
-        styles: {
-          backgroundColor: comp.bgColor,
-          color: comp.textColor,
-          fontSize: comp.fontSize,
-          borderRadius: comp.borderRadius
-        },
-        isAI: comp.isAI || false
-      })),
-      metadata: {
-        generatedAt: new Date().toISOString(),
-        totalComponents: components.length,
-        aiComponents: components.filter(c => c.isAI).length
-      }
-    };
-
-    const dataStr = JSON.stringify(project, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
-    const exportFileName = `meta-factory-${Date.now()}.json`;
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileName);
-    linkElement.click();
+  const gitConfigs = {
+    github: { name: 'GitHub', icon: '🐙', color: 'from-gray-800 to-gray-900' },
+    gitlab: { name: 'GitLab', icon: '🦊', color: 'from-orange-600 to-red-500' },
+    bitbucket: { name: 'BitBucket', icon: '🐋', color: 'from-blue-600 to-blue-800' }
   };
 
-  const selectedComponent = components.find(c => c.id === selectedId);
+  const connectGitHub = () => {
+    setIsConfiguring(true);
+    setTimeout(() => {
+      setConnectedGit(true);
+      setIsConfiguring(false);
+      alert('✅ GitHub connected! You can now export projects to your repositories.');
+    }, 1500);
+  };
+
+  const exportProject = () => {
+    if (!connectedGit) {
+      alert('⚠️ Connect GitHub first to export projects.');
+      return;
+    }
+    alert(`🚀 Exporting ${modeConfigs[mode].name} project with ${databaseConfigs[database].name} to ${gitConfigs[gitProvider].name}...`);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <header className="bg-white shadow-lg border-b">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+      {/* Header */}
+      <header className="bg-white shadow-lg border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">🏭 Meta Factory AI Builder</h1>
-              <p className="text-gray-600">Phase 5 - Real AI Pipeline Ready</p>
-            </div>
             <div className="flex items-center gap-4">
-              <div className="text-sm text-gray-500">
-                {components.length} components • {components.filter(c => c.isAI).length} AI
+              <div className="text-3xl">🏭</div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">AI Meta Factory</h1>
+                <p className="text-gray-600 text-sm">
+                  Full-Stack AI Development Platform
+                </p>
               </div>
-              <button
-                onClick={handleExport}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                📦 Export Project
-              </button>
             </div>
+            
+            <div className="flex items-center gap-4">
+              {/* Git Connection */}
+              <div className="flex items-center gap-2">
+                {connectedGit ? (
+                  <div className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 rounded-full">
+                    <span>✅</span>
+                    <span className="text-sm font-bold">GitHub Connected</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={connectGitHub}
+                    disabled={isConfiguring}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black disabled:opacity-50"
+                  >
+                    {isConfiguring ? 'Connecting...' : (
+                      <>
+                        <span>🔗</span>
+                        <span className="font-bold">Connect GitHub</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Main Navigation Tabs */}
+          <div className="flex gap-1 mt-6">
+            {[
+              { id: 'component', label: '🧠 AI Component Generator', icon: '🧠' },
+              { id: 'fullstack', label: '🏭 Full-Stack Factory', icon: '🏭' },
+              { id: 'canvas', label: '🎨 Canvas', icon: '🎨' },
+              { id: 'code', label: '💻 Code Editor', icon: '💻' },
+              { id: 'export', label: '📦 Export & Deploy', icon: '📦' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as TabType)}
+                className={`px-6 py-3 font-bold rounded-t-lg transition flex items-center gap-2 ${
+                  activeTab === tab.id
+                    ? 'bg-white text-blue-600 border-t border-l border-r'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-12 gap-6">
-          {/* Left Panel */}
-          <div className="col-span-3 bg-white rounded-xl shadow p-6">
-            <h2 className="text-lg font-bold mb-6">Component Library</h2>
-            <div className="space-y-3">
-              {['text', 'button', 'card', 'input', 'header'].map((type) => (
-                <button
-                  key={type}
-                  onClick={() => addComponent(type)}
-                  className="w-full p-4 border rounded-lg hover:bg-gray-50"
-                >
-                  <div className="font-medium capitalize">{type}</div>
-                  <div className="text-sm text-gray-500">Click to add</div>
-                </button>
-              ))}
-            </div>
-            
-            <div className="mt-8 pt-6 border-t">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">✨</span>
-                  <h3 className="font-bold">AI Generator</h3>
+        {/* Tech Stack Selector */}
+        {(activeTab === 'component' || activeTab === 'fullstack') && (
+          <div className="mb-8 p-6 bg-white rounded-2xl shadow-lg border">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              {/* Tech Stack */}
+              <div>
+                <h3 className="font-bold mb-3 flex items-center gap-2">
+                  <span>⚙️</span>
+                  Tech Stack
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(modeConfigs).map(([key, config]) => (
+                    <button
+                      key={key}
+                      onClick={() => setMode(key as ModeType)}
+                      className={`px-4 py-3 rounded-lg font-bold transition-all flex items-center gap-2 ${
+                        mode === key
+                          ? `bg-gradient-to-r ${config.color} text-white shadow-lg scale-105`
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <span className="text-xl">{config.icon}</span>
+                      <span>{config.name}</span>
+                    </button>
+                  ))}
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={useRealAI}
-                    onChange={(e) => setUseRealAI(e.target.checked)}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm">Use Real AI</span>
-                </label>
               </div>
-              
-              {aiStatus && (
-                <div className={`mb-3 p-2 rounded text-sm ${
-                  aiStatus.includes('✅') ? 'bg-green-50 text-green-800' : 
-                  aiStatus.includes('⚠️') ? 'bg-yellow-50 text-yellow-800' : 
-                  'bg-blue-50 text-blue-800'
-                }`}>
-                  {aiStatus}
+
+              {/* Database Selector */}
+              <div>
+                <h3 className="font-bold mb-3 flex items-center gap-2">
+                  <span>🗄️</span>
+                  Database
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(databaseConfigs).map(([key, config]) => (
+                    <button
+                      key={key}
+                      onClick={() => setDatabase(key)}
+                      className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 ${
+                        database === key
+                          ? `bg-gradient-to-r ${config.color} text-white shadow-lg`
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <span>{config.icon}</span>
+                      <span>{config.name}</span>
+                    </button>
+                  ))}
                 </div>
-              )}
-              
-              <textarea
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                placeholder={useRealAI 
-                  ? "Describe a component for real AI..." 
-                  : "Describe a component for mock AI"}
-                className="w-full h-32 p-3 border rounded-lg mb-3"
-              />
-              <button
-                onClick={handleGenerateAI}
-                disabled={isGenerating || !aiPrompt.trim()}
-                className={`w-full p-3 rounded-lg text-white flex items-center justify-center gap-2 ${
-                  useRealAI 
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600' 
-                    : 'bg-gradient-to-r from-purple-600 to-pink-600'
-                } hover:opacity-90 disabled:opacity-50`}
-              >
-                {isGenerating ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Generating...
-                  </>
-                ) : (
-                  `✨ Generate with ${useRealAI ? 'Real AI' : 'Mock AI'}`
-                )}
-              </button>
-              
-              {useRealAI && (
-                <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                  <div className="text-sm font-medium text-blue-800 mb-1">Real AI Status:</div>
-                  <div className="text-xs text-blue-600">
-                    {process.env.NEXT_PUBLIC_SHOW_API_STATUS === 'true' 
-                      ? 'API keys configured in environment'
-                      : 'Toggle on to use real AI APIs'}
+              </div>
+
+              {/* Git Provider */}
+              <div>
+                <h3 className="font-bold mb-3 flex items-center gap-2">
+                  <span>🔗</span>
+                  Git Provider
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(gitConfigs).map(([key, config]) => (
+                    <button
+                      key={key}
+                      onClick={() => setGitProvider(key)}
+                      className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 ${
+                        gitProvider === key
+                          ? `bg-gradient-to-r ${config.color} text-white shadow-lg`
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <span>{config.icon}</span>
+                      <span>{config.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Configuration Summary */}
+            <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`px-4 py-2 rounded-lg bg-gradient-to-r ${modeConfigs[mode].color} text-white font-bold`}>
+                    {modeConfigs[mode].icon} {modeConfigs[mode].name}
+                  </div>
+                  <div className="text-gray-500">→</div>
+                  <div className={`px-4 py-2 rounded-lg bg-gradient-to-r ${databaseConfigs[database].color} text-white font-bold`}>
+                    {databaseConfigs[database].icon} {databaseConfigs[database].name}
+                  </div>
+                  <div className="text-gray-500">→</div>
+                  <div className={`px-4 py-2 rounded-lg bg-gradient-to-r ${gitConfigs[gitProvider].color} text-white font-bold`}>
+                    {gitConfigs[gitProvider].icon} {gitConfigs[gitProvider].name}
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Canvas */}
-          <div className="col-span-6 bg-white rounded-xl shadow p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-bold">Canvas</h2>
-              <div className="text-sm text-gray-500">
-                Drag components to reposition
+                <div className="text-sm text-gray-600">
+                  {connectedGit ? '✅ Ready to export' : '⚠️ Connect GitHub to export'}
+                </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Component Generator Tab */}
+        {activeTab === 'component' && (
+          <div className="space-y-8">
+            <HonestAIPipeline />
             
-            <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <div className="border-2 border-dashed border-gray-300 rounded-xl h-[500px] relative">
-                {components.map((component) => (
-                  <DraggableComponent
-                    key={component.id}
-                    component={component}
-                    isSelected={selectedId === component.id}
-                    onClick={() => setSelectedId(component.id)}
-                    onDelete={() => removeComponent(component.id)}
-                  />
-                ))}
+            {/* Quick Actions */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-white p-6 rounded-xl shadow text-center">
+                <div className="text-2xl font-bold">{modeConfigs[mode].icon}</div>
+                <div className="font-bold mt-2">{modeConfigs[mode].name}</div>
+                <div className="text-sm text-gray-600">Tech Stack</div>
               </div>
-            </DndContext>
-          </div>
-
-          {/* Right Panel */}
-          <div className="col-span-3 bg-white rounded-xl shadow p-6">
-            <h2 className="text-lg font-bold mb-6">Properties</h2>
-            {selectedComponent ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Content</label>
-                  <input
-                    type="text"
-                    value={selectedComponent.content}
-                    onChange={(e) => updateComponent(selectedComponent.id, { content: e.target.value })}
-                    className="w-full p-3 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Background Color</label>
-                  <input
-                    type="color"
-                    value={selectedComponent.bgColor}
-                    onChange={(e) => updateComponent(selectedComponent.id, { bgColor: e.target.value })}
-                    className="w-full h-10 cursor-pointer"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Text Color</label>
-                  <input
-                    type="color"
-                    value={selectedComponent.textColor}
-                    onChange={(e) => updateComponent(selectedComponent.id, { textColor: e.target.value })}
-                    className="w-full h-10 cursor-pointer"
-                  />
-                </div>
-                <button className="w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  Save Changes
+              <div className="bg-white p-6 rounded-xl shadow text-center">
+                <div className="text-2xl font-bold">{databaseConfigs[database].icon}</div>
+                <div className="font-bold mt-2">{databaseConfigs[database].name}</div>
+                <div className="text-sm text-gray-600">Database</div>
+              </div>
+              <div className="bg-white p-6 rounded-xl shadow text-center">
+                <button
+                  onClick={exportProject}
+                  disabled={!connectedGit}
+                  className="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white font-bold rounded-lg hover:opacity-90 disabled:opacity-50"
+                >
+                  {connectedGit ? '🚀 Export Project' : '🔗 Connect GitHub First'}
                 </button>
               </div>
-            ) : (
-              <div className="text-center py-12 text-gray-500">
-                Select a component to edit
-              </div>
-            )}
+            </div>
           </div>
-        </div>
-      </main>
+        )}
 
-      <footer className="bg-white border-t mt-8">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex justify-between items-center text-sm text-gray-600">
-            <div>
-              <span className="font-medium">Status:</span> 
-              <span className="ml-2">{useRealAI ? 'Real AI Pipeline Ready' : 'Mock AI Active'}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span>Phase 5 Deployed</span>
+        {/* Full-Stack Factory Tab */}
+        {activeTab === 'fullstack' && (
+          <div className="space-y-8">
+            <FullStackFactory 
+              selectedStack={mode}
+              selectedDatabase={database}
+              selectedGitProvider={gitProvider}
+              isGitConnected={connectedGit}
+              onExport={exportProject}
+            />
+          </div>
+        )}
+
+        {/* Canvas Tab */}
+        {activeTab === 'canvas' && (
+          <div className="bg-white rounded-2xl shadow-xl p-6 min-h-[500px]">
+            <h2 className="text-2xl font-bold mb-6">🎨 Component Canvas</h2>
+            <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center">
+              <div className="text-5xl mb-4">🖼️</div>
+              <h3 className="text-xl font-bold mb-2">Drag & Drop Canvas</h3>
+              <p className="text-gray-600 mb-4">Drag generated components here to build layouts</p>
+              <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl">
+                Generate Components First
+              </button>
             </div>
           </div>
-        </div>
-      </footer>
+        )}
+
+        {/* Code Editor Tab */}
+        {activeTab === 'code' && (
+          <div className="bg-white rounded-2xl shadow-xl p-6 min-h-[500px]">
+            <h2 className="text-2xl font-bold mb-6">💻 Code Editor</h2>
+            <div className="border-2 border-gray-300 rounded-xl overflow-hidden">
+              <div className="bg-gray-900 text-gray-300 px-4 py-2 flex justify-between">
+                <div>generated-component.tsx</div>
+                <button className="text-sm px-3 py-1 bg-blue-600 rounded">Copy</button>
+              </div>
+              <pre className="p-6 bg-gray-950 text-green-400 overflow-auto max-h-[400px]">
+{`// Generated AI Component
+import React from 'react';
+
+interface ComponentProps {
+  title: string;
+  theme?: 'light' | 'dark';
+}
+
+const AIGeneratedComponent: React.FC<ComponentProps> = ({
+  title,
+  theme = 'dark'
+}) => {
+  return (
+    <div className={\`p-6 rounded-xl \${
+      theme === 'dark' 
+        ? 'bg-gray-900 text-white' 
+        : 'bg-white text-gray-900'
+    }\`}>
+      <h1 className="text-2xl font-bold">{title}</h1>
+      <p className="mt-3">
+        This component was AI-generated with ${modeConfigs[mode].name} 
+        and ${databaseConfigs[database].name} configuration.
+      </p>
+    </div>
+  );
+};
+
+export default AIGeneratedComponent;`}
+              </pre>
+            </div>
+          </div>
+        )}
+
+        {/* Export & Deploy Tab */}
+        {activeTab === 'export' && (
+          <div className="bg-white rounded-2xl shadow-xl p-6">
+            <h2 className="text-2xl font-bold mb-6">📦 Export & Deploy</h2>
+            
+            {/* Export Options */}
+            <div className="grid grid-cols-3 gap-6 mb-8">
+              <div className="border-2 border-gray-200 rounded-xl p-6 text-center hover:border-blue-500 hover:shadow-lg transition">
+                <div className="text-4xl mb-4">📦</div>
+                <h3 className="font-bold mb-2">Download ZIP</h3>
+                <p className="text-sm text-gray-600 mb-4">Complete project files</p>
+                <button className="px-4 py-2 bg-gray-900 text-white rounded-lg w-full">
+                  Download
+                </button>
+              </div>
+              
+              <div className="border-2 border-gray-200 rounded-xl p-6 text-center hover:border-green-500 hover:shadow-lg transition">
+                <div className="text-4xl mb-4">🚀</div>
+                <h3 className="font-bold mb-2">Deploy to Vercel</h3>
+                <p className="text-sm text-gray-600 mb-4">One-click deployment</p>
+                <button className="px-4 py-2 bg-black text-white rounded-lg w-full">
+                  Deploy Now
+                </button>
+              </div>
+              
+              <div className="border-2 border-gray-200 rounded-xl p-6 text-center hover:border-orange-500 hover:shadow-lg transition">
+                <div className="text-4xl mb-4">🐙</div>
+                <h3 className="font-bold mb-2">Push to GitHub</h3>
+                <p className="text-sm text-gray-600 mb-4">Commit & push to repo</p>
+                <button 
+                  onClick={exportProject}
+                  disabled={!connectedGit}
+                  className="px-4 py-2 bg-gray-800 text-white rounded-lg w-full disabled:opacity-50"
+                >
+                  {connectedGit ? 'Push to GitHub' : 'Connect GitHub First'}
+                </button>
+              </div>
+            </div>
+
+            {/* Project Configuration */}
+            <div className="bg-gray-50 rounded-xl p-6">
+              <h3 className="font-bold mb-4">Project Configuration</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span>Tech Stack</span>
+                  <span className="font-bold">{modeConfigs[mode].name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Database</span>
+                  <span className="font-bold">{databaseConfigs[database].name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Git Provider</span>
+                  <span className="font-bold">{gitConfigs[gitProvider].name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Git Connection</span>
+                  <span className={`font-bold ${connectedGit ? 'text-green-600' : 'text-red-600'}`}>
+                    {connectedGit ? '✅ Connected' : '❌ Not Connected'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

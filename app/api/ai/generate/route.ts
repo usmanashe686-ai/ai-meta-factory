@@ -1,130 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Simple AI service - inline to avoid path issues
-const aiService = {
-  async generateComponent(prompt: string) {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Determine component type from prompt
-    const type = getComponentType(prompt);
-    const colors = extractColors(prompt);
-    
-    return {
-      success: true,
-      component: {
-        type,
-        content: generateContent(prompt, type),
-        styles: {
-          backgroundColor: colors.background,
-          color: colors.text,
-          fontSize: getFontSize(type),
-          borderRadius: getBorderRadius(type),
-          width: getWidth(type),
-          height: getHeight(type)
-        },
-        description: `AI-generated ${type} component`
-      }
-    };
-  }
-};
-
-// Helper functions
-function getComponentType(prompt: string): string {
-  const promptLower = prompt.toLowerCase();
-  if (promptLower.includes('button') || promptLower.includes('btn')) return 'button';
-  if (promptLower.includes('card') || promptLower.includes('box')) return 'card';
-  if (promptLower.includes('input') || promptLower.includes('field')) return 'input';
-  if (promptLower.includes('text') || promptLower.includes('para')) return 'text';
-  if (promptLower.includes('header') || promptLower.includes('title')) return 'header';
-  return 'card';
-}
-
-function extractColors(prompt: string): { background: string; text: string } {
-  const promptLower = prompt.toLowerCase();
-  const colorMap: Record<string, { background: string; text: string }> = {
-    'blue': { background: '#3b82f6', text: '#ffffff' },
-    'red': { background: '#ef4444', text: '#ffffff' },
-    'green': { background: '#10b981', text: '#ffffff' },
-    'yellow': { background: '#f59e0b', text: '#000000' },
-    'purple': { background: '#8b5cf6', text: '#ffffff' },
-    'pink': { background: '#ec4899', text: '#ffffff' },
-    'gray': { background: '#6b7280', text: '#ffffff' },
-    'black': { background: '#000000', text: '#ffffff' },
-    'white': { background: '#ffffff', text: '#000000' }
-  };
-
-  for (const [color, values] of Object.entries(colorMap)) {
-    if (promptLower.includes(color)) {
-      return values;
-    }
-  }
-
-  return { background: '#3b82f6', text: '#ffffff' };
-}
-
-function generateContent(prompt: string, type: string): string {
-  const baseContent = prompt.length > 30 ? prompt.substring(0, 30) + '...' : prompt;
-  
-  switch (type) {
-    case 'button':
-      return `Click: ${baseContent}`;
-    case 'card':
-      return `Card: ${baseContent}`;
-    case 'input':
-      return `Input: ${baseContent}`;
-    case 'header':
-      return `Header: ${baseContent}`;
-    default:
-      return baseContent;
-  }
-}
-
-function getFontSize(type: string): number {
-  const sizes: Record<string, number> = {
-    'header': 32,
-    'button': 16,
-    'card': 18,
-    'input': 14,
-    'text': 16
-  };
-  return sizes[type] || 16;
-}
-
-function getBorderRadius(type: string): number {
-  const radii: Record<string, number> = {
-    'button': 8,
-    'card': 12,
-    'input': 6,
-    'header': 0,
-    'text': 0
-  };
-  return radii[type] || 8;
-}
-
-function getWidth(type: string): string {
-  const widths: Record<string, string> = {
-    'button': '140px',
-    'card': '300px',
-    'input': '250px',
-    'header': '400px',
-    'text': '350px'
-  };
-  return widths[type] || '300px';
-}
-
-function getHeight(type: string): string {
-  const heights: Record<string, string> = {
-    'button': '48px',
-    'card': '180px',
-    'input': '40px',
-    'header': '80px',
-    'text': '100px'
-  };
-  return heights[type] || '150px';
-}
-
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const { prompt } = await request.json();
 
@@ -135,45 +13,426 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await aiService.generateComponent(prompt);
+    // Check API keys exist
+    if (!process.env.OPENAI_API_KEY || !(process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY)) {
+      return NextResponse.json({
+        success: false,
+        error: 'API keys not configured',
+        message: 'Add OPENAI_API_KEY and GOOGLE_API_KEY to Vercel Environment Variables',
+        timestamp: new Date().toISOString()
+      }, { status: 401 });
+    }
+
+    console.log(`🚀 REAL AI Pipeline starting for: "${prompt.substring(0, 50)}..."`);
+
+    const steps = [];
+    let generatedCode = '';
+    let analysis = '';
+    let design = '';
+    let usedFallback = false;
+    const geminiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+
+    // STEP 1: ChatGPT Analysis
+    try {
+      const stepStart = Date.now();
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a UI/UX architect. Analyze component requests concisely.'
+            },
+            {
+              role: 'user',
+              content: `Analyze this component request: "${prompt}"`
+            }
+          ],
+          max_tokens: 150,
+          temperature: 0.7
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        analysis = data.choices[0]?.message?.content || 'No analysis generated';
+        steps.push({
+          step: 1,
+          model: 'ChatGPT gpt-4o-mini',
+          task: 'Analysis & Structure',
+          status: '✅ Success',
+          time: `${Date.now() - stepStart}ms`,
+          output: analysis.substring(0, 200) + '...'
+        });
+      } else {
+        const errorData = await response.json();
+        throw new Error(`OpenAI API error: ${errorData.error?.message || response.status}`);
+      }
+    } catch (error: any) {
+      steps.push({
+        step: 1,
+        model: 'ChatGPT',
+        task: 'Analysis & Structure',
+        status: '❌ Failed',
+        error: error.message.substring(0, 100)
+      });
+    }
+
+    // STEP 2: ChatGPT Design
+    try {
+      const stepStart = Date.now();
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a UI designer. Provide concise design specifications.'
+            },
+            {
+              role: 'user',
+              content: `Based on this analysis:\n${analysis}\n\nDesign specs for: "${prompt}"`
+            }
+          ],
+          max_tokens: 200,
+          temperature: 0.8
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        design = data.choices[0]?.message?.content || 'No design generated';
+        steps.push({
+          step: 2,
+          model: 'ChatGPT gpt-4o-mini',
+          task: 'UI/UX Design',
+          status: '✅ Success',
+          time: `${Date.now() - stepStart}ms`,
+          output: design.substring(0, 200) + '...'
+        });
+      } else {
+        const errorData = await response.json();
+        throw new Error(`OpenAI API error: ${errorData.error?.message || response.status}`);
+      }
+    } catch (error: any) {
+      steps.push({
+        step: 2,
+        model: 'ChatGPT',
+        task: 'UI/UX Design',
+        status: '❌ Failed',
+        error: error.message.substring(0, 100)
+      });
+    }
+
+    // STEP 3: Gemini Code Generation (🔴 USING REST API ONLY)
+    try {
+      const stepStart = Date.now();
+      
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: `Generate React/TypeScript/Tailwind code for: "${prompt}"\n\nAnalysis: ${analysis}\nDesign: ${design}\n\nReturn ONLY the component code, no explanations. Use modern React with TypeScript and Tailwind CSS.`
+              }]
+            }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 1000
+            }
+          })
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        generatedCode = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        
+        // Clean up the code
+        if (generatedCode) {
+          generatedCode = generatedCode
+            .replace(/```(?:jsx|tsx|javascript|typescript)?\n?/g, '')
+            .replace(/```/g, '')
+            .trim();
+        }
+        
+        steps.push({
+          step: 3,
+          model: 'Gemini 1.5 Flash (REST)',
+          task: 'Code Generation',
+          status: generatedCode ? '✅ Success' : '⚠️ No code generated',
+          time: `${Date.now() - stepStart}ms`,
+          output: generatedCode ? (generatedCode.substring(0, 150) + '...') : 'Empty response'
+        });
+      } else {
+        // Try gemini-pro as fallback
+        const fallbackResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: `Generate React component for: "${prompt}"`
+                }]
+              }],
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 800
+              }
+            })
+          }
+        );
+        
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          generatedCode = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (generatedCode) {
+            generatedCode = generatedCode
+              .replace(/```(?:jsx|tsx|javascript|typescript)?\n?/g, '')
+              .replace(/```/g, '')
+              .trim();
+          }
+          steps.push({
+            step: 3,
+            model: 'Gemini Pro (REST fallback)',
+            task: 'Code Generation',
+            status: generatedCode ? '✅ Success' : '⚠️ No code generated',
+            time: `${Date.now() - stepStart}ms`,
+            output: generatedCode ? (generatedCode.substring(0, 150) + '...') : 'Fallback failed'
+          });
+        } else {
+          throw new Error(`Gemini REST error: ${response.status}`);
+        }
+      }
+    } catch (error: any) {
+      steps.push({
+        step: 3,
+        model: 'Gemini',
+        task: 'Code Generation',
+        status: '❌ Failed',
+        error: error.message.substring(0, 100)
+      });
+    }
+
+    // STEP 4 & 5: Optional steps (only if code was generated)
+    if (generatedCode) {
+      // STEP 4: Gemini Error Checking
+      try {
+        const stepStart = Date.now();
+        
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: `Review this React code for errors:\n\n${generatedCode.substring(0, 1000)}\n\nProvide a brief error check.`
+                }]
+              }],
+              generationConfig: {
+                temperature: 0.3,
+                maxOutputTokens: 300
+              }
+            })
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const errorCheck = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          steps.push({
+            step: 4,
+            model: 'Gemini 1.5 Flash (REST)',
+            task: 'Error Checking',
+            status: '✅ Success',
+            time: `${Date.now() - stepStart}ms`,
+            output: errorCheck.substring(0, 150) + '...'
+          });
+        }
+      } catch (error) {
+        steps.push({
+          step: 4,
+          model: 'Gemini 1.5 Flash',
+          task: 'Error Checking',
+          status: '⚠️ Skipped',
+          note: 'Non-critical step failed'
+        });
+      }
+
+      // STEP 5: Gemini Optimization
+      try {
+        const stepStart = Date.now();
+        
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: `Optimize this React code:\n\n${generatedCode.substring(0, 800)}\n\nProvide optimization suggestions.`
+                }]
+              }],
+              generationConfig: {
+                temperature: 0.5,
+                maxOutputTokens: 300
+              }
+            })
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const optimization = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          steps.push({
+            step: 5,
+            model: 'Gemini 1.5 Flash (REST)',
+            task: 'Optimization',
+            status: '✅ Success',
+            time: `${Date.now() - stepStart}ms`,
+            output: optimization.substring(0, 150) + '...'
+          });
+        }
+      } catch (error) {
+        steps.push({
+          step: 5,
+          model: 'Gemini 1.5 Flash',
+          task: 'Optimization',
+          status: '⚠️ Skipped',
+          note: 'Non-critical step failed'
+        });
+      }
+    }
+
+    // Fallback logic
+    if (!generatedCode) {
+      usedFallback = true;
+      generatedCode = `// Component: ${getComponentType(prompt)} (Fallback Mode)
+// Generated because Gemini REST API was unavailable
+
+import React from 'react';
+
+interface ${getComponentType(prompt)}Props {
+  title?: string;
+  className?: string;
+}
+
+const ${getComponentType(prompt)}Component: React.FC<${getComponentType(prompt)}Props> = ({ 
+  title = "${prompt.substring(0, 40)}", 
+  className = "" 
+}) => {
+  return (
+    <div className={\`p-6 bg-gradient-to-br from-gray-900 to-black text-white rounded-xl shadow-lg \${className}\`}>
+      <h1 className="text-2xl font-bold">{title}</h1>
+      <p className="mt-3 text-gray-300">
+        This component was generated in fallback mode.
+      </p>
+      <div className="mt-4 flex gap-3">
+        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition">
+          Primary Action
+        </button>
+        <button className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition">
+          Secondary
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default ${getComponentType(prompt)}Component;`;
+    }
+
+    // DETERMINE SUCCESS
+    const successfulSteps = steps.filter(s => s.status === '✅ Success').length;
+    const isSuccess = generatedCode.length > 0 && successfulSteps >= 2;
+
+    const totalTime = Date.now() - startTime;
 
     return NextResponse.json({
-      success: result.success,
-      component: result.component,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('AI API error:', error);
-    return NextResponse.json(
-      { 
-        success: false,
-        error: 'Failed to generate component',
-        component: {
-          type: 'card',
-          content: 'AI Generated Component',
-          styles: {
-            backgroundColor: '#f8fafc',
-            color: '#334155',
-            fontSize: 18,
-            borderRadius: 12,
-            width: '300px',
-            height: '180px'
-          },
-          description: 'Fallback component'
-        }
+      success: isSuccess,
+      message: isSuccess 
+        ? (usedFallback ? '⚠️ Generated with fallback (APIs partially failed)' : '🎉 Generated with REAL AI') 
+        : '❌ Generation failed',
+      prompt,
+      component: {
+        type: getComponentType(prompt),
+        name: `${getComponentType(prompt)} Component`,
+        code: generatedCode,
+        length: generatedCode.length,
+        generatedAt: new Date().toISOString(),
+        aiPipeline: 'OpenAI gpt-4o-mini → Gemini REST API',
+        usesRealAI: isSuccess && !usedFallback
       },
-      { status: 200 }
-    );
+      steps,
+      metrics: {
+        totalTime: `${totalTime}ms`,
+        successfulSteps,
+        totalSteps: steps.length,
+        codeGenerated: generatedCode.length > 0,
+        usedAPIs: ['OpenAI gpt-4o-mini', 'Gemini REST API'],
+        geminiMethod: 'REST API (no SDK)'
+      },
+      honesty: {
+        generatedWithRealAI: isSuccess && !usedFallback,
+        usedFallback: usedFallback,
+        apiStatus: 'See /api/health for detailed API status',
+        note: usedFallback ? 'Component generated with fallback logic (Gemini REST unavailable)' : 'Component generated with live REST APIs'
+      }
+    }, {
+      headers: {
+        'Cache-Control': 'no-store'
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ AI pipeline fatal error:', error);
+    
+    return NextResponse.json({
+      success: false,
+      error: error.message,
+      message: 'Pipeline failed completely',
+      timestamp: new Date().toISOString(),
+      help: 'Check /api/health for API status and configure keys in Vercel',
+      honesty: {
+        generatedWithRealAI: false,
+        usedFallback: false,
+        failedCompletely: true
+      }
+    }, { status: 500 });
   }
 }
 
-export async function GET() {
-  return NextResponse.json({
-    service: 'Meta Factory AI Generator',
-    status: 'active',
-    version: '1.0.0',
-    endpoints: {
-      POST: '/api/ai/generate'
-    }
-  });
+// Helper function
+function getComponentType(prompt: string): string {
+  const p = prompt.toLowerCase();
+  if (p.includes('button')) return 'Button';
+  if (p.includes('nav')) return 'Navigation';
+  if (p.includes('card')) return 'Card';
+  if (p.includes('form')) return 'Form';
+  if (p.includes('table')) return 'Table';
+  if (p.includes('accordion')) return 'Accordion';
+  if (p.includes('modal')) return 'Modal';
+  if (p.includes('sidebar')) return 'Sidebar';
+  if (p.includes('hero')) return 'Hero';
+  return 'Component';
 }
