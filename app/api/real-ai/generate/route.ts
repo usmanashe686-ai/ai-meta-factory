@@ -156,7 +156,7 @@ class RealAIPipeline {
       
       return {
         type: analysis.type || 'card',
-        content: prompt.substring(0, 50) || 'AI Generated Component',
+        content: (analysis.text || "AI Generated Component").substring(0, 50),
         styles: this.getDefaultStyles(analysis.type),
         code: optimizedText || code,
         description: `AI-generated ${analysis.type} component (Gemini optimized)`

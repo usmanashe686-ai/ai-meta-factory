@@ -95,6 +95,40 @@ export const DEPLOYMENT_PROVIDERS: DeploymentConfig[] = [
       'Deploy with Firebase CLI'
     ],
     supportedStacks: ['react', 'flutter']
+  },
+  {
+    id: 'aws',
+    name: 'AWS Amplify',
+    icon: '☁️',
+    description: 'AWS service for full-stack applications',
+    url: 'https://aws.amazon.com/amplify',
+    apiDocs: 'https://docs.aws.amazon.com/amplify',
+    envVars: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION'],
+    setupSteps: [
+      'Create AWS account',
+      'Configure AWS CLI',
+      'Initialize Amplify project',
+      'Connect Git repository',
+      'Set up CI/CD pipeline'
+    ],
+    supportedStacks: ['nextjs', 'react', 'node', 'flutter']
+  },
+  {
+    id: 'gcp',
+    name: 'Google Cloud Run',
+    icon: 'G',
+    description: 'Managed compute platform for containers',
+    url: 'https://cloud.google.com/run',
+    apiDocs: 'https://cloud.google.com/run/docs',
+    envVars: ['GOOGLE_APPLICATION_CREDENTIALS', 'GCP_PROJECT_ID'],
+    setupSteps: [
+      'Create Google Cloud account',
+      'Enable Cloud Run API',
+      'Build Docker container',
+      'Deploy to Cloud Run',
+      'Configure domain and SSL'
+    ],
+    supportedStacks: ['nextjs', 'node', 'python', 'flutter']
   }
 ];
 

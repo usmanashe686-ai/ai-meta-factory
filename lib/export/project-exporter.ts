@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import { APKExporter, APKConfig } from './apk/apk-exporter';
 
 export interface ProjectFile {
   name: string;
@@ -13,6 +14,8 @@ export interface ExportConfig {
   database: string;
   gitProvider: string;
   files: ProjectFile[];
+  includeAPK?: boolean;
+  apkConfig?: APKConfig;
 }
 
 export class ProjectExporter {
@@ -40,6 +43,26 @@ export class ProjectExporter {
     // Add .env.example
     projectFolder.file('.env.example', this.generateEnvExample(config));
     
+    // Add APK if requested and supported
+    if (config.includeAPK && config.apkConfig) {
+      const apkRequirements = APKExporter.validateAPKRequirements(config.apkConfig.platform);
+      
+      if (apkRequirements.met) {
+        try {
+          const apkBuffer = await APKExporter.generateAPK(config.apkConfig, config);
+          projectFolder.file(`${config.projectName}.apk`, apkBuffer);
+          projectFolder.file('APK_INSTRUCTIONS.txt', APKExporter.getAPKInstructions(config.apkConfig.platform));
+        } catch (error) {
+          console.warn('APK generation failed:', error);
+          projectFolder.file('APK_GENERATION_FAILED.txt', 
+            `APK generation failed: ${error}\n\n` +
+            `Requirements: ${apkRequirements.requirements.join(', ')}\n\n` +
+            `See APK_INSTRUCTIONS.txt for manual build steps.`
+          );
+        }
+      }
+    }
+    
     // Generate and download ZIP
     const content = await zip.generateAsync({ type: 'blob' });
     saveAs(content, `${config.projectName}.zip`);
@@ -56,6 +79,7 @@ This project was generated using AI Meta Factory with the following configuratio
 - **Database**: ${config.database}
 - **Git Provider**: ${config.gitProvider}
 - **Generated At**: ${new Date().toISOString()}
+${config.includeAPK ? '- **APK Included**: Yes' : ''}
 
 ## 📦 Installation
 
@@ -74,6 +98,13 @@ npm run dev
 ## 🗄️ Database Setup
 
 ${this.getDatabaseSetupInstructions(config.database)}
+
+## 📱 APK Generation
+
+${config.includeAPK ? 
+  `This project includes an APK file (${config.projectName}.apk) for mobile deployment.\n` +
+  `For rebuilding or signing, see APK_INSTRUCTIONS.txt.` :
+  'For APK generation, select the "Include APK" option when exporting.'}
 
 ## 🌐 Deployment
 
@@ -115,7 +146,11 @@ Thumbs.db
     }
     
     if (config.stack.includes('flutter')) {
-      return baseIgnore + '\n# Flutter\n.dart_tool/\n.packages\n.pub-cache/\n';
+      return baseIgnore + '\n# Flutter\n.dart_tool/\n.packages\n.pub-cache/\nbuild/\n';
+    }
+    
+    if (config.stack.includes('react-native')) {
+      return baseIgnore + '\n# React Native\nandroid/.gradle/\nandroid/build/\nandroid/app/build/\n';
     }
     
     return baseIgnore;
@@ -151,7 +186,12 @@ Thumbs.db
       'NEXT_PUBLIC_API_URL=http://localhost:3000/api'
     ] : [];
     
-    return [...stackVars, ...dbVars, ''].join('\n');
+    const mobileVars = ['flutter', 'react-native', 'expo'].includes(config.stack) ? [
+      'ANDROID_HOME=/path/to/android/sdk',
+      'JAVA_HOME=/path/to/java'
+    ] : [];
+    
+    return [...stackVars, ...dbVars, ...mobileVars, ''].join('\n');
   }
   
   static getDatabaseSetupInstructions(database: string): string {
@@ -200,13 +240,27 @@ Thumbs.db
 2. Import project in Netlify
 3. Set build command: \`npm run build\`
 4. Deploy!`,
-      flutter: `### Firebase Hosting
+      flutter: `### Firebase Hosting (Web)
 1. Install Flutter and build web version
 2. Deploy to Firebase Hosting:
    \`\`\`bash
    flutter build web
    firebase deploy --only hosting
-   \`\`\``,
+   \`\`\`
+
+### APK Distribution
+1. Generate APK: \`flutter build apk --release\`
+2. Upload to Google Play Store
+3. Or distribute via direct download`,
+      'react-native': `### App Distribution
+1. Generate APK: \`cd android && ./gradlew assembleRelease\`
+2. Upload to Google Play Store
+3. Or use services like Microsoft App Center
+
+### Expo
+1. Build with EAS: \`eas build --platform android\`
+2. Download from Expo dashboard
+3. Distribute via Expo Go or standalone app`,
       node: `### Railway / Render
 1. Push your code to GitHub
 2. Create new service on Railway/Render
@@ -226,6 +280,7 @@ Thumbs.db
     stack: string;
     database: string;
     gitProvider: string;
+    includeAPK?: boolean;
   }): ExportConfig {
     const files: ProjectFile[] = [];
     
@@ -266,12 +321,24 @@ Thumbs.db
       }
     });
     
+    // Create APK config for mobile projects
+    const apkConfig: APKConfig | undefined = config.includeAPK && 
+      ['flutter', 'react-native', 'expo'].includes(config.stack) ? {
+        projectId: projectData.id || Date.now().toString(),
+        projectName: projectData.name || 'ai-meta-factory-project',
+        platform: config.stack as 'flutter' | 'react-native' | 'expo',
+        buildType: 'debug',
+        keystore: undefined // In production, this would come from user settings
+      } : undefined;
+
     return {
       projectName: projectData.name || 'ai-meta-factory-project',
       stack: config.stack,
       database: config.database,
       gitProvider: config.gitProvider,
-      files
+      files,
+      includeAPK: config.includeAPK,
+      apkConfig
     };
   }
 }

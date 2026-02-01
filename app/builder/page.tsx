@@ -6,16 +6,19 @@ import FullStackFactory from './components/FullStackFactory';
 
 type TabType = 'component' | 'fullstack' | 'canvas' | 'code' | 'export';
 type ModeType = 'nextjs' | 'react' | 'flutter' | 'node' | 'python';
+type DatabaseType = 'supabase' | 'firebase' | 'mongodb' | 'planetscale' | 'none';
+type GitProviderType = 'github' | 'gitlab' | 'bitbucket';
 
 export default function BuilderPage() {
   const [activeTab, setActiveTab] = useState<TabType>('component');
   const [mode, setMode] = useState<ModeType>('nextjs');
-  const [database, setDatabase] = useState('supabase');
-  const [gitProvider, setGitProvider] = useState('github');
+  const [database, setDatabase] = useState<DatabaseType>('supabase');
+  const [gitProvider, setGitProvider] = useState<GitProviderType>('github');
   const [connectedGit, setConnectedGit] = useState(false);
   const [isConfiguring, setIsConfiguring] = useState(false);
 
-  const modeConfigs = {
+  // Type-safe configs
+  const modeConfigs: Record<ModeType, { name: string; icon: string; color: string }> = {
     nextjs: { name: 'Next.js', icon: '⚡', color: 'from-black to-gray-800' },
     react: { name: 'React', icon: '⚛️', color: 'from-blue-500 to-blue-700' },
     flutter: { name: 'Flutter', icon: '📱', color: 'from-blue-400 to-sky-500' },
@@ -23,7 +26,7 @@ export default function BuilderPage() {
     python: { name: 'Python', icon: '🐍', color: 'from-yellow-500 to-blue-500' }
   };
 
-  const databaseConfigs = {
+  const databaseConfigs: Record<DatabaseType, { name: string; icon: string; color: string }> = {
     supabase: { name: 'Supabase', icon: '🟢', color: 'from-green-500 to-emerald-600' },
     firebase: { name: 'Firebase', icon: '🟠', color: 'from-orange-500 to-yellow-500' },
     mongodb: { name: 'MongoDB', icon: '🟩', color: 'from-green-600 to-green-400' },
@@ -31,7 +34,7 @@ export default function BuilderPage() {
     none: { name: 'No Database', icon: '⚪', color: 'from-gray-400 to-gray-600' }
   };
 
-  const gitConfigs = {
+  const gitConfigs: Record<GitProviderType, { name: string; icon: string; color: string }> = {
     github: { name: 'GitHub', icon: '🐙', color: 'from-gray-800 to-gray-900' },
     gitlab: { name: 'GitLab', icon: '🦊', color: 'from-orange-600 to-red-500' },
     bitbucket: { name: 'BitBucket', icon: '🐋', color: 'from-blue-600 to-blue-800' }
@@ -134,10 +137,10 @@ export default function BuilderPage() {
                   Tech Stack
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {Object.entries(modeConfigs).map(([key, config]) => (
+                  {(Object.entries(modeConfigs) as [ModeType, typeof modeConfigs[ModeType]][]).map(([key, config]) => (
                     <button
                       key={key}
-                      onClick={() => setMode(key as ModeType)}
+                      onClick={() => setMode(key)}
                       className={`px-4 py-3 rounded-lg font-bold transition-all flex items-center gap-2 ${
                         mode === key
                           ? `bg-gradient-to-r ${config.color} text-white shadow-lg scale-105`
@@ -158,7 +161,7 @@ export default function BuilderPage() {
                   Database
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {Object.entries(databaseConfigs).map(([key, config]) => (
+                  {(Object.entries(databaseConfigs) as [DatabaseType, typeof databaseConfigs[DatabaseType]][]).map(([key, config]) => (
                     <button
                       key={key}
                       onClick={() => setDatabase(key)}
@@ -182,7 +185,7 @@ export default function BuilderPage() {
                   Git Provider
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {Object.entries(gitConfigs).map(([key, config]) => (
+                  {(Object.entries(gitConfigs) as [GitProviderType, typeof gitConfigs[GitProviderType]][]).map(([key, config]) => (
                     <button
                       key={key}
                       onClick={() => setGitProvider(key)}
@@ -230,7 +233,7 @@ export default function BuilderPage() {
             <HonestAIPipeline />
             
             {/* Quick Actions */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white p-6 rounded-xl shadow text-center">
                 <div className="text-2xl font-bold">{modeConfigs[mode].icon}</div>
                 <div className="font-bold mt-2">{modeConfigs[mode].name}</div>
@@ -331,7 +334,7 @@ export default AIGeneratedComponent;`}
             <h2 className="text-2xl font-bold mb-6">📦 Export & Deploy</h2>
             
             {/* Export Options */}
-            <div className="grid grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="border-2 border-gray-200 rounded-xl p-6 text-center hover:border-blue-500 hover:shadow-lg transition">
                 <div className="text-4xl mb-4">📦</div>
                 <h3 className="font-bold mb-2">Download ZIP</h3>
