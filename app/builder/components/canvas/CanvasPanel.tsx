@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import CanvasPreview from './CanvasPreview';
 import CanvasDiffView from './CanvasDiffView';
 import { CodeEditor } from './CodeEditor';
-import { AdvancedMonacoEditor } from './MonacoEditor'; // We'll create this next
+import MonacoEditorWrapper from './MonacoEditor'; // CHANGED: Import default
 
 interface CanvasPanelProps {
   baseFiles: Record<string, string>;
@@ -45,6 +45,21 @@ export default function CanvasPanel({
   const totalFiles = Object.keys(generatedFiles).length;
   const totalLines = Object.values(generatedFiles)
     .reduce((sum, content) => sum + content.split('\n').length, 0);
+  
+  // Get language for Monaco
+  const getLanguage = (filename: string): string => {
+    const ext = filename.split('.').pop()?.toLowerCase() || '';
+    switch (ext) {
+      case 'ts': case 'tsx': return 'typescript';
+      case 'js': case 'jsx': return 'javascript';
+      case 'json': return 'json';
+      case 'css': case 'scss': return 'css';
+      case 'html': case 'htm': return 'html';
+      case 'md': return 'markdown';
+      case 'py': return 'python';
+      default: return 'plaintext';
+    }
+  };
   
   return (
     <div className="flex flex-col h-full bg-white rounded-2xl border shadow-sm overflow-hidden">
@@ -113,7 +128,7 @@ export default function CanvasPanel({
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
               >
-                Advanced (Monaco)
+                Monaco
               </button>
             </div>
           )}
@@ -168,12 +183,42 @@ export default function CanvasPanel({
                 onActiveFileChange={setActiveEditorFile}
               />
             ) : (
-              <AdvancedMonacoEditor
-                files={generatedFiles}
-                activeFile={activeEditorFile}
-                onFileChange={handleFileChange}
-                onActiveFileChange={setActiveEditorFile}
-              />
+              <div className="h-full flex flex-col">
+                {activeEditorFile ? (
+                  <>
+                    <div className="border-b border-gray-800 bg-gray-900 px-4 py-3 flex items-center justify-between">
+                      <div className="flex items-center">
+                        <span className="ml-2 font-mono text-sm text-gray-300">{activeEditorFile}</span>
+                        <span className="ml-3 px-2 py-1 bg-gray-800 text-gray-400 text-xs rounded">
+                          {getLanguage(activeEditorFile).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {generatedFiles[activeEditorFile]?.split('\n').length || 0} lines
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <MonacoEditorWrapper
+                        value={generatedFiles[activeEditorFile] || ''}
+                        language={getLanguage(activeEditorFile)}
+                        onChange={(value) => handleFileChange(activeEditorFile, value)}
+                        height="100%"
+                        theme="vs-dark"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">
+                    <div className="text-center">
+                      <svg className="w-12 h-12 mx-auto mb-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p className="text-lg">Select a file to edit with Monaco</p>
+                      <p className="text-sm mt-2">VS Code editor engine with full IntelliSense</p>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
