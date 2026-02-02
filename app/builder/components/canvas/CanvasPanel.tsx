@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import CanvasPreview from './CanvasPreview';
-import CanvasDiffView from './CanvasDiffView';
+import { CanvasDiffView } from './CanvasDiffView'; // CHANGED: Named import
 import { CodeEditor } from './CodeEditor';
-import MonacoEditorWrapper from './MonacoEditor'; // CHANGED: Import default
+import MonacoEditorWrapper from './MonacoEditor';
 
 interface CanvasPanelProps {
   baseFiles: Record<string, string>;
@@ -28,25 +28,21 @@ export default function CanvasPanel({
   const [editorType, setEditorType] = useState<EditorType>('simple');
   const [activeEditorFile, setActiveEditorFile] = useState<string | null>(null);
   
-  // When files change in editor, update parent
   const handleFileChange = (fileName: string, content: string) => {
     if (onFilesChange) {
       onFilesChange(fileName, content);
     }
   };
   
-  // Handle "Edit" button from diff view
   const handleOpenEditor = (fileName: string) => {
     setActiveEditorFile(fileName);
     setCanvasMode('editor');
   };
   
-  // Get file stats for summary
   const totalFiles = Object.keys(generatedFiles).length;
   const totalLines = Object.values(generatedFiles)
     .reduce((sum, content) => sum + content.split('\n').length, 0);
   
-  // Get language for Monaco
   const getLanguage = (filename: string): string => {
     const ext = filename.split('.').pop()?.toLowerCase() || '';
     switch (ext) {
@@ -63,7 +59,6 @@ export default function CanvasPanel({
   
   return (
     <div className="flex flex-col h-full bg-white rounded-2xl border shadow-sm overflow-hidden">
-      {/* Header with tabs */}
       <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
         <div className="flex items-center gap-6">
           <div>
@@ -73,7 +68,6 @@ export default function CanvasPanel({
             </p>
           </div>
           
-          {/* Mode Tabs */}
           <div className="flex border-b border-gray-200 -mb-4">
             <button
               onClick={() => setCanvasMode('preview')}
@@ -107,7 +101,6 @@ export default function CanvasPanel({
             </button>
           </div>
           
-          {/* Editor Type Toggle - Only show when in editor mode */}
           {canvasMode === 'editor' && (
             <div className="flex items-center gap-2 ml-4">
               <button
@@ -134,7 +127,6 @@ export default function CanvasPanel({
           )}
         </div>
         
-        {/* Action Buttons */}
         <div className="flex items-center gap-3">
           <button
             onClick={onGenerateComponents}
@@ -157,7 +149,6 @@ export default function CanvasPanel({
         </div>
       </div>
       
-      {/* Content Area */}
       <div className="flex-1 overflow-hidden">
         {canvasMode === 'preview' && (
           <div className="p-6">
@@ -224,7 +215,6 @@ export default function CanvasPanel({
         )}
       </div>
       
-      {/* Summary Footer */}
       <div className="border-t border-gray-200 px-6 py-3 bg-gray-50">
         <div className="flex justify-between items-center text-sm text-gray-600">
           <div className="flex items-center">
