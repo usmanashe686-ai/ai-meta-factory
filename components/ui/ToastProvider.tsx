@@ -12,7 +12,24 @@ export function ToastProvider() {
           background: '#1f2937',
           color: '#f9fafb',
           border: '1px solid #374151',
-          fontSize: '14px',
+        },
+        success: {
+          iconTheme: {
+            primary: '#10b981',
+            secondary: '#f9fafb',
+          },
+        },
+        error: {
+          iconTheme: {
+            primary: '#ef4444',
+            secondary: '#f9fafb',
+          },
+        },
+        loading: {
+          iconTheme: {
+            primary: '#3b82f6',
+            secondary: '#f9fafb',
+          },
         },
       }}
     />

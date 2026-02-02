@@ -4,15 +4,15 @@
 
 :root {
   --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 249, 250, 251;
+  --background-start-rgb: 214, 219, 220;
   --background-end-rgb: 255, 255, 255;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 17, 24, 39;
-    --background-end-rgb: 31, 41, 55;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
   }
 }
 
@@ -24,140 +24,29 @@ body {
       rgb(var(--background-end-rgb))
     )
     rgb(var(--background-start-rgb));
-  min-height: 100vh;
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
   background: #f1f1f1;
-  border-radius: 5px;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
   background: #888;
-  border-radius: 5px;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
-/* Custom Prism.js Theme for AI Meta Factory */
-.prism-dark {
-  background: #0a0a0a !important;
-  color: #e4e4e7 !important;
-}
 
-/* Syntax highlighting colors */
-.token.comment,
-.token.prolog,
-.token.doctype,
-.token.cdata {
-  color: #6b7280;
-  font-style: italic;
-}
-
-.token.punctuation {
-  color: #d4d4d8;
-}
-
-.token.property,
-.token.tag,
-.token.boolean,
-.token.number,
-.token.constant,
-.token.symbol,
-.token.deleted {
-  color: #f472b6;
-}
-
-.token.selector,
-.token.attr-name,
-.token.string,
-.token.char,
-.token.builtin,
-.token.inserted {
-  color: #34d399;
-}
-
-.token.operator,
-.token.entity,
-.token.url,
-.language-css .token.string,
-.style .token.string {
-  color: #93c5fd;
-}
-
-.token.atrule,
-.token.attr-value,
-.token.keyword {
-  color: #60a5fa;
-}
-
-.token.function,
-.token.class-name {
-  color: #fbbf24;
-}
-
-.token.regex,
-.token.important,
-.token.variable {
-  color: #f59e0b;
-}
-
-/* Editor-specific styles */
-.code-editor-line-number {
-  color: #6b7280 !important;
-  background: transparent !important;
-  border-right: 1px solid #1f2937 !important;
-}
-
-/* Monaco Editor custom scrollbar */
-.monaco-scrollable-element > .scrollbar > .slider {
-  background: rgba(75, 85, 99, 0.5) !important;
-}
-
-.monaco-scrollable-element > .scrollbar > .slider:hover {
-  background: rgba(75, 85, 99, 0.8) !important;
-}
-
-/* File tree highlight */
-.file-tree-highlight {
-  animation: highlight-fade 2s ease-out;
-}
-
-@keyframes highlight-fade {
-  0% {
-    background-color: rgba(59, 130, 246, 0.5);
-  }
-  100% {
-    background-color: transparent;
-  }
-}
-
-/* Smooth transitions for editor */
-.editor-transition {
-  transition: all 0.2s ease-in-out;
-}
-
-/* Custom scrollbar for code areas */
-pre::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-pre::-webkit-scrollbar-track {
-  background: #1f2937;
-}
-
-pre::-webkit-scrollbar-thumb {
-  background: #4b5563;
-  border-radius: 4px;
-}
-
-pre::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
+/* Monaco editor overrides */
+.monaco-editor .margin {
+  background-color: #0a0a0a !important;
 }
