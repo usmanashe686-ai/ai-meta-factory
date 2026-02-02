@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import CanvasPreview from './CanvasPreview';
 import CanvasDiffView from './CanvasDiffView';
 import { CodeEditor } from './CodeEditor';
+import { AdvancedMonacoEditor } from './MonacoEditor'; // We'll create this next
 
 interface CanvasPanelProps {
   baseFiles: Record<string, string>;
@@ -14,6 +15,7 @@ interface CanvasPanelProps {
 }
 
 type CanvasMode = 'preview' | 'diff' | 'editor';
+type EditorType = 'simple' | 'advanced';
 
 export default function CanvasPanel({
   baseFiles,
@@ -23,6 +25,7 @@ export default function CanvasPanel({
   onExportZip
 }: CanvasPanelProps) {
   const [canvasMode, setCanvasMode] = useState<CanvasMode>('preview');
+  const [editorType, setEditorType] = useState<EditorType>('simple');
   const [activeEditorFile, setActiveEditorFile] = useState<string | null>(null);
   
   // When files change in editor, update parent
@@ -42,10 +45,6 @@ export default function CanvasPanel({
   const totalFiles = Object.keys(generatedFiles).length;
   const totalLines = Object.values(generatedFiles)
     .reduce((sum, content) => sum + content.split('\n').length, 0);
-  
-  // Calculate diff summary when in diff mode
-  const hasChanges = Object.keys(baseFiles).length > 0 && 
-                    JSON.stringify(baseFiles) !== JSON.stringify(generatedFiles);
   
   return (
     <div className="flex flex-col h-full bg-white rounded-2xl border shadow-sm overflow-hidden">
@@ -92,43 +91,52 @@ export default function CanvasPanel({
               Editor
             </button>
           </div>
+          
+          {/* Editor Type Toggle - Only show when in editor mode */}
+          {canvasMode === 'editor' && (
+            <div className="flex items-center gap-2 ml-4">
+              <button
+                onClick={() => setEditorType('simple')}
+                className={`px-3 py-1 text-xs rounded transition-colors ${
+                  editorType === 'simple' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Simple
+              </button>
+              <button
+                onClick={() => setEditorType('advanced')}
+                className={`px-3 py-1 text-xs rounded transition-colors ${
+                  editorType === 'advanced' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Advanced (Monaco)
+              </button>
+            </div>
+          )}
         </div>
         
         {/* Action Buttons */}
         <div className="flex items-center gap-3">
-          {canvasMode !== 'editor' && (
-            <button
-              onClick={onGenerateComponents}
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-lg hover:opacity-90 flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Generate Components
-            </button>
-          )}
+          <button
+            onClick={onGenerateComponents}
+            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+          >
+            Generate Components
+          </button>
           
           {canvasMode === 'editor' && onExportZip && (
             <button
               onClick={onExportZip}
-              className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center gap-2"
+              className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center gap-2 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
               Export ZIP
-            </button>
-          )}
-          
-          {canvasMode === 'diff' && hasChanges && (
-            <button
-              onClick={() => setCanvasMode('editor')}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              Edit All Files
             </button>
           )}
         </div>
@@ -143,23 +151,30 @@ export default function CanvasPanel({
         )}
         
         {canvasMode === 'diff' && (
-          <div className="h-full">
-            <CanvasDiffView
-              before={baseFiles}
-              after={generatedFiles}
-              onOpenEditor={handleOpenEditor}
-            />
-          </div>
+          <CanvasDiffView
+            before={baseFiles}
+            after={generatedFiles}
+            onOpenEditor={handleOpenEditor}
+          />
         )}
         
         {canvasMode === 'editor' && (
           <div className="h-full">
-            <CodeEditor
-              files={generatedFiles}
-              onFileChange={handleFileChange}
-              activeFile={activeEditorFile}
-              onActiveFileChange={setActiveEditorFile}
-            />
+            {editorType === 'simple' ? (
+              <CodeEditor
+                files={generatedFiles}
+                onFileChange={handleFileChange}
+                activeFile={activeEditorFile}
+                onActiveFileChange={setActiveEditorFile}
+              />
+            ) : (
+              <AdvancedMonacoEditor
+                files={generatedFiles}
+                activeFile={activeEditorFile}
+                onFileChange={handleFileChange}
+                onActiveFileChange={setActiveEditorFile}
+              />
+            )}
           </div>
         )}
       </div>
@@ -167,41 +182,31 @@ export default function CanvasPanel({
       {/* Summary Footer */}
       <div className="border-t border-gray-200 px-6 py-3 bg-gray-50">
         <div className="flex justify-between items-center text-sm text-gray-600">
-          <div>
+          <div className="flex items-center">
             <span className="font-medium">{totalFiles} files</span>
             <span className="mx-2">•</span>
             <span>{totalLines} lines of code</span>
-            {canvasMode === 'diff' && hasChanges && (
+            {canvasMode === 'editor' && (
               <>
                 <span className="mx-2">•</span>
-                <span className="text-green-600 font-medium">Changes detected</span>
+                <span className="flex items-center gap-1">
+                  <div className={`w-2 h-2 rounded-full ${editorType === 'simple' ? 'bg-blue-500' : 'bg-purple-500'}`}></div>
+                  {editorType === 'simple' ? 'Simple Editor' : 'Monaco Editor'}
+                </span>
               </>
             )}
           </div>
           <div className="flex items-center gap-4">
-            {canvasMode === 'preview' && (
-              <button
-                onClick={() => setCanvasMode('diff')}
-                className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                View Changes
-              </button>
-            )}
-            {canvasMode === 'diff' && (
-              <button
-                onClick={() => setCanvasMode('preview')}
-                className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                Back to Preview
-              </button>
-            )}
+            <span className="flex items-center">
+              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+              Ready to export
+            </span>
+            <button 
+              onClick={() => setCanvasMode('diff')}
+              className="text-blue-600 hover:text-blue-800 font-medium"
+            >
+              View Changes
+            </button>
           </div>
         </div>
       </div>
