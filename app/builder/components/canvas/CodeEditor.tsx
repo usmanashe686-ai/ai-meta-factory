@@ -1,19 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronRight, ChevronDown, File, FileCode, FileText, FileJson, FileType, FileImage, Database, Settings, Package, Layout, Folder, FolderOpen } from 'lucide-react';
+import { ChevronRight, ChevronDown, File, FileCode, FileText, FileJson, FileImage, Database, Settings, Package, Layout, Folder, FolderOpen } from 'lucide-react';
 import SimpleCodeEditor from 'react-simple-code-editor';
-import { highlight, languages } from 'prismjs';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/components/prism-typescript';
-import 'prismjs/components/prism-jsx';
-import 'prismjs/components/prism-tsx';
-import 'prismjs/components/prism-json';
-import 'prismjs/components/prism-css';
-import 'prismjs/components/prism-python';
-import 'prismjs/components/prism-java';
-import 'prismjs/components/prism-yaml';
-import 'prismjs/themes/prism-tomorrow.css';
+
+// Dynamic imports for Prism to reduce bundle
+const importPrism = async () => {
+  if (typeof window === 'undefined') return null;
+  const Prism = await import('prismjs');
+  return Prism.default || Prism;
+};
 
 interface CodeEditorProps {
   files: Record<string, string>;
@@ -38,6 +34,14 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const [selectedFile, setSelectedFile] = useState<string | null>(activeFile || null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [editorContent, setEditorContent] = useState<string>('');
+  const [prismLoaded, setPrismLoaded] = useState(false);
+
+  // Load prism on client side
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      importPrism().then(() => setPrismLoaded(true));
+    }
+  }, []);
 
   // Get file extension
   const getFileExtension = (filename: string): string => {
@@ -45,7 +49,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   };
 
   // Get language for syntax highlighting
-  const getLanguage = (filename: string): keyof typeof languages => {
+  const getLanguage = (filename: string): string => {
     const ext = getFileExtension(filename);
     switch (ext) {
       case 'ts': case 'tsx': return 'typescript';
@@ -61,7 +65,33 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   };
 
-  // Get icon for file/folder
+  // Highlight code
+  const highlightCode = useCallback(async (code: string, language: string) => {
+    if (!prismLoaded || typeof window === 'undefined') {
+      return code;
+    }
+
+    try {
+      const Prism = await importPrism();
+      if (!Prism) return code;
+      
+      // Load language if needed
+      if (language !== 'plain') {
+        try {
+          await import(`prismjs/components/prism-${language}`);
+        } catch {
+          // Language not available, use plain
+        }
+      }
+      
+      return Prism.highlight(code, Prism.languages[language] || Prism.languages.plain, language);
+    } catch (error) {
+      console.warn('Failed to highlight code:', error);
+      return code;
+    }
+  }, [prismLoaded]);
+
+  // Get file icon
   const getFileIcon = (filename: string, isDirectory: boolean): React.ReactNode => {
     if (isDirectory) {
       return expandedFolders.has(filename) ? 
@@ -95,14 +125,12 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         return <FileImage className={`${iconClass} text-green-400`} />;
       case 'db': case 'sql':
         return <Database className={`${iconClass} text-teal-500`} />;
-      case 'json':
-        return <FileJson className={`${iconClass} text-yellow-600`} />;
       default:
         return <File className={`${iconClass} text-gray-500`} />;
     }
   };
 
-  // Build file tree structure
+  // Build file tree
   const buildFileTree = useCallback((): FileTreeNode[] => {
     const root: FileTreeNode[] = [];
     const nodes = new Map<string, FileTreeNode>();
@@ -125,7 +153,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           };
           nodes.set(currentPath, node);
           
-          // Find parent
           const parentPath = parts.slice(0, i).join('/');
           if (i === 0) {
             root.push(node);
@@ -168,7 +195,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   };
 
   // Handle content change
-  const handleContentChange = (content: string) => {
+  const handleContentChange = async (content: string) => {
     setEditorContent(content);
     if (selectedFile) {
       onFileChange(selectedFile, content);
@@ -196,7 +223,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }, [files, selectedFile, onActiveFileChange]);
 
-  // Render file tree recursively
+  // Render file tree
   const renderFileTree = (nodes: FileTreeNode[], depth = 0) => {
     return nodes.map(node => {
       const isSelected = !node.isDirectory && selectedFile === node.path;
@@ -293,13 +320,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             <SimpleCodeEditor
               value={editorContent}
               onValueChange={handleContentChange}
-              highlight={code => {
-                try {
-                  return highlight(code, languages[currentLanguage], currentLanguage);
-                } catch {
-                  return code;
-                }
-              }}
+              highlight={code => highlightCode(code, currentLanguage)}
               padding={16}
               className="font-mono text-sm min-h-full"
               style={{
@@ -328,21 +349,21 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           <div className="flex items-center space-x-4">
             <div className="flex items-center">
               <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-              <span>AI Generated</span>
+              <span>AI Generated • Ready to Edit</span>
             </div>
             {selectedFile && (
               <>
                 <span>•</span>
                 <span>{getFileExtension(selectedFile).toUpperCase()}</span>
                 <span>•</span>
-                <span>UTF-8</span>
+                <span>{currentLanguage}</span>
               </>
             )}
           </div>
           <div className="flex items-center space-x-4">
-            <span>Line: {editorContent.substring(0, 100).split('\n').length}</span>
+            <span>UTF-8</span>
             <span>•</span>
-            <span>Col: 1</span>
+            <span>LF</span>
           </div>
         </div>
       </div>

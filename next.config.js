@@ -1,10 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  images: {
-    domains: [],
+  // Disable Turbopack explicitly (Monaco works better with webpack)
+  experimental: {
+    turbo: false,
   },
-  // Let Next.js handle everything - it works with Monaco
 };
 
 module.exports = nextConfig;
