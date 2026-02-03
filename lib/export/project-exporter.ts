@@ -1,11 +1,11 @@
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import { APKExporter, APKConfig } from './apk/apk-exporter';
 
 export interface ProjectFile {
   name: string;
   content: string;
   path: string;
+  type: 'file' | 'directory';
 }
 
 export interface ExportConfig {
@@ -13,59 +13,50 @@ export interface ExportConfig {
   stack: string;
   database: string;
   gitProvider: string;
-  files: ProjectFile[];
-  includeAPK?: boolean;
-  apkConfig?: APKConfig;
+  files: Record<string, string>;
 }
 
 export class ProjectExporter {
-  static async exportAsZip(config: ExportConfig): Promise<void> {
-    const zip = new JSZip();
-    
-    // Create project structure
-    const projectFolder = zip.folder(config.projectName);
-    
-    if (!projectFolder) {
-      throw new Error('Failed to create project folder in ZIP');
-    }
-    
-    // Add all files
-    config.files.forEach(file => {
-      projectFolder.file(file.path, file.content);
-    });
-    
-    // Add README.md
-    projectFolder.file('README.md', this.generateReadme(config));
-    
-    // Add .gitignore
-    projectFolder.file('.gitignore', this.generateGitignore(config));
-    
-    // Add .env.example
-    projectFolder.file('.env.example', this.generateEnvExample(config));
-    
-    // Add APK if requested and supported
-    if (config.includeAPK && config.apkConfig) {
-      const apkRequirements = APKExporter.validateAPKRequirements(config.apkConfig.platform);
+  static async exportAsZip(config: ExportConfig): Promise<boolean> {
+    try {
+      const zip = new JSZip();
       
-      if (apkRequirements.met) {
-        try {
-          const apkBuffer = await APKExporter.generateAPK(config.apkConfig, config);
-          projectFolder.file(`${config.projectName}.apk`, apkBuffer);
-          projectFolder.file('APK_INSTRUCTIONS.txt', APKExporter.getAPKInstructions(config.apkConfig.platform));
-        } catch (error) {
-          console.warn('APK generation failed:', error);
-          projectFolder.file('APK_GENERATION_FAILED.txt', 
-            `APK generation failed: ${error}\n\n` +
-            `Requirements: ${apkRequirements.requirements.join(', ')}\n\n` +
-            `See APK_INSTRUCTIONS.txt for manual build steps.`
-          );
-        }
+      // Create project folder structure
+      const projectFolder = zip.folder(config.projectName);
+      
+      if (!projectFolder) {
+        throw new Error('Failed to create project folder in ZIP');
       }
+      
+      // Add all files to ZIP
+      Object.entries(config.files).forEach(([filePath, content]) => {
+        projectFolder.file(filePath, content);
+      });
+      
+      // Add essential configuration files
+      projectFolder.file('README.md', this.generateReadme(config));
+      projectFolder.file('.gitignore', this.generateGitignore(config));
+      projectFolder.file('.env.example', this.generateEnvExample(config));
+      projectFolder.file('package.json', this.generatePackageJson(config));
+      projectFolder.file('tsconfig.json', this.generateTsConfig(config));
+      
+      // Generate ZIP file
+      const content = await zip.generateAsync({ 
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: {
+          level: 9
+        }
+      });
+      
+      // Download the ZIP
+      saveAs(content, `${config.projectName}-${Date.now()}.zip`);
+      
+      return true;
+    } catch (error) {
+      console.error('Export failed:', error);
+      return false;
     }
-    
-    // Generate and download ZIP
-    const content = await zip.generateAsync({ type: 'blob' });
-    saveAs(content, `${config.projectName}.zip`);
   }
   
   static generateReadme(config: ExportConfig): string {
@@ -73,13 +64,13 @@ export class ProjectExporter {
 
 ## 🚀 AI-Generated Project
 
-This project was generated using AI Meta Factory with the following configuration:
+This project was generated using **AI Meta Factory** with the following configuration:
 
-- **Stack**: ${config.stack}
+- **Tech Stack**: ${config.stack}
 - **Database**: ${config.database}
 - **Git Provider**: ${config.gitProvider}
 - **Generated At**: ${new Date().toISOString()}
-${config.includeAPK ? '- **APK Included**: Yes' : ''}
+- **Files Generated**: ${Object.keys(config.files).length}
 
 ## 📦 Installation
 
@@ -89,7 +80,6 @@ npm install
 
 # Set up environment variables
 cp .env.example .env.local
-# Edit .env.local with your values
 
 # Run development server
 npm run dev
@@ -99,13 +89,6 @@ npm run dev
 
 ${this.getDatabaseSetupInstructions(config.database)}
 
-## 📱 APK Generation
-
-${config.includeAPK ? 
-  `This project includes an APK file (${config.projectName}.apk) for mobile deployment.\n` +
-  `For rebuilding or signing, see APK_INSTRUCTIONS.txt.` :
-  'For APK generation, select the "Include APK" option when exporting.'}
-
 ## 🌐 Deployment
 
 ${this.getDeploymentInstructions(config.stack)}
@@ -113,15 +96,22 @@ ${this.getDeploymentInstructions(config.stack)}
 ## 🤖 Generated by AI Meta Factory
 
 This project was automatically generated. Review and customize the code as needed.
+
+## 📁 Project Structure
+
+\`\`\`
+${Object.keys(config.files).join('\n')}
+\`\`\`
 `;
   }
   
   static generateGitignore(config: ExportConfig): string {
-    const baseIgnore = `# Dependencies
+    const base = `# Dependencies
 node_modules/
 .next/
 dist/
 build/
+out/
 
 # Environment variables
 .env.local
@@ -139,37 +129,36 @@ Thumbs.db
 
 # Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 `;
-    
+
     if (config.stack.includes('next')) {
-      return baseIgnore + '\n# Next.js\n.next/\n';
+      return base + '\n# Next.js\n.next/\n';
     }
     
-    if (config.stack.includes('flutter')) {
-      return baseIgnore + '\n# Flutter\n.dart_tool/\n.packages\n.pub-cache/\nbuild/\n';
+    if (config.stack.includes('react')) {
+      return base + '\n# React\nbuild/\n';
     }
     
-    if (config.stack.includes('react-native')) {
-      return baseIgnore + '\n# React Native\nandroid/.gradle/\nandroid/build/\nandroid/app/build/\n';
-    }
-    
-    return baseIgnore;
+    return base;
   }
   
   static generateEnvExample(config: ExportConfig): string {
     const envVars: Record<string, string[]> = {
       supabase: [
-        'SUPABASE_URL=',
-        'SUPABASE_ANON_KEY=',
+        'NEXT_PUBLIC_SUPABASE_URL=',
+        'NEXT_PUBLIC_SUPABASE_ANON_KEY=',
         'SUPABASE_SERVICE_ROLE_KEY='
       ],
       firebase: [
-        'FIREBASE_API_KEY=',
-        'FIREBASE_AUTH_DOMAIN=',
-        'FIREBASE_PROJECT_ID=',
-        'FIREBASE_STORAGE_BUCKET=',
-        'FIREBASE_MESSAGING_SENDER_ID=',
-        'FIREBASE_APP_ID='
+        'NEXT_PUBLIC_FIREBASE_API_KEY=',
+        'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=',
+        'NEXT_PUBLIC_FIREBASE_PROJECT_ID=',
+        'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=',
+        'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=',
+        'NEXT_PUBLIC_FIREBASE_APP_ID='
       ],
       mongodb: [
         'MONGODB_URI=',
@@ -186,12 +175,61 @@ Thumbs.db
       'NEXT_PUBLIC_API_URL=http://localhost:3000/api'
     ] : [];
     
-    const mobileVars = ['flutter', 'react-native', 'expo'].includes(config.stack) ? [
-      'ANDROID_HOME=/path/to/android/sdk',
-      'JAVA_HOME=/path/to/java'
-    ] : [];
+    return [...stackVars, ...dbVars, ''].join('\n');
+  }
+  
+  static generatePackageJson(config: ExportConfig): string {
+    const basePackage = {
+      name: config.projectName.toLowerCase().replace(/\s+/g, '-'),
+      version: '1.0.0',
+      private: true,
+      scripts: {
+        dev: 'next dev',
+        build: 'next build',
+        start: 'next start',
+        lint: 'next lint'
+      },
+      dependencies: {
+        next: '^14.0.0',
+        react: '^18.2.0',
+        'react-dom': '^18.2.0'
+      },
+      devDependencies: {
+        '@types/node': '^20.0.0',
+        '@types/react': '^18.2.0',
+        '@types/react-dom': '^18.2.0',
+        typescript: '^5.0.0',
+        tailwindcss: '^3.3.0',
+        autoprefixer: '^10.0.0',
+        postcss: '^8.0.0'
+      }
+    };
     
-    return [...stackVars, ...dbVars, ...mobileVars, ''].join('\n');
+    return JSON.stringify(basePackage, null, 2);
+  }
+  
+  static generateTsConfig(config: ExportConfig): string {
+    return JSON.stringify({
+      compilerOptions: {
+        target: 'es5',
+        lib: ['dom', 'dom.iterable', 'esnext'],
+        allowJs: true,
+        skipLibCheck: true,
+        strict: true,
+        noEmit: true,
+        esModuleInterop: true,
+        module: 'esnext',
+        moduleResolution: 'bundler',
+        resolveJsonModule: true,
+        isolatedModules: true,
+        jsx: 'preserve',
+        incremental: true,
+        plugins: [{ name: 'next' }],
+        paths: { '@/*': ['./*'] }
+      },
+      include: ['next-env.d.ts', '**/*.ts', '**/*.tsx', '.next/types/**/*.ts'],
+      exclude: ['node_modules']
+    }, null, 2);
   }
   
   static getDatabaseSetupInstructions(database: string): string {
@@ -240,27 +278,13 @@ Thumbs.db
 2. Import project in Netlify
 3. Set build command: \`npm run build\`
 4. Deploy!`,
-      flutter: `### Firebase Hosting (Web)
+      flutter: `### Firebase Hosting
 1. Install Flutter and build web version
 2. Deploy to Firebase Hosting:
    \`\`\`bash
    flutter build web
    firebase deploy --only hosting
-   \`\`\`
-
-### APK Distribution
-1. Generate APK: \`flutter build apk --release\`
-2. Upload to Google Play Store
-3. Or distribute via direct download`,
-      'react-native': `### App Distribution
-1. Generate APK: \`cd android && ./gradlew assembleRelease\`
-2. Upload to Google Play Store
-3. Or use services like Microsoft App Center
-
-### Expo
-1. Build with EAS: \`eas build --platform android\`
-2. Download from Expo dashboard
-3. Distribute via Expo Go or standalone app`,
+   \`\`\``,
       node: `### Railway / Render
 1. Push your code to GitHub
 2. Create new service on Railway/Render
@@ -274,71 +298,5 @@ Thumbs.db
     };
     
     return instructions[stack] || 'Deployment instructions not available for this stack.';
-  }
-  
-  static createExportConfig(projectData: any, config: {
-    stack: string;
-    database: string;
-    gitProvider: string;
-    includeAPK?: boolean;
-  }): ExportConfig {
-    const files: ProjectFile[] = [];
-    
-    // Add generated files from AI
-    if (projectData.files && typeof projectData.files === 'object') {
-      Object.entries(projectData.files).forEach(([path, content]) => {
-        files.push({
-          name: path.split('/').pop() || 'file',
-          content: String(content),
-          path
-        });
-      });
-    }
-    
-    // Add essential files if not present
-    const essentialFiles = [
-      { path: 'package.json', content: JSON.stringify({
-        name: projectData.name || 'ai-project',
-        version: '1.0.0',
-        scripts: {
-          dev: 'next dev',
-          build: 'next build',
-          start: 'next start'
-        },
-        dependencies: {},
-        devDependencies: {}
-      }, null, 2) },
-      { path: 'src/index.ts', content: '// Main entry point\nconsole.log("Hello from AI Meta Factory!");' }
-    ];
-    
-    essentialFiles.forEach(file => {
-      if (!files.some(f => f.path === file.path)) {
-        files.push({
-          name: file.path.split('/').pop() || 'file',
-          content: file.content,
-          path: file.path
-        });
-      }
-    });
-    
-    // Create APK config for mobile projects
-    const apkConfig: APKConfig | undefined = config.includeAPK && 
-      ['flutter', 'react-native', 'expo'].includes(config.stack) ? {
-        projectId: projectData.id || Date.now().toString(),
-        projectName: projectData.name || 'ai-meta-factory-project',
-        platform: config.stack as 'flutter' | 'react-native' | 'expo',
-        buildType: 'debug',
-        keystore: undefined // In production, this would come from user settings
-      } : undefined;
-
-    return {
-      projectName: projectData.name || 'ai-meta-factory-project',
-      stack: config.stack,
-      database: config.database,
-      gitProvider: config.gitProvider,
-      files,
-      includeAPK: config.includeAPK,
-      apkConfig
-    };
   }
 }
