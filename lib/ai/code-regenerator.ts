@@ -4,59 +4,27 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || "",
 });
 
-export interface RegenerationOptions {
-  fileName: string;
-  code: string;
-  language?: string;
-  instructions?: string;
-}
+export class AICodeRegenerator {
+  static async regenerate(
+    fileName: string,
+    code: string,
+    language: string = "typescript"
+  ) {
+    try {
+      if (!process.env.OPENAI_API_KEY) {
+        return {
+          success: false,
+          code,
+          error: "Missing OPENAI_API_KEY",
+        };
+      }
 
-export interface RegenerationResult {
-  success: boolean;
-  code: string;
-  error?: string;
-  metadata?: {
-    tokensUsed?: number;
-    model?: string;
-  };
-}
+      const prompt = `
+You are a senior ${language} developer.
 
-/**
- * AI Code Regenerator
- * Safely improves or refactors existing code
- */
-export async function regenerateCode(
-  options: RegenerationOptions
-): Promise<RegenerationResult> {
-  try {
-    if (!process.env.OPENAI_API_KEY) {
-      return {
-        success: false,
-        code: options.code,
-        error: "OPENAI_API_KEY not configured",
-      };
-    }
+Improve this file while preserving functionality.
 
-    const {
-      fileName,
-      code,
-      language = "typescript",
-      instructions = "Improve and refactor this code while preserving functionality",
-    } = options;
-
-    const prompt = `
-You are a senior ${language} engineer.
-
-TASK:
-${instructions}
-
-RULES:
-- Preserve functionality
-- Improve readability
-- Add error handling
-- Optimize performance
-- Use best practices
-- Return ONLY code
+Return ONLY code.
 
 FILE: ${fileName}
 
@@ -64,41 +32,32 @@ CODE:
 ${code}
 `;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.2,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are an expert developer. Always return only valid code.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      max_tokens: 2500,
-    });
-
-    const newCode =
-      completion.choices[0]?.message?.content?.trim() || code;
-
-    return {
-      success: true,
-      code: newCode,
-      metadata: {
-        tokensUsed: completion.usage?.total_tokens,
+      const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
-      },
-    };
-  } catch (error: any) {
-    console.error("Code regeneration failed:", error);
+        temperature: 0.2,
+        messages: [
+          { role: "system", content: "Return only valid code." },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 2500,
+      });
 
-    return {
-      success: false,
-      code: options.code,
-      error: error.message || "Unknown regeneration error",
-    };
+      const newCode =
+        completion.choices[0]?.message?.content?.trim() || code;
+
+      return {
+        success: true,
+        code: newCode,
+        metadata: {
+          tokensUsed: completion.usage?.total_tokens,
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        code,
+        error: error.message,
+      };
+    }
   }
 }
