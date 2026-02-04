@@ -1,250 +1,431 @@
 "use client";
 
-import { useState } from 'react';
-import CanvasPreview from './CanvasPreview';
-import { CanvasDiffView } from './CanvasDiffView';
-import { CodeEditor } from './CodeEditor';
-import MonacoEditorWrapper from './MonacoEditor';
+import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+import { toast } from 'react-hot-toast';
+
+// Dynamically import Monaco editor
+const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
 interface CanvasPanelProps {
   baseFiles: Record<string, string>;
   generatedFiles: Record<string, string>;
-  onGenerateComponents: () => void;
-  onFilesChange?: (fileName: string, content: string) => void; // ADDED
-  onExportZip?: () => void; // ADDED
+  onFilesChange: (files: Record<string, string>) => void;
+  onGenerate: (prompt: string) => Promise<void>;
+  onExport: (files: Record<string, string>) => void;
 }
-
-type CanvasMode = 'preview' | 'diff' | 'editor';
-type EditorType = 'simple' | 'advanced';
 
 export default function CanvasPanel({
   baseFiles,
   generatedFiles,
-  onGenerateComponents,
   onFilesChange,
-  onExportZip
+  onGenerate,
+  onExport
 }: CanvasPanelProps) {
-  const [canvasMode, setCanvasMode] = useState<CanvasMode>('preview');
-  const [editorType, setEditorType] = useState<EditorType>('simple');
-  const [activeEditorFile, setActiveEditorFile] = useState<string | null>(null);
-  
-  const handleFileChange = (fileName: string, content: string) => {
-    if (onFilesChange) {
-      onFilesChange(fileName, content);
+  const [activeTab, setActiveTab] = useState<'preview' | 'editor' | 'diff'>('preview');
+  const [activeFile, setActiveFile] = useState<string | null>(null);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [prompt, setPrompt] = useState('');
+  const [aiStats, setAiStats] = useState({ tokensUsed: 0, lastEnhanced: '' });
+
+  useEffect(() => {
+    const files = Object.keys(generatedFiles);
+    if (files.length > 0 && !activeFile) {
+      setActiveFile(files[0]);
+    }
+  }, [generatedFiles, activeFile]);
+
+  const handleAIEnhance = async () => {
+    if (!activeFile || !generatedFiles[activeFile]) return;
+    
+    setIsEnhancing(true);
+    const toastId = toast.loading('AI is enhancing your code...');
+    
+    try {
+      const response = await fetch('/api/ai/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: activeFile,
+          currentCode: generatedFiles[activeFile],
+          language: getLanguage(activeFile)
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        const updatedFiles = {
+          ...generatedFiles,
+          [activeFile]: data.enhancedCode
+        };
+        
+        onFilesChange(updatedFiles);
+        
+        setAiStats({
+          tokensUsed: aiStats.tokensUsed + (data.metadata?.tokensUsed || 0),
+          lastEnhanced: activeFile
+        });
+        
+        toast.success(`Enhanced ${activeFile} with AI`, { id: toastId });
+      } else {
+        throw new Error(data.error || 'Enhancement failed');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'AI enhancement failed', { id: toastId });
+      console.error('AI Enhancement Error:', error);
+    } finally {
+      setIsEnhancing(false);
     }
   };
-  
-  const handleOpenEditor = (fileName: string) => {
-    setActiveEditorFile(fileName);
-    setCanvasMode('editor');
+
+  const handleGenerateComponents = async () => {
+    if (!prompt.trim()) {
+      toast.error('Please describe what you want to generate');
+      return;
+    }
+    
+    setIsGenerating(true);
+    const toastId = toast.loading('Generating components with AI...');
+    
+    try {
+      await onGenerate(prompt);
+      toast.success('Components generated successfully!', { id: toastId });
+      setPrompt('');
+    } catch (error: any) {
+      toast.error(error.message || 'Generation failed', { id: toastId });
+    } finally {
+      setIsGenerating(false);
+    }
   };
-  
-  const totalFiles = Object.keys(generatedFiles).length;
-  const totalLines = Object.values(generatedFiles)
-    .reduce((sum, content) => sum + content.split('\n').length, 0);
-  
+
+  const handleFileChange = (fileName: string, content: string) => {
+    const updatedFiles = {
+      ...generatedFiles,
+      [fileName]: content
+    };
+    onFilesChange(updatedFiles);
+  };
+
+  const handleExportClick = () => {
+    onExport(generatedFiles);
+    toast.success('Project exported as ZIP file');
+  };
+
   const getLanguage = (filename: string): string => {
     const ext = filename.split('.').pop()?.toLowerCase() || '';
     switch (ext) {
-      case 'ts': case 'tsx': return 'typescript';
+      case 'ts': return 'typescript';
+      case 'tsx': return 'typescript';
       case 'js': case 'jsx': return 'javascript';
       case 'json': return 'json';
       case 'css': case 'scss': return 'css';
-      case 'html': case 'htm': return 'html';
+      case 'html': return 'html';
       case 'md': return 'markdown';
       case 'py': return 'python';
       default: return 'plaintext';
     }
   };
-  
+
+  const totalLines = Object.values(generatedFiles)
+    .reduce((sum, content) => sum + content.split('\n').length, 0);
+  const totalFiles = Object.keys(generatedFiles).length;
+
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl border shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center gap-6">
+    <div className="flex flex-col h-full bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden">
+      {/* Header */}
+      <div className="bg-gray-800/50 border-b border-gray-700 px-6 py-4">
+        <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Component Canvas</h2>
-            <p className="text-sm text-gray-600">
-              {totalFiles} generated file{totalFiles !== 1 ? 's' : ''} • {totalLines} total lines
+            <h1 className="text-2xl font-bold text-white">
+              <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                AI Meta Factory
+              </span>
+            </h1>
+            <p className="text-gray-400 text-sm">
+              {totalFiles} files • {totalLines} lines of code
+              {aiStats.tokensUsed > 0 && (
+                <span className="ml-4">
+                  <span className="text-purple-400">⚡</span> {aiStats.tokensUsed} AI tokens used
+                </span>
+              )}
             </p>
           </div>
           
-          <div className="flex border-b border-gray-200 -mb-4">
-            <button
-              onClick={() => setCanvasMode('preview')}
-              className={`px-4 py-2 text-sm font-medium ${
-                canvasMode === 'preview'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Preview
-            </button>
-            <button
-              onClick={() => setCanvasMode('diff')}
-              className={`px-4 py-2 text-sm font-medium ${
-                canvasMode === 'diff'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Diff View
-            </button>
-            <button
-              onClick={() => setCanvasMode('editor')}
-              className={`px-4 py-2 text-sm font-medium ${
-                canvasMode === 'editor'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Editor
-            </button>
+          <div className="flex items-center gap-4">
+            <div className="flex border border-gray-600 rounded-lg overflow-hidden">
+              {(['preview', 'editor', 'diff'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    activeTab === tab
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
-          
-          {canvasMode === 'editor' && (
-            <div className="flex items-center gap-2 ml-4">
-              <button
-                onClick={() => setEditorType('simple')}
-                className={`px-3 py-1 text-xs rounded transition-colors ${
-                  editorType === 'simple' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                Simple
-              </button>
-              <button
-                onClick={() => setEditorType('advanced')}
-                className={`px-3 py-1 text-xs rounded transition-colors ${
-                  editorType === 'advanced' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                Monaco
-              </button>
+        </div>
+        
+        {/* AI Prompt Input */}
+        <div className="mt-4 flex gap-3">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Describe what you want to generate (e.g., 'A login form with validation')"
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              onKeyDown={(e) => e.key === 'Enter' && handleGenerateComponents()}
+            />
+            <div className="absolute right-3 top-3 text-gray-500 text-sm">
+              Press Enter to generate
+            </div>
+          </div>
+          <button
+            onClick={handleGenerateComponents}
+            disabled={isGenerating || !prompt.trim()}
+            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+          >
+            {isGenerating ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Generating...
+              </>
+            ) : (
+              <>
+                <span>✨</span>
+                Generate with AI
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Content Area */}
+      <div className="flex-1 overflow-hidden flex">
+        {/* File Tree Sidebar */}
+        <div className="w-64 bg-gray-800/50 border-r border-gray-700 overflow-y-auto">
+          <div className="p-4">
+            <h3 className="text-sm font-semibold text-gray-400 mb-3">PROJECT FILES</h3>
+            <div className="space-y-1">
+              {Object.keys(generatedFiles).map((fileName) => (
+                <button
+                  key={fileName}
+                  onClick={() => setActiveFile(fileName)}
+                  className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                    activeFile === fileName
+                      ? 'bg-blue-600/20 text-blue-400 border-l-2 border-blue-500'
+                      : 'text-gray-300 hover:bg-gray-700/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileIcon fileName={fileName} />
+                      <span>{fileName}</span>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {generatedFiles[fileName].split('\n').length} lines
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 overflow-hidden">
+          {activeTab === 'preview' && (
+            <div className="p-6 overflow-y-auto h-full">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {Object.entries(generatedFiles).map(([fileName, content]) => (
+                  <div key={fileName} className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+                    <div className="bg-gray-900 px-4 py-3 border-b border-gray-700 flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <FileIcon fileName={fileName} />
+                        <span className="text-white font-mono text-sm">{fileName}</span>
+                        <span className="px-2 py-1 bg-gray-700 text-gray-300 text-xs rounded">
+                          {getLanguage(fileName)}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setActiveFile(fileName);
+                          setActiveTab('editor');
+                        }}
+                        className="text-sm text-blue-400 hover:text-blue-300"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                    <pre className="p-4 text-gray-300 text-sm overflow-x-auto font-mono">
+                      {content}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'editor' && activeFile && (
+            <div className="h-full flex flex-col">
+              <div className="bg-gray-900 px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <FileIcon fileName={activeFile} />
+                    <span className="text-white font-mono">{activeFile}</span>
+                  </div>
+                  <span className="px-2 py-1 bg-gray-800 text-gray-400 text-xs rounded">
+                    {getLanguage(activeFile).toUpperCase()}
+                  </span>
+                  <button
+                    onClick={handleAIEnhance}
+                    disabled={isEnhancing}
+                    className="px-3 py-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-medium rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-2 transition-all"
+                  >
+                    {isEnhancing ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        AI Working...
+                      </>
+                    ) : (
+                      <>
+                        <span>✨</span>
+                        Enhance with AI
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="text-sm text-gray-400">
+                  {generatedFiles[activeFile]?.split('\n').length} lines
+                </div>
+              </div>
+              
+              <div className="flex-1">
+                <MonacoEditor
+                  height="100%"
+                  language={getLanguage(activeFile)}
+                  value={generatedFiles[activeFile] || ''}
+                  theme="vs-dark"
+                  onChange={(value) => handleFileChange(activeFile, value || '')}
+                  options={{
+                    minimap: { enabled: true },
+                    fontSize: 14,
+                    wordWrap: 'on',
+                    automaticLayout: true,
+                    formatOnPaste: true,
+                    formatOnType: true,
+                    tabSize: 2,
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'diff' && (
+            <div className="p-6 overflow-y-auto h-full">
+              <div className="space-y-6">
+                {Object.keys(generatedFiles).map((fileName) => (
+                  <div key={fileName} className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+                    <div className="bg-gray-900 px-4 py-3 border-b border-gray-700">
+                      <div className="flex items-center justify-between">
+                        <span className="text-white font-mono text-sm">{fileName}</span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setActiveFile(fileName);
+                              setActiveTab('editor');
+                            }}
+                            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                          >
+                            Edit File
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <div className="text-xs text-gray-400 mb-2">Original</div>
+                          <pre className="text-sm text-gray-500 bg-gray-900 p-3 rounded font-mono">
+                            {baseFiles[fileName] || '// No original version'}
+                          </pre>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-400 mb-2">Modified</div>
+                          <pre className="text-sm text-gray-300 bg-gray-900 p-3 rounded font-mono">
+                            {generatedFiles[fileName]}
+                          </pre>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
-        
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onGenerateComponents}
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
-          >
-            Generate Components
-          </button>
-          
-          {canvasMode === 'editor' && onExportZip && (
+      </div>
+
+      {/* Footer */}
+      <div className="bg-gray-800/50 border-t border-gray-700 px-6 py-3">
+        <div className="flex justify-between items-center text-sm">
+          <div className="flex items-center gap-4 text-gray-400">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${isEnhancing ? 'bg-purple-500 animate-pulse' : 'bg-green-500'}`}></div>
+              {isEnhancing ? 'AI Processing...' : 'Ready to export'}
+            </div>
+            <span>•</span>
+            <span>{totalFiles} files, {totalLines} lines</span>
+            <span>•</span>
             <button
-              onClick={onExportZip}
-              className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center gap-2 transition-colors"
+              onClick={handleExportClick}
+              className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:opacity-90 flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              Export ZIP
+              Export Project
             </button>
-          )}
-        </div>
-      </div>
-      
-      <div className="flex-1 overflow-hidden">
-        {canvasMode === 'preview' && (
-          <div className="p-6">
-            <CanvasPreview files={generatedFiles} />
           </div>
-        )}
-        
-        {canvasMode === 'diff' && (
-          <CanvasDiffView
-            before={baseFiles}
-            after={generatedFiles}
-            onOpenEditor={handleOpenEditor}
-          />
-        )}
-        
-        {canvasMode === 'editor' && (
-          <div className="h-full">
-            {editorType === 'simple' ? (
-              <CodeEditor
-                files={generatedFiles}
-                onFileChange={handleFileChange}
-                activeFile={activeEditorFile}
-                onActiveFileChange={setActiveEditorFile}
-              />
-            ) : (
-              <div className="h-full flex flex-col">
-                {activeEditorFile ? (
-                  <>
-                    <div className="border-b border-gray-800 bg-gray-900 px-4 py-3 flex items-center justify-between">
-                      <div className="flex items-center">
-                        <span className="ml-2 font-mono text-sm text-gray-300">{activeEditorFile}</span>
-                        <span className="ml-3 px-2 py-1 bg-gray-800 text-gray-400 text-xs rounded">
-                          {getLanguage(activeEditorFile).toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {generatedFiles[activeEditorFile]?.split('\n').length || 0} lines
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <MonacoEditorWrapper
-                        value={generatedFiles[activeEditorFile] || ''}
-                        language={getLanguage(activeEditorFile)}
-                        onChange={(value) => handleFileChange(activeEditorFile, value)}
-                        height="100%"
-                        theme="vs-dark"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-gray-500">
-                    <div className="text-center">
-                      <svg className="w-12 h-12 mx-auto mb-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2 2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      <p className="text-lg">Select a file to edit with Monaco</p>
-                      <p className="text-sm mt-2">VS Code editor engine with full IntelliSense</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      
-      <div className="border-t border-gray-200 px-6 py-3 bg-gray-50">
-        <div className="flex justify-between items-center text-sm text-gray-600">
-          <div className="flex items-center">
-            <span className="font-medium">{totalFiles} files</span>
-            <span className="mx-2">•</span>
-            <span>{totalLines} lines of code</span>
-            {canvasMode === 'editor' && (
-              <>
-                <span className="mx-2">•</span>
-                <span className="flex items-center gap-1">
-                  <div className={`w-2 h-2 rounded-full ${editorType === 'simple' ? 'bg-blue-500' : 'bg-purple-500'}`}></div>
-                  {editorType === 'simple' ? 'Simple Editor' : 'Monaco Editor'}
-                </span>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="flex items-center">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              Ready to export
-            </span>
-            <button 
-              onClick={() => setCanvasMode('diff')}
-              className="text-blue-600 hover:text-blue-800 font-medium"
+          <div className="flex items-center gap-3">
+            <a
+              href="https://vercel.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-900 flex items-center gap-2"
             >
-              View Changes
-            </button>
+              <span>▲</span>
+              Deploy on Vercel
+            </a>
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function FileIcon({ fileName }: { fileName: string }) {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  
+  const icons = {
+    tsx: '⚛️',
+    ts: '📘',
+    js: '📜',
+    jsx: '⚛️',
+    css: '🎨',
+    scss: '🎨',
+    json: '📋',
+    md: '📝',
+    html: '🌐',
+    py: '🐍',
+  };
+  
+  return <span>{icons[ext as keyof typeof icons] || '📄'}</span>;
 }

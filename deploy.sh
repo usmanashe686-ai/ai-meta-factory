@@ -1,67 +1,45 @@
 #!/bin/bash
 
-echo "🚀 AI Meta Factory Deployment Script"
-echo "===================================="
-echo ""
+# 🚀 AI Meta Factory Deployment Script
+set -e
 
-# Check if git is initialized
-if [ ! -d ".git" ]; then
-    echo "❌ Git not initialized. Initializing..."
-    git init
+echo "🚀 Starting AI Meta Factory deployment..."
+
+# Check if OPENAI_API_KEY is set
+if [ -z "$OPENAI_API_KEY" ]; then
+    echo "❌ ERROR: OPENAI_API_KEY environment variable is not set"
+    echo ""
+    echo "To set it up:"
+    echo "1. Get your OpenAI API key from: https://platform.openai.com/api-keys"
+    echo "2. Set it in Vercel:"
+    echo "   vercel env add OPENAI_API_KEY"
+    echo "3. Or set it locally (for testing):"
+    echo "   export OPENAI_API_KEY=sk-your-key-here"
+    echo ""
+    exit 1
 fi
 
-# Check for changes
-if [ -z "$(git status --porcelain)" ]; then
-    echo "✅ No changes to commit"
-else
-    echo "📦 Staging changes..."
-    git add .
-    
-    echo "💾 Committing changes..."
-    git commit -m "Deploy AI Meta Factory with APK export feature
-    
-    - Complete UI builder with 5 tabs
-    - 7 tech stacks + 7 databases + 7 deployment providers
-    - AI Component Generator with Gemini/OpenAI
-    - Full-Stack Factory with 4-step visualization
-    - GitHub integration ready
-    - Project export with ZIP download
-    - APK export for mobile platforms
-    - Registry system with compatibility validation
-    - Enhanced stack selector
-    - Production-ready architecture"
-fi
+# Install dependencies
+echo "📦 Installing dependencies..."
+npm ci
+
+# Type check
+echo "🔍 Type checking..."
+npx tsc --noEmit
+
+# Build
+echo "🏗️ Building..."
+npm run build
 
 echo ""
-echo "🌐 DEPLOYMENT OPTIONS:"
+echo "✅ Build successful!"
 echo ""
-echo "1. DEPLOY TO VERCEL (Recommended):"
-echo "   a. Push to GitHub first:"
-echo "      git remote add origin https://github.com/YOUR_USERNAME/ai-meta-factory.git"
-echo "      git branch -M main"
-echo "      git push -u origin main"
+echo "🎉 AI Meta Factory is ready!"
 echo ""
-echo "   b. Then deploy on Vercel:"
-echo "      - Go to https://vercel.com/new"
-echo "      - Import from GitHub"
-echo "      - Add environment variables:"
-echo "        • GEMINI_API_KEY"
-echo "        • OPENAI_API_KEY (optional)"
-echo "      - Deploy!"
-echo ""
-echo "2. DEPLOY LOCALLY FOR TESTING:"
+echo "To start the development server:"
 echo "   npm run dev"
-echo "   # Open http://localhost:3000"
 echo ""
-echo "3. BUILD FOR PRODUCTION:"
-echo "   npm run build"
-echo "   npm start"
+echo "To deploy to Vercel:"
+echo "   vercel --prod"
 echo ""
-echo "📱 APK EXPORT NOTE:"
-echo "   - APK generation in production requires additional setup"
-echo "   - For real APK builds, consider using:"
-echo "     • GitHub Actions for CI/CD"
-echo "     • Expo EAS for cloud builds"
-echo "     • Local build servers"
-echo ""
-echo "✅ Your AI Meta Factory is ready to deploy!"
+echo "✨ Open http://localhost:3000 to start generating AI code!"
