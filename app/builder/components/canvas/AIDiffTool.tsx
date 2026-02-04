@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Diff, diffWords, diffLines } from 'diff';
-import { 
-  RefreshCw, Check, X, AlertCircle, Zap, 
+import { diffLines } from 'diff';
+import {
+  RefreshCw, Check, X, AlertCircle, Zap,
   Code, FileCode, GitMerge, ChevronDown, ChevronUp
 } from 'lucide-react';
 
@@ -42,10 +42,14 @@ export default function AIDiffTool({
   useEffect(() => {
     if (originalCode && currentCode) {
       const lineDiffs = diffLines(originalCode, currentCode);
-      const formattedDiffs = lineDiffs.map(diff => ({
-        type: diff.added ? 'added' : diff.removed ? 'removed' : 'unchanged',
-        value: diff.value,
-        count: diff.count
+      const formattedDiffs: CodeDiff[] = lineDiffs.map(diff => ({
+        type: diff.added
+          ? 'added'
+          : diff.removed
+          ? 'removed'
+          : 'unchanged',
+        value: diff.value || '',
+        count: diff.count || 0
       }));
       setDiffs(formattedDiffs);
     }
@@ -60,39 +64,32 @@ export default function AIDiffTool({
 
   // Get improvement suggestions
   const getImprovementSuggestions = () => {
-    const suggestions = [];
-    
-    // Check for common improvements
+    const suggestions: string[] = [];
+
     if (currentCode.includes('any')) {
       suggestions.push('Replace `any` with proper TypeScript types');
     }
-    
     if (currentCode.includes('console.log')) {
       suggestions.push('Remove debug console logs for production');
     }
-    
     if (currentCode.match(/style\s*=\s*{[^}]*}/)) {
       suggestions.push('Consider using Tailwind classes instead of inline styles');
     }
-    
     if (currentCode.includes('// TODO')) {
       suggestions.push('Address TODO comments');
     }
-    
     if (currentCode.includes('setTimeout') || currentCode.includes('setInterval')) {
       suggestions.push('Add cleanup for timers/intervals');
     }
-    
     if (currentCode.includes('document.') || currentCode.includes('window.')) {
       suggestions.push('Check for SSR compatibility');
     }
-    
     if (currentCode.length > 5000) {
       suggestions.push('Consider splitting component into smaller pieces');
     }
-    
-    return suggestions.length > 0 
-      ? suggestions.slice(0, 3) // Limit to 3 suggestions
+
+    return suggestions.length > 0
+      ? suggestions.slice(0, 3)
       : ['Code looks good! No major improvements needed.'];
   };
 
@@ -143,7 +140,7 @@ export default function AIDiffTool({
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <button
               onClick={() => setViewMode(viewMode === 'split' ? 'unified' : 'split')}
@@ -178,7 +175,7 @@ export default function AIDiffTool({
               </ul>
             </div>
           </div>
-          
+
           <div className="flex gap-2 mt-4">
             <button
               onClick={handleGenerateImproved}
@@ -197,7 +194,7 @@ export default function AIDiffTool({
                 </>
               )}
             </button>
-            
+
             <button
               onClick={handleRegenerate}
               disabled={isGenerating}
@@ -235,7 +232,7 @@ export default function AIDiffTool({
               </button>
             </div>
           </div>
-          
+
           <div className="bg-gray-900 rounded border border-gray-700 p-3">
             <pre className="text-sm text-green-400 overflow-auto max-h-48">
               {improvedCode}
@@ -256,7 +253,7 @@ export default function AIDiffTool({
               </pre>
             </div>
           </div>
-          
+
           {/* Current */}
           <div className="flex-1">
             <div className="text-xs text-gray-400 mb-2">Your Changes</div>
@@ -267,7 +264,7 @@ export default function AIDiffTool({
             </div>
           </div>
         </div>
-        
+
         {/* Action Buttons */}
         <div className="flex justify-end gap-3 mt-4">
           <button
