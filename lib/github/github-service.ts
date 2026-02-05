@@ -1,4 +1,4 @@
-import { Octokit } from 'octokit';
+import { Octokit } from "octokit";
 
 export interface GitHubConfig {
   accessToken: string;
@@ -20,111 +20,41 @@ export class GitHubService {
   private config: GitHubConfig;
 
   constructor(config: GitHubConfig) {
-    this.config = {
-      branch: 'main',
-      ...config
-    };
+    this.config = { branch: 'main', ...config };
     this.octokit = new Octokit({ auth: config.accessToken });
   }
 
   async createRepository(): Promise<PushResult> {
     try {
-      const { data: repo } = await this.octokit.request('POST /user/repos', {
+      const { data: repo } = await this.octokit.rest.repos.createForAuthenticatedUser({
         name: this.config.repo,
         description: 'AI-generated project from Meta Factory',
         private: false,
         auto_init: false,
-        gitignore_template: 'Node'
+        gitignore_template: 'Node',
       });
 
       return {
         success: true,
         url: repo.html_url,
-        message: `Repository created: ${repo.full_name}`
+        message: `Repository created: ${repo.full_name}`,
       };
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || 'Failed to create repository'
-      };
-    }
-  }
-
-  async pushFiles(files: Record<string, string>): Promise<PushResult> {
-    try {
-      // Check if repo exists, create if not
-      const repoExists = await this.repositoryExists();
-      if (!repoExists) {
-        const createResult = await this.createRepository();
-        if (!createResult.success) {
-          return createResult;
-        }
-      }
-
-      // Get the latest commit SHA
-      const { data: ref } = await this.octokit.request(
-        `GET /repos/{owner}/{repo}/git/ref/{ref}`,
-        {
-          owner: this.config.owner,
-          repo: this.config.repo,
-          ref: `heads/${this.config.branch}`
-        }
-      );
-
-      const latestCommitSha = ref.object.sha;
-
-      // Create tree
-      const tree = await this.createTree(files, latestCommitSha);
-      if (!tree.success) {
-        return tree;
-      }
-
-      // Create commit
-      const { data: commit } = await this.octokit.request(
-        'POST /repos/{owner}/{repo}/git/commits',
-        {
-          owner: this.config.owner,
-          repo: this.config.repo,
-          message: `Initial commit: AI-generated project ${new Date().toISOString()}`,
-          tree: tree.treeSha,
-          parents: [latestCommitSha]
-        }
-      );
-
-      // Update reference
-      await this.octokit.request(
-        'PATCH /repos/{owner}/{repo}/git/refs/{ref}',
-        {
-          owner: this.config.owner,
-          repo: this.config.repo,
-          ref: `heads/${this.config.branch}`,
-          sha: commit.sha,
-          force: false
-        }
-      );
-
-      return {
-        success: true,
-        url: `https://github.com/${this.config.owner}/${this.config.repo}`,
-        commitSha: commit.sha,
-        message: `Successfully pushed ${Object.keys(files).length} files to GitHub`
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message || 'Failed to push files to GitHub'
+        error: error.message || 'Failed to create repository',
       };
     }
   }
 
   private async repositoryExists(): Promise<boolean> {
     try {
-      await this.octokit.request('GET /repos/{owner}/{repo}', {
+      await this.octokit.rest.repos.get({
         owner: this.config.owner,
-        repo: this.config.repo
+        repo: this.config.repo,
       });
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -138,52 +68,96 @@ export class GitHubService {
         path,
         mode: '100644' as const,
         type: 'blob' as const,
-        content
+        content,
       }));
 
-      const { data: createdTree } = await this.octokit.request(
-        'POST /repos/{owner}/{repo}/git/trees',
-        {
-          owner: this.config.owner,
-          repo: this.config.repo,
-          tree,
-          base_tree: baseTreeSha
-        }
-      );
+      const { data: createdTree } = await this.octokit.rest.git.createTree({
+        owner: this.config.owner,
+        repo: this.config.repo,
+        tree,
+        base_tree: baseTreeSha,
+      });
+
+      return { success: true, treeSha: createdTree.sha };
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Failed to create tree' };
+    }
+  }
+
+  async pushFiles(files: Record<string, string>): Promise<PushResult> {
+    try {
+      const repoExists = await this.repositoryExists();
+      if (!repoExists) {
+        const createResult = await this.createRepository();
+        if (!createResult.success) return createResult;
+      }
+
+      // Get latest commit SHA
+      const { data: ref } = await this.octokit.rest.git.getRef({
+        owner: this.config.owner,
+        repo: this.config.repo,
+        ref: `heads/${this.config.branch}`,
+      });
+
+      const latestCommitSha = ref.object.sha;
+
+      // Create tree
+      const tree = await this.createTree(files, latestCommitSha);
+      if (!tree.success || !tree.treeSha) return { success: false, error: tree.error };
+
+      // Create commit
+      const { data: commit } = await this.octokit.rest.git.createCommit({
+        owner: this.config.owner,
+        repo: this.config.repo,
+        message: `Initial commit: AI-generated project ${new Date().toISOString()}`,
+        tree: tree.treeSha,
+        parents: [latestCommitSha],
+      });
+
+      // Update reference
+      await this.octokit.rest.git.updateRef({
+        owner: this.config.owner,
+        repo: this.config.repo,
+        ref: `heads/${this.config.branch}`,
+        sha: commit.sha,
+        force: false,
+      });
 
       return {
         success: true,
-        treeSha: createdTree.sha
+        url: `https://github.com/${this.config.owner}/${this.config.repo}`,
+        commitSha: commit.sha,
+        message: `Successfully pushed ${Object.keys(files).length} files to GitHub`,
       };
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || 'Failed to create tree'
+        error: error.message || 'Failed to push files to GitHub',
       };
     }
   }
 
-  async getUserInfo(): Promise<{
-    login: string;
-    name?: string;
-    avatar_url?: string;
-  } | null> {
+  async getUserInfo(): Promise<{ login: string; name?: string; avatar_url?: string } | null> {
     try {
-      const { data: user } = await this.octokit.request('GET /user');
-      return user;
-    } catch (error) {
+      const { data: user } = await this.octokit.rest.users.getAuthenticated();
+      return {
+        login: user.login,
+        name: user.name ?? undefined,
+        avatar_url: user.avatar_url ?? undefined,
+      };
+    } catch {
       return null;
     }
   }
 
   async getRepositories(): Promise<Array<{ name: string; full_name: string }>> {
     try {
-      const { data: repos } = await this.octokit.request('GET /user/repos');
-      return repos.map((repo: any) => ({
+      const { data: repos } = await this.octokit.rest.repos.listForAuthenticatedUser();
+      return repos.map((repo) => ({
         name: repo.name,
-        full_name: repo.full_name
+        full_name: repo.full_name,
       }));
-    } catch (error) {
+    } catch {
       return [];
     }
   }

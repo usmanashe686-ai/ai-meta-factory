@@ -1,635 +1,282 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { EnhancedFileTree } from './EnhancedFileTree';
 import { EnhancedCodeEditor } from './EnhancedCodeEditor';
+import { EnhancedCanvasControls } from './EnhancedCanvasControls';
+import { OpenAIService } from '@/lib/ai/openai-service';
+import { RealGitHubHandler } from '@/lib/github/real-handler';
 import { EnhancedProjectExporter } from '@/lib/export/enhanced-exporter';
-import { GitHubPushHandler } from '@/lib/github/push-handler';
-import { AICodeRegenerator } from '@/lib/ai/code-regenerator';
-import { 
-  Layout, Package, Zap, Download, RefreshCw, 
-  FileText, FileCode, Folder, GitBranch, Cloud,
-  Loader2, Wand2, Brain, GitPullRequest, Eye,
-  CheckCircle, AlertCircle, X, Menu, Search,
-  ChevronRight, ChevronDown, Maximize2, Minimize2
-} from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface EnhancedCanvasPanelProps {
-  baseFiles: Record<string, string>;
-  generatedFiles: Record<string, string>;
-  onGenerateComponents: () => void;
-  onFileChange: (fileName: string, content: string) => void;
+  initialFiles: Record<string, string>;
+  onFilesChange: (files: Record<string, string>) => void;
   stack: string;
   database: string;
   gitProvider: string;
-  projectName?: string;
+  projectName: string;
+  session: any;
 }
 
-export default function EnhancedCanvasPanel({
-  baseFiles = {},
-  generatedFiles = {},
-  onGenerateComponents,
-  onFileChange,
+export function EnhancedCanvasPanel({
+  initialFiles,
+  onFilesChange,
   stack,
   database,
   gitProvider,
-  projectName = 'ai-generated-project'
+  projectName: initialProjectName,
+  session
 }: EnhancedCanvasPanelProps) {
-  // State
-  const [activeFile, setActiveFile] = useState<string | null>(null);
+  const [files, setFiles] = useState<Record<string, string>>(initialFiles);
+  const [activeFile, setActiveFile] = useState<string | null>(Object.keys(initialFiles)[0] || null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [isPushing, setIsPushing] = useState(false);
-  const [isRegenerating, setIsRegenerating] = useState(false);
-  const [showAIPanel, setShowAIPanel] = useState(false);
-  const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
-  const [gitPushResult, setGitPushResult] = useState<any>(null);
-  const [viewMode, setViewMode] = useState<'editor' | 'preview' | 'split'>('editor');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  
-  // Combine files
-  const allFiles = { ...baseFiles, ...generatedFiles };
-  const fileCount = Object.keys(allFiles).length;
-  const totalLines = Object.values(allFiles)
-    .reduce((sum, content) => sum + content.split('\n').length, 0);
-  
-  // Initialize AI regenerator
-  const aiRegenerator = new AICodeRegenerator();
-  
-  // Handle file actions
+  const [projectName, setProjectName] = useState(initialProjectName);
+
+  // Sync files with parent
+  useEffect(() => {
+    onFilesChange(files);
+  }, [files, onFilesChange]);
+
+  // Initialize real services
+  const aiService = new OpenAIService();
+  const projectExporter = new EnhancedProjectExporter();
+
   const handleFileSelect = (path: string) => {
     setActiveFile(path);
   };
-  
-  const handleFileDelete = (path: string) => {
-    const newFiles = { ...allFiles };
-    delete newFiles[path];
-    // Update parent component if needed
+
+  const handleFileChange = (path: string, content: string) => {
+    const newFiles = { ...files, [path]: content };
+    setFiles(newFiles);
   };
-  
+
+  const handleFileDelete = (path: string) => {
+    const newFiles = { ...files };
+    delete newFiles[path];
+    setFiles(newFiles);
+    
+    if (activeFile === path) {
+      setActiveFile(Object.keys(newFiles)[0] || null);
+    }
+    
+    toast.success(`Deleted ${path.split('/').pop()}`);
+  };
+
   const handleFileCreate = (type: 'file' | 'folder', path: string) => {
     if (type === 'file') {
-      const defaultContent = type === 'file' ? 
-        `// New ${path.split('.').pop()?.toUpperCase()} file
-// Created: ${new Date().toISOString()}
-// Add your code here
-` : '';
-      onFileChange(path, defaultContent);
+      const content = getDefaultContent(path);
+      const newFiles = { ...files, [path]: content };
+      setFiles(newFiles);
       setActiveFile(path);
+      toast.success(`Created ${path}`);
+    } else {
+      // For folders, create an index file
+      const folderPath = `${path}/index.ts`;
+      const content = `// Auto-generated folder index file`;
+      const newFiles = { ...files, [folderPath]: content };
+      setFiles(newFiles);
+      toast.success(`Created folder ${path}`);
     }
   };
-  
-  const handleFileUpload = (files: FileList) => {
-    Array.from(files).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target?.result as string;
-        onFileChange(file.name, content);
-      };
-      reader.readAsText(file);
-    });
+
+  const handleFileUpload = async (fileList: FileList) => {
+    const newFiles = { ...files };
+    
+    for (const file of Array.from(fileList)) {
+      const content = await file.text();
+      newFiles[file.name] = content;
+    }
+    
+    setFiles(newFiles);
+    toast.success(`Uploaded ${fileList.length} file(s)`);
   };
-  
-  const handleFilesReordered = (newFiles: Record<string, string>) => {
-    // Update files in parent component
-    console.log('Files reordered:', newFiles);
+
+  const getDefaultContent = (path: string): string => {
+    const ext = path.split('.').pop()?.toLowerCase();
+    
+    switch (ext) {
+      case 'tsx':
+        return `import React from 'react';
+
+export default function ${path.split('/').pop()?.split('.')[0] || 'Component'}() {
+  return (
+    <div>
+      <h1>New Component</h1>
+      <p>Start editing this component</p>
+    </div>
+  );
+}`;
+      case 'ts':
+        return `// TypeScript file: ${path.split('/').pop()}
+
+export const example = "Hello, World!";`;
+      case 'json':
+        return '{\n  "name": "example",\n  "version": "1.0.0"\n}';
+      default:
+        return `// ${path.split('/').pop()}\n// Created with AI Meta Factory`;
+    }
   };
-  
-  // Enhanced Export with ZIP
-  const handleEnhancedExport = async () => {
-    if (fileCount === 0) {
-      alert('No files to export');
+
+  const handleAIRegenerate = async () => {
+    if (!activeFile) {
+      toast.error('No file selected');
       return;
     }
     
-    setIsExporting(true);
+    setIsGenerating(true);
     try {
-      const exporter = new EnhancedProjectExporter({
-        projectName: projectName,
+      const result = await aiService.regenerateWithAI({
+        filePath: activeFile,
+        currentCode: files[activeFile],
+        originalCode: files[activeFile],
+        changes: ['Improve code quality', 'Add comments', 'Optimize structure'],
+        context: { stack, database, feature: 'regeneration' }
+      });
+
+      const newFiles = { ...files, [activeFile]: result.generatedCode };
+      setFiles(newFiles);
+      toast.success('AI enhanced code successfully!');
+    } catch (error: any) {
+      console.error('AI Error:', error);
+      toast.error(`AI error: ${error.message}`);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleExportProject = async () => {
+    try {
+      await projectExporter.exportAsZip({
+        projectName,
         stack,
         database,
-        gitProvider,
-        files: allFiles,
-        description: 'Generated by AI Meta Factory',
-        version: '1.0.0'
+        files,
+        description: 'Generated by AI Meta Factory'
       });
-      
-      await exporter.exportAsZip();
-      
-      // Show success notification
-      setGitPushResult({
-        type: 'success',
-        message: `Project exported successfully as ${projectName}.zip`,
-        timestamp: new Date().toISOString()
-      });
-      
+      toast.success('Project exported as ZIP!');
     } catch (error: any) {
-      setGitPushResult({
-        type: 'error',
-        message: `Export failed: ${error.message}`,
-        timestamp: new Date().toISOString()
-      });
-      console.error('Export failed:', error);
-    } finally {
-      setIsExporting(false);
+      toast.error(`Export failed: ${error.message}`);
     }
   };
-  
-  // GitHub Direct Push
-  const handleGitHubPush = async () => {
-    if (fileCount === 0) {
-      alert('No files to push');
+
+  const handlePushToGitHub = async () => {
+    if (!session?.accessToken) {
+      toast.error('Please sign in with GitHub first');
       return;
     }
-    
-    setIsPushing(true);
+
+    setIsGenerating(true);
     try {
-      const pushHandler = new GitHubPushHandler();
+      const githubHandler = new RealGitHubHandler(session.accessToken);
       
-      const filesArray = Object.entries(allFiles).map(([path, content]) => ({
-        path,
-        content
-      }));
-      
-      const result = await pushHandler.pushToGitHubDemo({
-        owner: 'your-username',
-        repo: projectName.toLowerCase().replace(/\s+/g, '-'),
-        branch: 'main',
+      const result = await githubHandler.pushToGitHub({
+        owner: session.user?.name || 'user',
+        repo: projectName,
         commitMessage: 'Initial commit from AI Meta Factory',
-        files: filesArray
+        files: Object.entries(files).map(([path, content]) => ({
+          path,
+          content
+        })),
+        createRepo: true,
+        isPrivate: false
       });
-      
-      setGitPushResult(result);
-      
+
       if (result.success) {
-        alert(`✅ Successfully pushed to GitHub!\n\nRepository: ${result.repoUrl}`);
-      } else {
-        alert(`❌ Push failed: ${result.error}`);
-      }
-      
-    } catch (error: any) {
-      setGitPushResult({
-        success: false,
-        error: error.message
-      });
-      console.error('GitHub push failed:', error);
-    } finally {
-      setIsPushing(false);
-    }
-  };
-  
-  // AI Code Regeneration
-  const handleAIRegenerate = async () => {
-    if (!activeFile || !allFiles[activeFile]) {
-      alert('Select a file to regenerate with AI');
-      return;
-    }
-    
-    setIsRegenerating(true);
-    setShowAIPanel(true);
-    
-    try {
-      const response = await aiRegenerator.regenerateWithAI({
-        filePath: activeFile,
-        currentCode: allFiles[activeFile],
-        originalCode: baseFiles[activeFile] || allFiles[activeFile],
-        changes: ['Improve code quality', 'Add error handling', 'Optimize performance'],
-        context: {
-          stack,
-          database,
-          feature: activeFile.split('/').pop()?.split('.')[0] || 'component'
-        }
-      });
-      
-      // Apply AI-generated code
-      if (response.generatedCode && response.generatedCode !== allFiles[activeFile]) {
-        onFileChange(activeFile, response.generatedCode);
-        
-        // Store suggestions
-        setAiSuggestions([
-          {
-            type: 'regeneration',
-            timestamp: new Date().toISOString(),
-            confidence: response.confidence,
-            explanation: response.explanation,
-            suggestions: response.suggestions
-          },
-          ...aiSuggestions.slice(0, 4) // Keep only latest 5
-        ]);
-      }
-      
-    } catch (error: any) {
-      console.error('AI regeneration failed:', error);
-      alert(`AI regeneration failed: ${error.message}`);
-    } finally {
-      setIsRegenerating(false);
-    }
-  };
-  
-  // Get AI suggestions for current file
-  const handleGetAISuggestions = async () => {
-    if (!activeFile || !allFiles[activeFile]) return;
-    
-    const suggestions = await aiRegenerator.getLineSuggestions(
-      activeFile,
-      allFiles[activeFile],
-      [1, 2, 3], // Example lines
-      { stack, database }
-    );
-    
-    setAiSuggestions(prev => [
-      ...suggestions.map(s => ({
-        type: 'suggestion',
-        ...s,
-        timestamp: new Date().toISOString()
-      })),
-      ...prev
-    ]);
-  };
-  
-  // Search files
-  const handleSearch = useCallback(() => {
-    if (!searchQuery.trim()) return;
-    
-    const results = Object.entries(allFiles)
-      .filter(([path, content]) => 
-        path.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        content.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-      .map(([path]) => path);
-    
-    if (results.length > 0) {
-      setActiveFile(results[0]);
-    }
-  }, [searchQuery, allFiles]);
-  
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl/Cmd + S - Save
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        // Auto-save is handled by onFileChange
-      }
-      
-      // Ctrl/Cmd + F - Search
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault();
-        const searchInput = document.querySelector('input[type="search"]') as HTMLInputElement;
-        searchInput?.focus();
-      }
-      
-      // Ctrl/Cmd + R - Regenerate with AI
-      if ((e.ctrlKey || e.metaKey) && e.key === 'r' && e.shiftKey) {
-        e.preventDefault();
-        handleAIRegenerate();
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleAIRegenerate]);
-  
-  return (
-    <div className={`h-full flex flex-col bg-gray-900 rounded-xl overflow-hidden border border-gray-800 ${
-      isFullscreen ? 'fixed inset-0 z-50' : ''
-    }`}>
-      {/* Header with Enhanced Controls */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-800 bg-gray-900">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg">
-            <Layout className="w-5 h-5 text-white" />
-          </div>
+        toast.success(
           <div>
-            <h2 className="font-bold text-white">Enhanced Canvas</h2>
-            <p className="text-xs text-gray-400">
-              {stack.toUpperCase()} • {database.toUpperCase()} • {gitProvider.toUpperCase()}
-            </p>
+            Successfully pushed to GitHub!{' '}
+            <a href={result.repoUrl} target="_blank" rel="noopener noreferrer" className="underline">
+              View Repository
+            </a>
           </div>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          {/* View Mode Toggle */}
-          <div className="flex items-center bg-gray-800 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('editor')}
-              className={`px-3 py-1 rounded text-sm ${
-                viewMode === 'editor' ? 'bg-gray-700 text-white' : 'text-gray-400'
-              }`}
-            >
-              Editor
-            </button>
-            <button
-              onClick={() => setViewMode('preview')}
-              className={`px-3 py-1 rounded text-sm ${
-                viewMode === 'preview' ? 'bg-gray-700 text-white' : 'text-gray-400'
-              }`}
-            >
-              Preview
-            </button>
-            <button
-              onClick={() => setViewMode('split')}
-              className={`px-3 py-1 rounded text-sm ${
-                viewMode === 'split' ? 'bg-gray-700 text-white' : 'text-gray-400'
-              }`}
-            >
-              Split
-            </button>
-          </div>
-          
-          {/* Search */}
-          <div className="relative">
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Search files..."
-              className="pl-9 pr-4 py-2 bg-gray-800 text-sm text-gray-300 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
-          </div>
-          
-          {/* Fullscreen Toggle */}
-          <button
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-2 hover:bg-gray-800 rounded-lg"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-          >
-            {isFullscreen ? (
-              <Minimize2 className="w-4 h-4 text-gray-400" />
-            ) : (
-              <Maximize2 className="w-4 h-4 text-gray-400" />
-            )}
-          </button>
-        </div>
-      </div>
-      
-      {/* Stats Bar */}
-      <div className="px-4 py-2 border-b border-gray-800 bg-gray-900/50">
-        <div className="flex items-center gap-6 text-sm">
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-blue-400" />
-            <span className="text-gray-300">{fileCount} files</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <FileCode className="w-4 h-4 text-green-400" />
-            <span className="text-gray-300">{totalLines} lines</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Folder className="w-4 h-4 text-yellow-400" />
-            <span className="text-gray-300">{Object.keys(allFiles).filter(k => k.includes('/')).length} folders</span>
-          </div>
-          <div className="flex-1"></div>
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${
-              fileCount > 0 ? 'bg-green-500' : 'bg-yellow-500'
-            }`}></div>
-            <span className="text-gray-400">
-              {fileCount > 0 ? 'Ready' : 'Empty'}
-            </span>
-          </div>
-        </div>
-      </div>
-      
-      {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - File Tree */}
-        <div className="w-64 border-r border-gray-800 overflow-hidden">
-          <EnhancedFileTree
-            files={allFiles}
-            onFileSelect={handleFileSelect}
-            onFileChange={onFileChange}
-            onFileDelete={handleFileDelete}
-            onFileCreate={handleFileCreate}
-            onFileUpload={handleFileUpload}
-            onFilesReordered={handleFilesReordered}
-            activeFile={activeFile}
-          />
-        </div>
-        
-        {/* Center - Editor/Preview */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Editor Header */}
-          {activeFile && (
-            <div className="border-b border-gray-800 bg-gray-900 px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <FileCode className="w-4 h-4 text-blue-400" />
-                  <span className="font-mono text-sm text-white">{activeFile}</span>
-                </div>
-                <div className="px-2 py-1 bg-gray-800 text-gray-400 text-xs rounded">
-                  {activeFile.split('.').pop()?.toUpperCase()}
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleGetAISuggestions}
-                  className="px-3 py-1 bg-gray-800 text-gray-300 text-sm rounded-lg hover:bg-gray-700 flex items-center gap-1"
-                  title="Get AI Suggestions"
-                >
-                  <Brain className="w-3 h-3" />
-                  AI Help
-                </button>
-                <button
-                  onClick={handleAIRegenerate}
-                  disabled={isRegenerating}
-                  className="px-3 py-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-1"
-                  title="Regenerate with AI"
-                >
-                  {isRegenerating ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Wand2 className="w-3 h-3" />
-                  )}
-                  {isRegenerating ? 'Regenerating...' : 'AI Regenerate'}
-                </button>
-              </div>
-            </div>
-          )}
-          
-          {/* Editor/Preview Area */}
-          <div className="flex-1 overflow-hidden">
-            {viewMode === 'editor' ? (
-              <EnhancedCodeEditor
-                files={allFiles}
-                onFileChange={onFileChange}
-                activeFile={activeFile}
-                onActiveFileChange={setActiveFile}
-                aiSuggestions={aiSuggestions}
-              />
-            ) : viewMode === 'preview' ? (
-              <div className="h-full flex items-center justify-center text-gray-500">
-                <div className="text-center">
-                  <Eye className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Preview mode</p>
-                  <p className="text-sm mt-2">Switch to Editor or Split view to edit code</p>
-                </div>
-              </div>
-            ) : (
-              <div className="h-full flex">
-                <div className="flex-1 border-r border-gray-800">
-                  {/* Editor would go here in split view */}
-                </div>
-                <div className="flex-1">
-                  {/* Preview would go here in split view */}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        
-        {/* Right Sidebar - AI Panel & Actions */}
-        <div className={`w-80 border-l border-gray-800 bg-gray-900 flex flex-col transition-all duration-300 ${
-          showAIPanel ? 'translate-x-0' : 'translate-x-full'
-        }`}>
-          <div className="p-4 border-b border-gray-800">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-white flex items-center gap-2">
-                <Brain className="w-4 h-4 text-purple-400" />
-                AI Assistant
-              </h3>
-              <button
-                onClick={() => setShowAIPanel(false)}
-                className="p-1 hover:bg-gray-800 rounded"
-              >
-                <X className="w-4 h-4 text-gray-400" />
-              </button>
-            </div>
-          </div>
-          
-          <div className="flex-1 overflow-auto p-4">
-            {/* AI Suggestions */}
-            {aiSuggestions.length > 0 ? (
-              <div className="space-y-4">
-                <h4 className="text-sm font-medium text-gray-300">Recent Suggestions</h4>
-                {aiSuggestions.map((suggestion, index) => (
-                  <div
-                    key={index}
-                    className="p-3 bg-gray-800 rounded-lg border border-gray-700"
-                  >
-                    <div className="flex items-start gap-2">
-                      <Brain className="w-4 h-4 text-purple-400 mt-0.5" />
-                      <div className="flex-1">
-                        <div className="text-sm text-gray-300">
-                          {suggestion.explanation || suggestion.suggestion}
-                        </div>
-                        {suggestion.suggestions && (
-                          <ul className="mt-2 space-y-1">
-                            {suggestion.suggestions.map((s: string, i: number) => (
-                              <li key={i} className="text-xs text-gray-400 flex items-start">
-                                <ChevronRight className="w-3 h-3 mr-1 mt-0.5" />
-                                {s}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        <div className="mt-2 text-xs text-gray-500">
-                          {new Date(suggestion.timestamp).toLocaleTimeString()}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Brain className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>No AI suggestions yet</p>
-                <p className="text-sm mt-1">Click "AI Help" or "AI Regenerate" to get suggestions</p>
-              </div>
-            )}
-          </div>
-          
-          {/* Action Buttons */}
-          <div className="p-4 border-t border-gray-800 space-y-3">
-            <button
-              onClick={handleEnhancedExport}
-              disabled={isExporting || fileCount === 0}
-              className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isExporting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4" />
-              )}
-              {isExporting ? 'Exporting...' : 'Export Project (ZIP)'}
-            </button>
-            
-            <button
-              onClick={handleGitHubPush}
-              disabled={isPushing || fileCount === 0}
-              className="w-full px-4 py-3 bg-gray-800 text-white font-medium rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isPushing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <GitPullRequest className="w-4 h-4" />
-              )}
-              {isPushing ? 'Pushing...' : 'Push to GitHub'}
-            </button>
-            
-            <button
-              onClick={onGenerateComponents}
-              disabled={isGenerating}
-              className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-medium rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isGenerating ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Zap className="w-4 h-4" />
-              )}
-              {isGenerating ? 'Generating...' : 'Generate More Components'}
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      {/* Footer Status */}
-      <div className="border-t border-gray-800 bg-gray-900 p-3">
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-4 text-gray-400">
-            <span>UTF-8 • LF</span>
-            <span>•</span>
-            <span>TypeScript 5.0</span>
-            <span>•</span>
-            {activeFile && (
-              <span className="text-gray-300">
-                {allFiles[activeFile]?.split('\n').length || 0} lines
+        );
+      } else {
+        toast.error(result.error || 'Failed to push to GitHub');
+      }
+    } catch (error: any) {
+      console.error('GitHub Error:', error);
+      toast.error(`GitHub error: ${error.message}`);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="h-[600px] bg-gray-950 text-gray-100 flex flex-col rounded-xl border border-gray-800 overflow-hidden">
+      {/* Top Bar */}
+      <div className="px-6 py-4 border-b border-gray-800 bg-gray-900/80">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h1 className="text-lg font-bold">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
+                Enhanced Canvas
               </span>
-            )}
+            </h1>
+            <div className="flex gap-2">
+              <span className="px-3 py-1 bg-blue-900/40 text-blue-300 text-sm rounded-full">
+                {stack.toUpperCase()}
+              </span>
+              <span className="px-3 py-1 bg-green-900/40 text-green-300 text-sm rounded-full">
+                {database.toUpperCase()}
+              </span>
+              <span className="px-3 py-1 bg-gray-800 text-gray-300 text-sm rounded-full">
+                {gitProvider.toUpperCase()}
+              </span>
+            </div>
           </div>
           
           <div className="flex items-center gap-4">
-            {gitPushResult && (
-              <div className={`flex items-center gap-1 ${
-                gitPushResult.success ? 'text-green-400' : 'text-red-400'
-              }`}>
-                {gitPushResult.success ? (
-                  <CheckCircle className="w-3 h-3" />
-                ) : (
-                  <AlertCircle className="w-3 h-3" />
-                )}
-                <span className="font-medium">
-                  {gitPushResult.success ? 'Success' : 'Error'}
-                </span>
-              </div>
-            )}
-            
-            <button
-              onClick={() => setShowAIPanel(!showAIPanel)}
-              className={`px-3 py-1 rounded-lg flex items-center gap-1 ${
-                showAIPanel 
-                  ? 'bg-purple-900/30 text-purple-300 border border-purple-700' 
-                  : 'bg-gray-800 text-gray-400 hover:text-gray-300'
-              }`}
-            >
-              <Brain className="w-3 h-3" />
-              <span>AI Assistant</span>
-            </button>
+            <div className="text-sm text-gray-400">
+              <span className="font-medium">{Object.keys(files).length} files</span>
+              <span className="mx-2">•</span>
+              <span>{Object.values(files).reduce((sum, c) => sum + c.split('\n').length, 0)} lines</span>
+            </div>
           </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar - File Tree */}
+        <div className="w-64 border-r border-gray-800 flex flex-col">
+          <EnhancedFileTree
+            files={files}
+            onFileSelect={handleFileSelect}
+            onFileChange={handleFileChange}
+            onFileDelete={handleFileDelete}
+            onFileCreate={handleFileCreate}
+            onFileUpload={handleFileUpload}
+            activeFile={activeFile}
+          />
+        </div>
+
+        {/* Middle - Code Editor */}
+        <div className="flex-1 flex flex-col">
+          <EnhancedCodeEditor
+            files={files}
+            onFileChange={handleFileChange}
+            activeFile={activeFile}
+          />
+        </div>
+
+        {/* Right Sidebar - Controls & AI */}
+        <div className="w-80 border-l border-gray-800">
+          <EnhancedCanvasControls
+            onAIRegenerate={handleAIRegenerate}
+            onExportProject={handleExportProject}
+            onPushToGitHub={handlePushToGitHub}
+            isGenerating={isGenerating}
+            projectName={projectName}
+            onProjectNameChange={setProjectName}
+            stack={stack}
+            onStackChange={() => {}}
+            database={database}
+            onDatabaseChange={() => {}}
+            gitProvider={gitProvider}
+            onGitProviderChange={() => {}}
+            session={session}
+          />
         </div>
       </div>
     </div>

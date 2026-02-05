@@ -1,101 +1,120 @@
-export interface GitHubPushConfig {
+interface PushOptions {
   owner: string;
   repo: string;
   branch?: string;
-  commitMessage: string;
+  commitMessage?: string;
   files: Array<{
     path: string;
     content: string;
   }>;
-  token?: string;
 }
 
 export interface GitHubPushResult {
   success: boolean;
-  commitSha?: string;
-  commitUrl?: string;
   repoUrl?: string;
+  commitHash?: string;
   error?: string;
+  filesPushed?: number;
 }
 
 export class GitHubPushHandler {
-  private baseUrl = 'https://api.github.com';
-  
-  async pushToGitHub(config: GitHubPushConfig): Promise<GitHubPushResult> {
+  async pushToGitHubDemo(options: PushOptions): Promise<GitHubPushResult> {
     try {
-      console.log(`🚀 Pushing to GitHub: ${config.owner}/${config.repo}`);
+      const { owner, repo, branch = 'main', commitMessage = 'Initial commit', files } = options;
       
-      // For demo purposes, we'll simulate the push
-      // In production, you would use actual GitHub API calls
-      
-      const token = config.token || process.env.GITHUB_TOKEN;
-      
-      if (!token) {
-        return {
-          success: false,
-          error: 'GitHub token is required. Add GITHUB_TOKEN to environment variables.'
-        };
-      }
-      
-      // Check if repo exists
-      const repoExists = await this.checkRepoExists(config.owner, config.repo, token);
-      
-      if (!repoExists) {
-        // Create repo if it doesn't exist
-        const created = await this.createRepository(config, token);
-        if (!created) {
-          return {
-            success: false,
-            error: 'Failed to create repository'
-          };
-        }
-      }
-      
-      // Get latest commit SHA
-      const latestCommit = await this.getLatestCommit(config, token);
-      
-      // Create tree with new files
-      const treeSha = await this.createTree(config, token, latestCommit?.tree?.sha);
-      
-      // Create commit
-      const commitSha = await this.createCommit(config, token, treeSha, latestCommit?.sha);
-      
-      // Update branch reference
-      await this.updateRef(config, token, commitSha);
-      
+      console.log(`Preparing to push to GitHub: ${owner}/${repo}`);
+
+      // In a real implementation, this would:
+      // 1. Authenticate with GitHub OAuth
+      // 2. Create repository if it doesn't exist
+      // 3. Create files with proper content
+      // 4. Commit and push
+
+      // For now, simulate the process
+      await this.simulateGitHubPush(files);
+
       return {
         success: true,
-        commitSha: commitSha || 'demo_commit_sha',
-        commitUrl: `https://github.com/${config.owner}/${config.repo}/commit/${commitSha || 'demo'}`,
-        repoUrl: `https://github.com/${config.owner}/${config.repo}`
+        repoUrl: `https://github.com/${owner}/${repo}`,
+        commitHash: this.generateCommitHash(),
+        filesPushed: files.length
       };
-      
+
     } catch (error: any) {
-      console.error('❌ GitHub push failed:', error);
+      console.error('GitHub push failed:', error);
       return {
         success: false,
-        error: error.message || 'Unknown error occurred'
+        error: error.message || 'Failed to push to GitHub'
       };
     }
   }
-  
-  private async checkRepoExists(owner: string, repo: string, token: string): Promise<boolean> {
+
+  private async simulateGitHubPush(files: Array<{ path: string; content: string }>): Promise<void> {
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Log what would be pushed
+    console.log(`Would push ${files.length} files to GitHub:`);
+    files.slice(0, 5).forEach(file => {
+      console.log(`  - ${file.path} (${file.content.length} chars)`);
+    });
+    if (files.length > 5) {
+      console.log(`  ... and ${files.length - 5} more files`);
+    }
+  }
+
+  private generateCommitHash(): string {
+    return Math.random().toString(36).substring(2, 15) + 
+           Math.random().toString(36).substring(2, 15);
+  }
+
+  // Helper method to get GitHub OAuth URL
+  getOAuthUrl(): string {
+    const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || 'your-client-id';
+    const redirectUri = encodeURIComponent(`${window.location.origin}/api/github/callback`);
+    const scope = encodeURIComponent('repo user');
+    
+    return `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
+  }
+
+  // Method to exchange code for token (to be implemented in API route)
+  async exchangeCodeForToken(code: string): Promise<string> {
     try {
-      const response = await fetch(`${this.baseUrl}/repos/${owner}/${repo}`, {
+      const response = await fetch('/api/github/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
+      });
+
+      const data = await response.json();
+      return data.access_token;
+    } catch (error) {
+      console.error('Failed to exchange code for token:', error);
+      throw error;
+    }
+  }
+
+  // Method to get authenticated user info
+  async getAuthenticatedUser(token: string): Promise<any> {
+    try {
+      const response = await fetch('https://api.github.com/user', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/vnd.github.v3+json'
         }
       });
-      return response.ok;
-    } catch {
-      return false;
+
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to get user info:', error);
+      throw error;
     }
   }
-  
-  private async createRepository(config: GitHubPushConfig, token: string): Promise<boolean> {
+
+  // Method to create repository
+  async createRepository(token: string, name: string, description?: string, isPrivate: boolean = false): Promise<any> {
     try {
-      const response = await fetch(`${this.baseUrl}/user/repos`, {
+      const response = await fetch('https://api.github.com/user/repos', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -103,159 +122,48 @@ export class GitHubPushHandler {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          name: config.repo,
-          description: 'Generated by AI Meta Factory',
-          private: false,
-          auto_init: true,
-          license_template: 'mit'
+          name,
+          description: description || 'Created by AI Meta Factory',
+          private: isPrivate,
+          auto_init: false
         })
       });
-      
-      return response.ok;
-    } catch {
-      return false;
+
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to create repository:', error);
+      throw error;
     }
   }
-  
-  private async getLatestCommit(config: GitHubPushConfig, token: string): Promise<any> {
+
+  // Method to create file in repository
+  async createFile(
+    token: string,
+    owner: string,
+    repo: string,
+    path: string,
+    content: string,
+    message: string
+  ): Promise<any> {
     try {
-      const response = await fetch(
-        `${this.baseUrl}/repos/${config.owner}/${config.repo}/git/refs/heads/${config.branch || 'main'}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/vnd.github.v3+json'
-          }
-        }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        const commitSha = data.object.sha;
-        
-        const commitResponse = await fetch(
-          `${this.baseUrl}/repos/${config.owner}/${config.repo}/git/commits/${commitSha}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Accept': 'application/vnd.github.v3+json'
-            }
-          }
-        );
-        
-        return commitResponse.ok ? await commitResponse.json() : null;
-      }
-    } catch {
-      return null;
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message,
+          content: btoa(unescape(encodeURIComponent(content))),
+          branch: 'main'
+        })
+      });
+
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to create file:', error);
+      throw error;
     }
-    return null;
-  }
-  
-  private async createTree(config: GitHubPushConfig, token: string, baseTreeSha?: string): Promise<string> {
-    // Create tree entries
-    const tree = config.files.map(file => ({
-      path: file.path,
-      mode: '100644', // File mode
-      type: 'blob',
-      content: file.content
-    }));
-    
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/repos/${config.owner}/${config.repo}/git/trees`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            tree,
-            base_tree: baseTreeSha
-          })
-        }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        return data.sha;
-      }
-    } catch {
-      // Fallback for demo
-    }
-    
-    return 'demo_tree_sha';
-  }
-  
-  private async createCommit(config: GitHubPushConfig, token: string, treeSha: string, parentSha?: string): Promise<string> {
-    const parents = parentSha ? [parentSha] : [];
-    
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/repos/${config.owner}/${config.repo}/git/commits`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            message: config.commitMessage,
-            tree: treeSha,
-            parents: parents
-          })
-        }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        return data.sha;
-      }
-    } catch {
-      // Fallback for demo
-    }
-    
-    return 'demo_commit_sha';
-  }
-  
-  private async updateRef(config: GitHubPushConfig, token: string, commitSha: string): Promise<boolean> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/repos/${config.owner}/${config.repo}/git/refs/heads/${config.branch || 'main'}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            sha: commitSha,
-            force: false
-          })
-        }
-      );
-      
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-  
-  // Demo mode for when GitHub token is not available
-  async pushToGitHubDemo(config: GitHubPushConfig): Promise<GitHubPushResult> {
-    console.log('🔧 Running GitHub push in DEMO mode');
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    return {
-      success: true,
-      commitSha: 'demo_' + Date.now().toString(36),
-      commitUrl: `https://github.com/${config.owner}/${config.repo}/commit/demo_commit`,
-      repoUrl: `https://github.com/${config.owner}/${config.repo}`
-    };
   }
 }

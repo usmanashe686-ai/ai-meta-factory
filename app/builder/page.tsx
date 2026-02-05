@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { 
-  Code, Database, GitBranch, Cloud, Zap, 
+import { useSession } from 'next-auth/react';
+import {
+  Code, Database, GitBranch, Cloud, Zap,
   ChevronRight, Check, Settings, Download,
-  Layout, Package 
+  Layout, Package, User, LogOut
 } from 'lucide-react';
+import Link from 'next/link';
 import HonestAIPipeline from './components/HonestAIPipeline';
 import FullStackFactory from './components/FullStackFactory';
-import EnhancedCanvasPanel from './components/canvas/EnhancedCanvasPanel';
-import Link from 'next/link';
+import { EnhancedCanvasPanel } from './components/canvas/EnhancedCanvasPanel';
 
 type TabType = 'component' | 'fullstack' | 'canvas' | 'export';
 type ModeType = 'nextjs' | 'react' | 'flutter' | 'node' | 'python';
@@ -17,15 +18,14 @@ type DatabaseType = 'supabase' | 'firebase' | 'mongodb' | 'planetscale' | 'none'
 type GitProviderType = 'github' | 'gitlab' | 'bitbucket';
 
 export default function BuilderPage() {
+  const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState<TabType>('component');
   const [mode, setMode] = useState<ModeType>('nextjs');
   const [database, setDatabase] = useState<DatabaseType>('supabase');
   const [gitProvider, setGitProvider] = useState<GitProviderType>('github');
-  const [connectedGit, setConnectedGit] = useState(false);
-  const [isConfiguring, setIsConfiguring] = useState(false);
   const [baseFiles, setBaseFiles] = useState<Record<string, string>>({});
   const [generatedFiles, setGeneratedFiles] = useState<Record<string, string>>({});
-  
+
   const modeConfigs = {
     nextjs: { name: 'Next.js', icon: '⚡', color: 'bg-black', textColor: 'text-white' },
     react: { name: 'React', icon: '⚛️', color: 'bg-blue-600', textColor: 'text-white' },
@@ -33,29 +33,21 @@ export default function BuilderPage() {
     node: { name: 'Node.js', icon: '🟢', color: 'bg-green-600', textColor: 'text-white' },
     python: { name: 'Python', icon: '🐍', color: 'bg-gradient-to-r from-yellow-500 to-blue-500', textColor: 'text-white' }
   } as const;
-  
+
   const databaseConfigs = {
-    supabase: { name: 'Supabase', icon: '🟢', color: 'bg-green-500', textColor: 'text-white' },
+    supabase: { name: 'Supabase', icon: '🟣', color: 'bg-green-500', textColor: 'text-white' },
     firebase: { name: 'Firebase', icon: '🟠', color: 'bg-orange-500', textColor: 'text-white' },
     mongodb: { name: 'MongoDB', icon: '🍃', color: 'bg-green-700', textColor: 'text-white' },
     planetscale: { name: 'PlanetScale', icon: '🟣', color: 'bg-purple-600', textColor: 'text-white' },
     none: { name: 'No Database', icon: '⚪', color: 'bg-gray-300', textColor: 'text-gray-700' }
   } as const;
-  
+
   const gitConfigs = {
     github: { name: 'GitHub', icon: '🐙', color: 'bg-gray-800', textColor: 'text-white' },
     gitlab: { name: 'GitLab', icon: '🦊', color: 'bg-orange-600', textColor: 'text-white' },
     bitbucket: { name: 'BitBucket', icon: '🐋', color: 'bg-blue-700', textColor: 'text-white' }
   } as const;
-  
-  const connectGitHub = () => {
-    setIsConfiguring(true);
-    setTimeout(() => {
-      setConnectedGit(true);
-      setIsConfiguring(false);
-    }, 1500);
-  };
-  
+
   const handleGenerateComponents = () => {
     const mockFiles = {
       'src/components/Button.tsx': `import React from 'react';
@@ -69,28 +61,28 @@ interface ButtonProps {
   className?: string;
 }
 
-export default function Button({ 
-  label, 
-  variant = 'primary', 
+export default function Button({
+  label,
+  variant = 'primary',
   size = 'md',
   onClick,
   disabled = false,
   className = ''
 }: ButtonProps) {
   const baseClasses = 'font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2';
-  
+
   const variantClasses = {
     primary: 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500',
     secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-800 focus:ring-gray-500',
     danger: 'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500'
   };
-  
+
   const sizeClasses = {
     sm: 'px-3 py-1.5 text-sm',
     md: 'px-4 py-2 text-base',
     lg: 'px-6 py-3 text-lg'
   };
-  
+
   return (
     <button
       onClick={onClick}
@@ -110,11 +102,11 @@ interface CardProps {
   footer?: React.ReactNode;
 }
 
-export default function Card({ 
-  title, 
-  children, 
+export default function Card({
+  title,
+  children,
   className = '',
-  footer 
+  footer
 }: CardProps) {
   return (
     <div className={\`bg-white rounded-xl shadow-sm border p-6 \${className}\`}>
@@ -129,71 +121,6 @@ export default function Card({
       )}
     </div>
   );
-}`,
-      'src/lib/utils.ts': `export function formatDate(date: Date): string {
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-
-export function generateId(): string {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
-}
-
-export function classNames(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(' ');
-}
-
-export async function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-export function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout;
-  
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-}`,
-      'src/types/index.ts': `export interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  category: string;
-  imageUrl?: string;
-  stock: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface Order {
-  id: string;
-  userId: string;
-  products: Array<{
-    productId: string;
-    quantity: number;
-    price: number;
-  }>;
-  total: number;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
-  createdAt: Date;
-  updatedAt: Date;
 }`,
       'README.md': `# AI Generated Project
 
@@ -213,47 +140,31 @@ npm install
 npm run dev
 \`\`\`
 
-## Project Structure
-
-- \`src/components/\` - Reusable UI components
-- \`src/lib/\` - Utility functions
-- \`src/types/\` - TypeScript type definitions
-
 ## Learn More
 
-Visit [AI Meta Factory](https://ai-meta-factory.com) for more information.`,
-      '.env.example': `# Database
-DATABASE_URL=
-
-# API Keys
-API_KEY=
-
-# Application
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NODE_ENV=development`
+Visit [AI Meta Factory](https://ai-meta-factory.com) for more information.`
     };
-    
+
     setGeneratedFiles(mockFiles);
-    
     setTimeout(() => {
       setBaseFiles(mockFiles);
     }, 1000);
   };
-  
+
   const handleFileChange = (fileName: string, content: string) => {
     setGeneratedFiles(prev => ({
       ...prev,
       [fileName]: content
     }));
   };
-  
+
   const tabs = [
     { id: 'component' as TabType, label: 'AI Component Generator', icon: <Zap className="w-4 h-4" /> },
     { id: 'fullstack' as TabType, label: 'Full-Stack Factory', icon: <Package className="w-4 h-4" /> },
     { id: 'canvas' as TabType, label: 'Canvas', icon: <Layout className="w-4 h-4" /> },
     { id: 'export' as TabType, label: 'Export & Deploy', icon: <Cloud className="w-4 h-4" /> }
   ];
-  
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -270,7 +181,7 @@ NODE_ENV=development`
                   <p className="text-xs text-gray-500">Builder Interface</p>
                 </div>
               </Link>
-              
+
               <div className="hidden md:flex items-center gap-1 ml-8">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <span className={`px-3 py-1 rounded-md ${modeConfigs[mode].color} ${modeConfigs[mode].textColor}`}>
@@ -287,38 +198,39 @@ NODE_ENV=development`
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-4">
-              <button
-                onClick={connectGitHub}
-                disabled={isConfiguring || connectedGit}
-                className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 ${
-                  connectedGit
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-gray-900 text-white hover:bg-black'
-                } disabled:opacity-50`}
-              >
-                {connectedGit ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    Connected to GitHub
-                  </>
-                ) : isConfiguring ? (
-                  'Connecting...'
-                ) : (
-                  <>
-                    <GitBranch className="w-4 h-4" />
-                    Connect GitHub
-                  </>
-                )}
-              </button>
+              {session ? (
+                <div className="flex items-center gap-3">
+                  <img 
+                    src={session.user?.image || ''} 
+                    alt={session.user?.name || ''}
+                    className="w-8 h-8 rounded-full"
+                  />
+                  <span className="text-sm text-gray-700">{session.user?.name}</span>
+                  <Link
+                    href="/api/auth/signout"
+                    className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-lg"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </Link>
+                </div>
+              ) : (
+                <Link
+                  href="/api/auth/signin"
+                  className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-black flex items-center gap-2"
+                >
+                  <User className="w-4 h-4" />
+                  Sign in
+                </Link>
+              )}
               
               <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
                 <Settings className="w-4 h-4 text-gray-600" />
               </div>
             </div>
           </div>
-          
+
           {/* Main Navigation Tabs */}
           <div className="flex gap-1 mt-6 border-b">
             {tabs.map((tab) => (
@@ -341,7 +253,7 @@ NODE_ENV=development`
           </div>
         </div>
       </header>
-      
+
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Quick Configuration Bar */}
         {(activeTab === 'component' || activeTab === 'fullstack') && (
@@ -350,10 +262,10 @@ NODE_ENV=development`
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-semibold text-gray-900">Project Configuration</h2>
                 <div className="text-sm text-gray-500">
-                  {connectedGit ? '✅ Ready to export' : '🔗 Connect GitHub to export'}
+                  {session ? '✅ Ready to export' : '🔗 Sign in to export'}
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Tech Stack Selector */}
                 <div>
@@ -381,7 +293,7 @@ NODE_ENV=development`
                     ))}
                   </div>
                 </div>
-                
+
                 {/* Database Selector */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
@@ -408,7 +320,7 @@ NODE_ENV=development`
                     ))}
                   </div>
                 </div>
-                
+
                 {/* Git Provider Selector */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
@@ -436,7 +348,7 @@ NODE_ENV=development`
                   </div>
                 </div>
               </div>
-              
+
               {/* Configuration Status */}
               <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border">
                 <div className="flex items-center justify-between">
@@ -457,7 +369,7 @@ NODE_ENV=development`
                     </div>
                   </div>
                   <button
-                    onClick={() => window.open('https://makersuite.google.com/app/apikey', '_blank')}
+                    onClick={() => window.open('https://openrouter.ai/keys', '_blank')}
                     className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                   >
                     Need API Key?
@@ -467,7 +379,7 @@ NODE_ENV=development`
             </div>
           </div>
         )}
-        
+
         {/* Main Content Area */}
         <div className="space-y-8">
           {activeTab === 'component' && (
@@ -492,48 +404,48 @@ NODE_ENV=development`
                 </div>
                 <div className="bg-white p-6 rounded-xl border text-center">
                   <button
-                    onClick={connectGitHub}
-                    disabled={!connectedGit}
-                    className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+                    onClick={handleGenerateComponents}
+                    className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-lg hover:opacity-90 transition-opacity"
                   >
-                    {connectedGit ? '🚀 Export Project' : '🔗 Connect GitHub First'}
+                    🚀 Generate Components
                   </button>
                 </div>
               </div>
             </div>
           )}
-          
+
           {activeTab === 'fullstack' && (
             <FullStackFactory
               selectedStack={mode}
               selectedDatabase={database}
               selectedGitProvider={gitProvider}
-              isGitConnected={connectedGit}
+              isGitConnected={!!session}
               onExport={() => {
-                if (!connectedGit) {
-                  alert('Connect GitHub first to export projects.');
+                if (!session) {
+                  alert('Sign in first to export projects.');
                   return;
                 }
                 alert(`Exporting ${modeConfigs[mode].name} project with ${databaseConfigs[database].name} to ${gitConfigs[gitProvider].name}...`);
               }}
             />
           )}
-          
+
           {activeTab === 'canvas' && (
             <div className="min-h-[600px]">
               <EnhancedCanvasPanel
-                baseFiles={baseFiles}
-                generatedFiles={generatedFiles}
-                onGenerateComponents={handleGenerateComponents}
-                onFileChange={handleFileChange}
+                initialFiles={{ ...baseFiles, ...generatedFiles }}
+                onFilesChange={(files) => {
+                  setGeneratedFiles(files);
+                }}
                 stack={mode}
                 database={database}
                 gitProvider={gitProvider}
                 projectName="ai-meta-factory-project"
+                session={session}
               />
             </div>
           )}
-          
+
           {activeTab === 'export' && (
             <div className="bg-white rounded-2xl border shadow-sm p-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-8">📦 Export & Deploy</h2>
@@ -558,7 +470,7 @@ NODE_ENV=development`
                     </p>
                   )}
                 </div>
-                
+
                 <div className="border-2 border-gray-200 rounded-xl p-6 text-center hover:border-green-500 transition-colors">
                   <Cloud className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="font-bold text-lg mb-2">Deploy to Vercel</h3>
@@ -569,7 +481,7 @@ NODE_ENV=development`
                     Deploy Now
                   </button>
                 </div>
-                
+
                 <div className="border-2 border-gray-200 rounded-xl p-6 text-center hover:border-orange-500 transition-colors">
                   <GitBranch className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="font-bold text-lg mb-2">Push to GitHub</h3>
@@ -577,15 +489,22 @@ NODE_ENV=development`
                     Commit & push to repository
                   </p>
                   <button
-                    onClick={connectGitHub}
-                    disabled={!connectedGit}
-                    className="w-full py-3 bg-gray-800 text-white font-medium rounded-lg disabled:opacity-50"
+                    onClick={() => {
+                      if (!session) {
+                        alert('Please sign in first');
+                      } else {
+                        alert('GitHub push would be handled by EnhancedCanvasPanel');
+                      }
+                    }}
+                    className={`w-full py-3 font-medium rounded-lg ${
+                      session ? 'bg-gray-800 text-white hover:bg-black' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
                   >
-                    {connectedGit ? 'Push to GitHub' : 'Connect GitHub First'}
+                    {session ? 'Push to GitHub' : 'Sign in Required'}
                   </button>
                 </div>
               </div>
-              
+
               {/* Project Configuration Summary */}
               <div className="bg-gray-50 rounded-xl p-6">
                 <h3 className="font-bold text-lg mb-4">Project Configuration</h3>
@@ -604,8 +523,8 @@ NODE_ENV=development`
                   </div>
                   <div>
                     <div className="text-sm text-gray-600">Status</div>
-                    <div className={`font-medium ${connectedGit ? 'text-green-600' : 'text-red-600'}`}>
-                      {connectedGit ? '✅ Connected' : '❌ Not Connected'}
+                    <div className={`font-medium ${session ? 'text-green-600' : 'text-red-600'}`}>
+                      {session ? '✅ Signed In' : '❌ Not Signed In'}
                     </div>
                   </div>
                 </div>
