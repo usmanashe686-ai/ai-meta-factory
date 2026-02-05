@@ -25,6 +25,7 @@
     "openai": "^4.0.0",
     "postcss": "^8.4.0",
     "prisma": "^5.0.0",
+    "prismjs": "^1.30.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.4.0",
