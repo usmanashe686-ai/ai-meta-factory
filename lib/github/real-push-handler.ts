@@ -15,6 +15,16 @@ interface RealPushOptions {
   isPrivate?: boolean;
 }
 
+interface GitHubPushResult {
+  success: boolean;
+  repoUrl?: string;
+  commitHash?: string;
+  filesPushed?: number;
+  commitUrl?: string;
+  error?: string;
+  errorDetails?: any;
+}
+
 export class RealGitHubPushHandler {
   private octokit: Octokit;
 
@@ -62,7 +72,7 @@ export class RealGitHubPushHandler {
       const treeSha = commit.data.tree.sha;
 
       // 4. Create blobs for all files
-      const blobs = await Promise.all(
+      const blobs: { path: string; mode: '100644' | '100755' | '040000' | '160000' | '120000'; type: 'blob'; sha: string }[] = await Promise.all(
         files.map(async (file) => {
           const blob = await this.octokit.request('POST /repos/{owner}/{repo}/git/blobs', {
             owner,
@@ -73,7 +83,7 @@ export class RealGitHubPushHandler {
           return {
             path: file.path,
             mode: file.mode || '100644',
-            type: 'blob',
+            type: 'blob' as const,
             sha: blob.data.sha
           };
         })
@@ -125,7 +135,6 @@ export class RealGitHubPushHandler {
   private async createRepository(owner: string, name: string, isPrivate: boolean): Promise<void> {
     try {
       if (owner === this.getAuthenticatedUser()?.login) {
-        // Create user repository
         await this.octokit.request('POST /user/repos', {
           name,
           private: isPrivate,
@@ -133,7 +142,6 @@ export class RealGitHubPushHandler {
           description: 'Created by AI Meta Factory'
         });
       } else {
-        // Create organization repository
         await this.octokit.request('POST /orgs/{org}/repos', {
           org: owner,
           name,
@@ -142,7 +150,7 @@ export class RealGitHubPushHandler {
         });
       }
     } catch (error: any) {
-      if (error.status !== 422) { // 422 means repo already exists
+      if (error.status !== 422) {
         throw error;
       }
     }
@@ -172,30 +180,20 @@ export class RealGitHubPushHandler {
   }
 
   private getAuthenticatedUser(): any {
-    // Get authenticated user info
-    // This would need to be implemented with proper auth flow
     return null;
   }
 
-  // Real method to check if repo exists
   async repositoryExists(owner: string, repo: string): Promise<boolean> {
     try {
-      await this.octokit.request('GET /repos/{owner}/{repo}', {
-        owner,
-        repo
-      });
+      await this.octokit.request('GET /repos/{owner}/{repo}', { owner, repo });
       return true;
     } catch {
       return false;
     }
   }
 
-  // Real method to get user's repositories
   async getUserRepositories(): Promise<any[]> {
-    const response = await this.octokit.request('GET /user/repos', {
-      per_page: 100,
-      sort: 'updated'
-    });
+    const response = await this.octokit.request('GET /user/repos', { per_page: 100, sort: 'updated' });
     return response.data;
   }
 }
