@@ -1,17 +1,7 @@
 "use client";
 
-import { useEffect } from 'react';
-import { Canvas } from '../components/Canvas';
-import { configureMonaco } from '../components/canvas/editor/MonacoConfig';
+import { EnhancedCanvasPanel } from '../components/canvas/EnhancedCanvasPanel';
 
 export default function CanvasPage() {
-  useEffect(() => {
-    configureMonaco();
-  }, []);
-  
-  return (
-    <div className="h-screen">
-      <Canvas />
-    </div>
-  );
+  return <EnhancedCanvasPanel />;
 }
