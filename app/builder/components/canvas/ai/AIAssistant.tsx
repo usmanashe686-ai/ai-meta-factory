@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from 'react';
-import { Send, Sparkles, Wand2, Bug, Zap, Brain } from 'lucide-react';
-import { useProjectStore } from '../state/project-store';
+import { Send, Sparkles, Wand2, Bug, Zap, Brain, Terminal } from 'lucide-react';
+import { useProjectStore, consoleAPI } from '../state/project-store';
 
 export function AIAssistant() {
   const [input, setInput] = useState('');
@@ -18,17 +18,26 @@ export function AIAssistant() {
     
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     
+    // Log AI request to console
+    consoleAPI.ai(`User request: ${userMessage}`);
+    
     try {
-      // Simulate AI response
+      // Simulate AI processing
       await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const aiResponse = 'I\'m your AI assistant. I can help you generate code, fix bugs, and improve your project.';
       
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: 'I\'m your AI assistant. I can help you generate code, fix bugs, and improve your project.' 
+        content: aiResponse 
       }]);
+      
+      // Log AI response to console
+      consoleAPI.ai(`AI response: ${aiResponse}`);
       
     } catch (error) {
       console.error('AI Assistant error:', error);
+      consoleAPI.error('AI Assistant encountered an error. Please try again.');
       setMessages(prev => [...prev, { 
         role: 'assistant', 
         content: 'Sorry, I encountered an error. Please try again.' 
@@ -39,11 +48,41 @@ export function AIAssistant() {
   };
   
   const quickCommands = [
-    { icon: <Wand2 className="w-4 h-4" />, label: 'Improve this code', action: 'improve' },
-    { icon: <Bug className="w-4 h-4" />, label: 'Find and fix bugs', action: 'debug' },
-    { icon: <Zap className="w-4 h-4" />, label: 'Make responsive', action: 'responsive' },
-    { icon: <Brain className="w-4 h-4" />, label: 'Add TypeScript types', action: 'typescript' },
+    { 
+      icon: <Wand2 className="w-4 h-4" />, 
+      label: 'Improve this code', 
+      action: 'improve',
+      description: 'Optimize and improve current file'
+    },
+    { 
+      icon: <Bug className="w-4 h-4" />, 
+      label: 'Find and fix bugs', 
+      action: 'debug',
+      description: 'Analyze code for bugs'
+    },
+    { 
+      icon: <Zap className="w-4 h-4" />, 
+      label: 'Make responsive', 
+      action: 'responsive',
+      description: 'Add responsive design'
+    },
+    { 
+      icon: <Brain className="w-4 h-4" />, 
+      label: 'Add TypeScript', 
+      action: 'typescript',
+      description: 'Convert to TypeScript'
+    },
   ];
+  
+  const handleQuickCommand = (action: string) => {
+    consoleAPI.ai(`Executing AI command: ${action}`);
+    consoleAPI.info('AI is processing your request...');
+    
+    // Simulate AI working
+    setTimeout(() => {
+      consoleAPI.success('AI completed the task successfully!');
+    }, 2000);
+  };
   
   return (
     <div className="h-full flex flex-col bg-gray-900/50 border-l border-gray-800">
@@ -56,6 +95,13 @@ export function AIAssistant() {
             <h3 className="font-semibold text-white">AI Assistant</h3>
             <p className="text-xs text-gray-400">Powered by GPT-4</p>
           </div>
+          <button
+            onClick={() => consoleAPI.ai('Test AI message from console')}
+            className="ml-auto p-1.5 hover:bg-gray-800 rounded"
+            title="Test Console Integration"
+          >
+            <Terminal className="w-4 h-4" />
+          </button>
         </div>
       </div>
       
@@ -64,11 +110,14 @@ export function AIAssistant() {
           {quickCommands.map((cmd, idx) => (
             <button
               key={idx}
-              onClick={() => setInput(cmd.label)}
-              className="flex items-center gap-2 p-2 text-xs bg-gray-800/50 hover:bg-gray-800 rounded-lg transition-colors"
+              onClick={() => handleQuickCommand(cmd.action)}
+              className="flex flex-col p-2 text-xs bg-gray-800/50 hover:bg-gray-800 rounded-lg transition-colors"
             >
-              {cmd.icon}
-              <span className="truncate">{cmd.label}</span>
+              <div className="flex items-center gap-2">
+                {cmd.icon}
+                <span className="truncate">{cmd.label}</span>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1 truncate">{cmd.description}</p>
             </button>
           ))}
         </div>
