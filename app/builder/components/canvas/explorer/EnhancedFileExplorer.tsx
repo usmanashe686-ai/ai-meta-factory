@@ -16,7 +16,18 @@ interface TreeNode {
 }
 
 export function EnhancedFileExplorer() {
-  const { files, setActiveFile, createFile, deleteFile, renameFile, activeFile } = useProjectStore();
+  const { 
+    files, 
+    activeFile, 
+    setActiveFile, 
+    createFile, 
+    removeFile, 
+    renameFile,
+    copyFile,
+    getFileTree,
+    searchFiles
+  } = useProjectStore();
+  
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['src', 'public', 'app']));
   const [searchQuery, setSearchQuery] = useState('');
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
@@ -31,6 +42,7 @@ export function EnhancedFileExplorer() {
     
     // Sort files alphabetically
     const sortedFiles = Object.keys(files)
+      .filter(path => !path.includes('.folder-marker'))
       .sort();
     
     // Build tree
@@ -108,33 +120,27 @@ export function EnhancedFileExplorer() {
   );
 }`;
     
-    try {
-      createFile(defaultPath, defaultContent);
-      setActiveFile(defaultPath);
-    } catch (error) {
-      console.error('Failed to create file:', error);
-    }
+    // Create file with aiGenerated = false (user-created)
+    createFile(defaultPath, defaultContent, false);
   };
 
   const handleCreateFolder = () => {
     const folderName = prompt('Enter folder name:');
     if (folderName) {
-      try {
-        // Create a folder by creating a placeholder file
-        createFile(`src/${folderName}/.placeholder`, '');
-      } catch (error) {
-        console.error('Failed to create folder:', error);
-      }
+      // Create a folder marker file with aiGenerated = false
+      const folderPath = `src/${folderName}/.folder-marker`;
+      createFile(folderPath, '', false);
+      
+      // Expand the new folder
+      const newExpanded = new Set(expandedFolders);
+      newExpanded.add(`src/${folderName}`);
+      setExpandedFolders(newExpanded);
     }
   };
 
   const handleDelete = (path: string, type: 'file' | 'folder') => {
     if (confirm(`Are you sure you want to delete this ${type}?`)) {
-      try {
-        deleteFile(path);
-      } catch (error) {
-        console.error('Failed to delete:', error);
-      }
+      removeFile(path);
     }
   };
 
@@ -145,20 +151,22 @@ export function EnhancedFileExplorer() {
 
   const handleRenameSubmit = () => {
     if (renamingPath && renamingName) {
-      try {
-        const isFolder = renamingPath.endsWith('/');
-        const oldPath = renamingPath;
-        const newPath = isFolder 
-          ? renamingPath.replace(/[^/]+(?=\/$)/, renamingName)
-          : renamingPath.replace(/[^/]+$/, renamingName);
-        
-        renameFile(oldPath, newPath);
-      } catch (error) {
-        console.error('Failed to rename:', error);
-      }
+      const isFolder = renamingPath.endsWith('/');
+      const oldPath = renamingPath;
+      
+      // Calculate new path
+      const parts = oldPath.split('/');
+      parts[parts.length - 1] = renamingName;
+      const newPath = parts.join('/');
+      
+      renameFile(oldPath, newPath);
     }
     setRenamingPath(null);
     setRenamingName('');
+  };
+
+  const handleDuplicate = (path: string) => {
+    copyFile(path);
   };
 
   const handleContextMenu = (e: React.MouseEvent, path: string, type: 'file' | 'folder') => {
@@ -186,6 +194,10 @@ export function EnhancedFileExplorer() {
         return <FileText className="w-4 h-4 text-gray-400" />;
       case 'png': case 'jpg': case 'jpeg': case 'gif': case 'svg':
         return <FileImage className="w-4 h-4 text-green-400" />;
+      case 'py':
+        return <FileText className="w-4 h-4 text-green-400" />;
+      case 'dart':
+        return <FileText className="w-4 h-4 text-blue-300" />;
       default:
         return <FileText className="w-4 h-4 text-gray-400" />;
     }
@@ -195,12 +207,11 @@ export function EnhancedFileExplorer() {
     return nodes.map((node) => {
       const isExpanded = expandedFolders.has(node.path);
       const isRenaming = renamingPath === node.path;
-      const isActive = activeFile === node.path;
       
       return (
         <div key={node.path} className="select-none">
           <div
-            className={`flex items-center py-1 px-2 hover:bg-gray-800/50 cursor-pointer ${depth > 0 ? `ml-${depth * 4}` : ''} ${isActive ? 'bg-blue-500/10 border-r-2 border-blue-500' : ''}`}
+            className={`flex items-center py-1 px-2 hover:bg-gray-800/50 cursor-pointer ${depth > 0 ? `ml-${depth * 4}` : ''}`}
             onContextMenu={(e) => handleContextMenu(e, node.path, node.type)}
             onClick={() => {
               if (node.type === 'folder') {
@@ -272,15 +283,29 @@ export function EnhancedFileExplorer() {
                     handleRenameStart(node.path, node.name);
                   }}
                   className="p-0.5 hover:bg-gray-700 rounded"
+                  title="Rename"
                 >
                   <Edit2 className="w-3 h-3" />
                 </button>
+                {node.type === 'file' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDuplicate(node.path);
+                    }}
+                    className="p-0.5 hover:bg-gray-700 rounded ml-1"
+                    title="Duplicate"
+                  >
+                    <Copy className="w-3 h-3" />
+                  </button>
+                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDelete(node.path, node.type);
                   }}
                   className="p-0.5 hover:bg-gray-700 rounded ml-1"
+                  title="Delete"
                 >
                   <Trash2 className="w-3 h-3" />
                 </button>
@@ -354,8 +379,21 @@ export function EnhancedFileExplorer() {
       {/* File Tree */}
       <div className="flex-1 overflow-y-auto p-2">
         {searchQuery ? (
-          <div className="text-xs text-gray-400 p-2">
-            Search results for "{searchQuery}"
+          <div className="space-y-1">
+            <div className="text-xs text-gray-400 p-2">
+              Search results for "{searchQuery}"
+            </div>
+            {searchFiles(searchQuery).map((result) => (
+              <div
+                key={result.path}
+                className="flex items-center py-1 px-2 hover:bg-gray-800/50 cursor-pointer rounded"
+                onClick={() => setActiveFile(result.path)}
+              >
+                {getFileIcon(result.name)}
+                <span className="text-sm ml-2 truncate">{result.name}</span>
+                <span className="text-xs text-gray-500 ml-2 truncate">{result.path}</span>
+              </div>
+            ))}
           </div>
         ) : (
           renderTree(fileTree)
@@ -380,6 +418,7 @@ export function EnhancedFileExplorer() {
           </button>
           <button
             onClick={() => {
+              handleDuplicate(contextMenu.path);
               setContextMenu(null);
             }}
             className="w-full px-4 py-2 text-sm text-left hover:bg-gray-700 flex items-center gap-2"
@@ -388,7 +427,8 @@ export function EnhancedFileExplorer() {
           </button>
           <button
             onClick={() => {
-              handleDelete(contextMenu.path, 'file');
+              const type = contextMenu.path.endsWith('/') ? 'folder' : 'file';
+              handleDelete(contextMenu.path, type);
               setContextMenu(null);
             }}
             className="w-full px-4 py-2 text-sm text-left hover:bg-gray-700 flex items-center gap-2 text-red-400"

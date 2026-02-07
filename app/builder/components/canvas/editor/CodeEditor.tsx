@@ -6,7 +6,7 @@ import { useProjectStore } from '../state/project-store';
 import { FileTabs } from './FileTabs';
 
 export function CodeEditor() {
-  const { files, activeFile, updateFile } = useProjectStore();
+  const { files, activeFile, updateFile, setActiveFile } = useProjectStore();
   const editorRef = useRef<any>(null);
   
   const handleEditorDidMount: OnMount = (editor) => {
@@ -20,31 +20,36 @@ export function CodeEditor() {
     }
   };
   
+  // Set default active file if none
+  useEffect(() => {
+    if (!activeFile && Object.keys(files).length > 0) {
+      setActiveFile(Object.keys(files)[0]);
+    }
+  }, [activeFile, files, setActiveFile]);
+  
   if (!activeFile || !files[activeFile]) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-900">
-        <p className="text-gray-500">Select a file to edit</p>
+      <div className="h-full flex flex-col items-center justify-center bg-gray-900">
+        <div className="text-center p-8">
+          <p className="text-gray-500 mb-4">No file selected</p>
+          <p className="text-sm text-gray-600">Select a file from the explorer to start editing</p>
+        </div>
       </div>
     );
   }
   
   const file = files[activeFile];
-  const language = file.language === 'typescript' ? 'typescript' :
-                   file.language === 'javascript' ? 'javascript' :
-                   file.language === 'python' ? 'python' :
-                   file.language === 'dart' ? 'dart' :
-                   file.language === 'css' ? 'css' :
-                   file.language === 'json' ? 'json' :
-                   file.language === 'yaml' ? 'yaml' : 'plaintext';
   
   return (
     <div className="h-full flex flex-col">
+      {/* File Tabs */}
       <FileTabs />
       
+      {/* Editor */}
       <div className="flex-1">
         <Editor
           height="100%"
-          language={language}
+          language={file.language}
           value={file.content}
           onMount={handleEditorDidMount}
           onChange={handleEditorChange}
@@ -56,6 +61,9 @@ export function CodeEditor() {
             automaticLayout: true,
             formatOnPaste: true,
             formatOnType: true,
+            suggestOnTriggerCharacters: true,
+            acceptSuggestionOnEnter: 'on',
+            tabSize: 2,
             scrollBeyondLastLine: false,
             renderLineHighlight: 'all',
             cursorBlinking: 'smooth',

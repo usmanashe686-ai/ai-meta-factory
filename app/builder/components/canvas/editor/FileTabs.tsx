@@ -4,55 +4,43 @@ import { X } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 
 export function FileTabs() {
-  const { files, activeFile, setActiveFile, deleteFile } = useProjectStore();
+  const { files, activeFile, setActiveFile, removeFile } = useProjectStore();
   
   const openFiles = Object.keys(files).filter(path => 
-    path.endsWith('.tsx') || 
-    path.endsWith('.ts') || 
-    path.endsWith('.jsx') || 
-    path.endsWith('.js') ||
-    path.endsWith('.css')
+    !path.includes('.folder-marker') && path.split('/').pop()
   );
   
+  if (openFiles.length === 0) {
+    return null;
+  }
+  
   return (
-    <div className="flex border-b border-gray-800 bg-gray-900/50 overflow-x-auto">
+    <div className="flex items-center border-b border-gray-800 bg-gray-900/50">
       {openFiles.map((path) => {
-        const file = files[path];
+        const fileName = path.split('/').pop() || path;
         const isActive = activeFile === path;
         
         return (
           <div
             key={path}
-            className={`
-              flex items-center gap-2 px-4 py-2 text-sm border-r border-gray-800 min-w-40
-              ${isActive 
-                ? 'bg-gray-800 text-white' 
-                : 'bg-gray-900/30 text-gray-400 hover:bg-gray-800/50'
-              }
-            `}
+            className={`group flex items-center px-4 py-2 border-r border-gray-800 cursor-pointer ${
+              isActive 
+                ? 'bg-gray-800' 
+                : 'bg-gray-900/30 hover:bg-gray-800/50'
+            }`}
             onClick={() => setActiveFile(path)}
           >
-            <div className={`w-2 h-2 rounded-full ${
-              file.language === 'typescript' ? 'bg-blue-500' :
-              file.language === 'javascript' ? 'bg-yellow-500' :
-              file.language === 'css' ? 'bg-pink-500' :
-              'bg-gray-500'
-            }`} />
-            
-            <span className="truncate">
-              {path.split('/').pop()}
+            <span className="text-sm font-medium text-gray-300">
+              {fileName}
             </span>
-            
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (openFiles.length > 1) {
-                  deleteFile(path);
-                }
+                removeFile(path);
               }}
-              className="ml-auto p-0.5 hover:bg-gray-700 rounded opacity-0 group-hover:opacity-100"
+              className="ml-2 p-0.5 rounded hover:bg-gray-700 opacity-0 group-hover:opacity-100 transition-opacity"
             >
-              <X className="w-3 h-3" />
+              <X className="w-3 h-3 text-gray-400" />
             </button>
           </div>
         );
