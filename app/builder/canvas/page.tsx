@@ -1,6 +1,6 @@
 "use client";
 
-import { EnhancedCanvasPanel } from '../components/canvas/EnhancedCanvasPanel';
+import EnhancedCanvasPanel from '../components/canvas/EnhancedCanvasPanel';
 import { StackConfig } from '../components/canvas/types';
 
 export default function CanvasPage() {
@@ -11,13 +11,11 @@ export default function CanvasPage() {
   };
   
   // Create a proper StackConfig object
-  // If you have a 'mode' variable, it should be the frontend value
-  // For now, let's create a full StackConfig
   const stack: StackConfig = {
-    frontend: 'nextjs', // This would be your 'mode' variable
-    backend: 'nodejs',  // Default or from your state
-    database: 'supabase', // Default or from your state
-    gitProvider: 'github' // Default or from your state
+    frontend: 'nextjs',
+    backend: 'nodejs',
+    database: 'supabase',
+    gitProvider: 'github'
   };
   
   const projectName = 'My AI Generated Project';

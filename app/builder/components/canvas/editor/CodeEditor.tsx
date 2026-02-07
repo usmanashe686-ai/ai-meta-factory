@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
 import { useProjectStore } from '../state/project-store';
 import { FileTabs } from './FileTabs';
+import { detectLanguage } from '../state/project-store';
 
 export function CodeEditor() {
   const { files, activeFile, updateFile, setActiveFile } = useProjectStore();

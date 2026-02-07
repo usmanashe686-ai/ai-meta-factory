@@ -1,7 +1,8 @@
 "use client";
 
-import { CanvasLayout } from './canvas';
+import { CanvasProps } from './canvas/types';
+import EnhancedCanvasPanel from './canvas/EnhancedCanvasPanel';
 
-export function Canvas() {
-  return <CanvasLayout />;
+export default function Canvas(props: CanvasProps) {
+  return <EnhancedCanvasPanel {...props} />;
 }

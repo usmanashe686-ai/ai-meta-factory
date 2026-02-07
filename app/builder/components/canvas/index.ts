@@ -1,20 +1,13 @@
-// Layout
-export { CanvasLayout } from './layout/CanvasLayout';
-
-// Editor
+// Export canvas components
+import EnhancedCanvasPanel from './EnhancedCanvasPanel';
+export { EnhancedCanvasLayout } from './layout/EnhancedCanvasLayout';
 export { CodeEditor } from './editor/CodeEditor';
-
-// Explorer
-export { FileExplorer } from './explorer/FileExplorer';
-
-// AI
+export { EnhancedFileExplorer } from './explorer/EnhancedFileExplorer';
 export { AIAssistant } from './ai/AIAssistant';
-
-// Preview
 export { PreviewEngine } from './preview/PreviewEngine';
-
-// State
+export { ExportEngine } from './export/ExportEngine';
 export { useProjectStore } from './state/project-store';
+export type { CanvasProps } from './types';
 
-// Hooks
-export { useFileSystem } from './hooks/useFileSystem';
+// Default export
+export default EnhancedCanvasPanel;
