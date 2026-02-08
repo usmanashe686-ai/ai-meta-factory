@@ -1,4 +1,4 @@
-import EnhancedCanvasPanel from '../../components/canvas/EnhancedCanvasPanel';
+import EnhancedCanvasPanel from '../components/canvas/EnhancedCanvasPanel';
 
 export default function CanvasPage() {
   const stack = {

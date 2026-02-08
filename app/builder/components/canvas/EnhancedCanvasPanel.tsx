@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { EnhancedCanvasLayout } from './layout/EnhancedCanvasLayout';
-import { useProjectStore } from '../state/project-store';
+import { useProjectStore } from './state/project-store';
 
 // Simple types to avoid external dependencies
 type FrontendStack = 'react' | 'nextjs' | 'vue' | 'flutter';
