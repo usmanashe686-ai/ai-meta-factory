@@ -1,382 +1,371 @@
+"use client";
+
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
+
+export type FrontendStack = 'react' | 'nextjs' | 'vue' | 'flutter';
+export type BackendStack = 'node' | 'python' | 'go' | 'none';
+export type DatabaseStack = 'postgresql' | 'mongodb' | 'sqlite' | 'none';
+export type DeploymentStack = 'vercel' | 'netlify' | 'aws' | 'railway' | 'none';
+
+export type StackConfig = {
+  frontend: FrontendStack;
+  backend: BackendStack;
+  database: DatabaseStack;
+  deployment: DeploymentStack;
+};
 
 export interface FileData {
-  id: string;
-  path: string;
   content: string;
-  language: string;
-  lastModified: Date;
-}
-
-export interface StackConfig {
-  frontend: 'react' | 'nextjs' | 'flutter' | 'vue' | 'svelte';
-  backend: 'node' | 'python' | 'go' | 'none';
-  database: 'postgresql' | 'mongodb' | 'sqlite' | 'none';
-  deployment: 'vercel' | 'netlify' | 'docker' | 'serverless';
+  isCodeFile: boolean;
+  lastModified: number;
+  language?: string; // Added missing language property
 }
 
 export interface ConsoleEntry {
-  id: string;
+  type: 'log' | 'error' | 'warning' | 'info' | 'success' | 'ai' | 'command';
   message: string;
-  type: 'log' | 'error' | 'success' | 'info' | 'warning' | 'command' | 'ai';
   timestamp: number;
-  source?: 'build' | 'preview' | 'ai' | 'system' | 'terminal';
 }
 
-export interface ProjectState {
-  // Project info
+interface SearchResult {
+  path: string;
   name: string;
-  description: string;
+  content: string;
+}
+
+interface ProjectStore {
+  name: string;
   stack: StackConfig;
-  
-  // Files
   files: Record<string, FileData>;
   activeFile: string | null;
-  
-  // UI state
-  isPreviewVisible: boolean;
-  isConsoleVisible: boolean;
-  
-  // Console system
+
+  // Console state
   consoleOutput: ConsoleEntry[];
   consoleHistory: string[];
   isConsoleRunning: boolean;
-  
+
   // Actions
   setName: (name: string) => void;
-  setDescription: (description: string) => void;
   setStack: (stack: StackConfig) => void;
-  
-  // File actions
-  createFile: (path: string, content: string, isCodeFile: boolean) => void;
+  createFile: (path: string, content: string, isCodeFile?: boolean) => void;
   updateFile: (path: string, content: string) => void;
   removeFile: (path: string) => void;
   renameFile: (oldPath: string, newPath: string) => void;
   copyFile: (path: string) => void;
   setActiveFile: (path: string | null) => void;
-  
-  // UI actions
-  togglePreview: () => void;
-  toggleConsole: () => void;
-  
+  resetProject: () => void;
+  searchFiles: (query: string) => SearchResult[];
+
   // Console actions
-  addConsoleEntry: (entry: Omit<ConsoleEntry, 'id' | 'timestamp'>) => void;
-  addConsoleOutput: (message: string, type?: ConsoleEntry['type'], source?: ConsoleEntry['source']) => void;
   clearConsole: () => void;
+  addToConsole: (entry: ConsoleEntry) => void;
   addToConsoleHistory: (command: string) => void;
   setConsoleRunning: (isRunning: boolean) => void;
-  
-  // Project actions
-  resetProject: () => void;
-  
-  // Search
-  searchFiles: (query: string) => Array<{ path: string; name: string }>;
 }
 
-const defaultStack: StackConfig = {
+const DEFAULT_STACK: StackConfig = {
   frontend: 'react',
   backend: 'none',
   database: 'none',
   deployment: 'vercel'
 };
 
-const defaultFiles: Record<string, FileData> = {
+const INITIAL_FILES: Record<string, FileData> = {
   'README.md': {
-    id: 'readme',
-    path: 'README.md',
-    content: '# Project\n\nThis is a new project created with AI Meta Factory.',
-    language: 'markdown',
-    lastModified: new Date()
+    content: '# Project\n\nWelcome to your new project!',
+    isCodeFile: false,
+    lastModified: Date.now()
   },
   'package.json': {
-    id: 'package',
-    path: 'package.json',
     content: JSON.stringify({
-      name: 'new-project',
+      name: 'my-project',
       version: '1.0.0',
-      dependencies: {
-        'react': '^18.0.0',
-        'react-dom': '^18.0.0'
-      }
+      dependencies: {},
+      devDependencies: {}
     }, null, 2),
-    language: 'json',
-    lastModified: new Date()
+    isCodeFile: true,
+    lastModified: Date.now()
+  },
+  'src/.folder-marker': {
+    content: '',
+    isCodeFile: false,
+    lastModified: Date.now()
   },
   'src/App.tsx': {
-    id: 'app',
-    path: 'src/App.tsx',
     content: `export default function App() {
   return (
-    <div className="App">
-      <h1>Hello, World!</h1>
-      <p>Start editing to see changes.</p>
+    <div>
+      <h1>Hello World</h1>
     </div>
   );
 }`,
-    language: 'typescript',
-    lastModified: new Date()
+    isCodeFile: true,
+    lastModified: Date.now(),
+    language: 'typescript'
   }
 };
 
-const getLanguage = (path: string): string => {
-  const ext = path.split('.').pop()?.toLowerCase();
-  switch (ext) {
-    case 'ts': return 'typescript';
-    case 'tsx': return 'typescript';
-    case 'js': return 'javascript';
-    case 'jsx': return 'javascript';
-    case 'json': return 'json';
-    case 'md': return 'markdown';
-    case 'css': return 'css';
-    case 'scss': return 'scss';
-    case 'html': return 'html';
-    case 'py': return 'python';
-    case 'dart': return 'dart';
-    default: return 'text';
-  }
-};
-
-// Helper to generate unique ID
-const generateId = () => `console_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-export const useProjectStore = create<ProjectState>()(
-  devtools(
+export const useProjectStore = create<ProjectStore>()(
+  persist(
     (set, get) => ({
-      // Initial state
       name: 'New Project',
-      description: '',
-      stack: defaultStack,
-      files: defaultFiles,
+      stack: DEFAULT_STACK,
+      files: INITIAL_FILES,
       activeFile: 'src/App.tsx',
-      isPreviewVisible: true,
-      isConsoleVisible: false,
-      consoleOutput: [
-        { id: generateId(), message: 'Welcome to AI Meta Factory Console', type: 'info', timestamp: Date.now(), source: 'system' },
-        { id: generateId(), message: 'Starting development environment...', type: 'info', timestamp: Date.now(), source: 'system' },
-        { id: generateId(), message: 'Ready on http://localhost:3000', type: 'success', timestamp: Date.now(), source: 'system' }
-      ],
+      consoleOutput: [],
       consoleHistory: [],
       isConsoleRunning: false,
-      
-      // Actions
+
       setName: (name) => set({ name }),
-      setDescription: (description) => set({ description }),
+
       setStack: (stack) => set({ stack }),
-      
-      createFile: (path, content, isCodeFile) => {
-        const language = getLanguage(path);
-        const newFile: FileData = {
-          id: Date.now().toString(),
-          path,
-          content,
-          language,
-          lastModified: new Date()
-        };
-        
-        set((state) => ({
-          files: { ...state.files, [path]: newFile },
-          activeFile: path
-        }));
-        
-        // Log file creation
-        get().addConsoleOutput(`Created file: ${path}`, 'success', 'system');
+
+      createFile: (path, content, isCodeFile = false) => {
+        set((state) => {
+          const newFiles = { ...state.files };
+          newFiles[path] = {
+            content,
+            isCodeFile,
+            lastModified: Date.now()
+          };
+
+          // Create parent directories if they don't exist
+          const parts = path.split('/');
+          if (parts.length > 1) {
+            for (let i = 1; i < parts.length; i++) {
+              const dirPath = parts.slice(0, i).join('/');
+              if (!newFiles[`${dirPath}/.folder-marker`]) {
+                newFiles[`${dirPath}/.folder-marker`] = {
+                  content: '',
+                  isCodeFile: false,
+                  lastModified: Date.now()
+                };
+              }
+            }
+          }
+
+          return { files: newFiles };
+        });
       },
-      
+
       updateFile: (path, content) => {
         set((state) => {
           const file = state.files[path];
           if (!file) return state;
-          
-          return {
-            files: {
-              ...state.files,
-              [path]: {
-                ...file,
-                content,
-                lastModified: new Date()
-              }
-            }
+
+          const newFiles = { ...state.files };
+          newFiles[path] = {
+            ...file,
+            content,
+            lastModified: Date.now()
           };
+
+          return { files: newFiles };
         });
       },
-      
+
       removeFile: (path) => {
         set((state) => {
           const newFiles = { ...state.files };
           delete newFiles[path];
-          
-          let newActiveFile = state.activeFile;
-          if (state.activeFile === path) {
-            const remainingFiles = Object.keys(newFiles);
-            newActiveFile = remainingFiles.length > 0 ? remainingFiles[0] : null;
+
+          // Clean up empty directories
+          const parts = path.split('/');
+          if (parts.length > 1) {
+            const dirPath = parts.slice(0, parts.length - 1).join('/');
+            const hasOtherFiles = Object.keys(newFiles).some(filePath =>
+              filePath.startsWith(dirPath + '/') &&
+              !filePath.includes('.folder-marker')
+            );
+
+            if (!hasOtherFiles && dirPath) {
+              delete newFiles[`${dirPath}/.folder-marker`];
+            }
           }
-          
+
           return {
             files: newFiles,
-            activeFile: newActiveFile
+            activeFile: state.activeFile === path ? null : state.activeFile
           };
         });
-        
-        get().addConsoleOutput(`Deleted file: ${path}`, 'warning', 'system');
       },
-      
+
       renameFile: (oldPath, newPath) => {
         set((state) => {
           const file = state.files[oldPath];
           if (!file) return state;
-          
+
           const newFiles = { ...state.files };
           delete newFiles[oldPath];
-          
-          const updatedFile = {
-            ...file,
-            path: newPath,
-            language: getLanguage(newPath)
-          };
-          
-          newFiles[newPath] = updatedFile;
-          
+          newFiles[newPath] = file;
+
           return {
             files: newFiles,
             activeFile: state.activeFile === oldPath ? newPath : state.activeFile
           };
         });
-        
-        get().addConsoleOutput(`Renamed: ${oldPath} → ${newPath}`, 'info', 'system');
       },
-      
+
       copyFile: (path) => {
         set((state) => {
           const file = state.files[path];
           if (!file) return state;
-          
-          const ext = path.split('.').pop();
+
+          const extension = path.split('.').pop();
           const baseName = path.replace(/\.[^/.]+$/, '');
-          const newPath = `${baseName}_copy.${ext}`;
-          
-          const newFile: FileData = {
+          const copyPath = `${baseName}.copy.${extension}`;
+
+          const newFiles = { ...state.files };
+          newFiles[copyPath] = {
             ...file,
-            id: Date.now().toString(),
-            path: newPath,
-            lastModified: new Date()
+            lastModified: Date.now()
           };
-          
-          return {
-            files: { ...state.files, [newPath]: newFile },
-            activeFile: newPath
-          };
+
+          return { files: newFiles };
         });
-        
-        get().addConsoleOutput(`Copied file: ${path}`, 'info', 'system');
       },
-      
+
       setActiveFile: (path) => set({ activeFile: path }),
-      
-      togglePreview: () => set((state) => ({ isPreviewVisible: !state.isPreviewVisible })),
-      toggleConsole: () => set((state) => ({ isConsoleVisible: !state.isConsoleVisible })),
-      
-      // Console actions
-      addConsoleEntry: (entry) => set((state) => ({
-        consoleOutput: [
-          ...state.consoleOutput,
-          {
-            ...entry,
-            id: generateId(),
-            timestamp: Date.now()
-          }
-        ].slice(-100) // Keep last 100 entries to prevent memory issues
-      })),
-      
-      addConsoleOutput: (message, type = 'log', source = 'system') => {
-        get().addConsoleEntry({ message, type, source });
-      },
-      
-      clearConsole: () => set({ 
-        consoleOutput: [],
-        consoleHistory: []
-      }),
-      
-      addToConsoleHistory: (command) => set((state) => ({
-        consoleHistory: [...state.consoleHistory, command].slice(-50) // Keep last 50 commands
-      })),
-      
-      setConsoleRunning: (isRunning) => set({ isConsoleRunning: isRunning }),
-      
+
       resetProject: () => set({
         name: 'New Project',
-        description: '',
-        stack: defaultStack,
-        files: defaultFiles,
+        stack: DEFAULT_STACK,
+        files: INITIAL_FILES,
         activeFile: 'src/App.tsx',
-        consoleOutput: [
-          { id: generateId(), message: 'Project reset successfully', type: 'success', timestamp: Date.now(), source: 'system' }
-        ],
+        consoleOutput: [],
         consoleHistory: [],
         isConsoleRunning: false
       }),
-      
+
       searchFiles: (query) => {
-        const state = get();
-        const results: Array<{ path: string; name: string }> = [];
-        
-        Object.keys(state.files).forEach(path => {
-          if (path.toLowerCase().includes(query.toLowerCase())) {
+        const { files } = get();
+        const results: SearchResult[] = [];
+
+        Object.entries(files).forEach(([path, file]) => {
+          if (path.includes('.folder-marker')) return;
+
+          if (path.toLowerCase().includes(query.toLowerCase()) ||
+              file.content.toLowerCase().includes(query.toLowerCase())) {
             results.push({
               path,
-              name: path.split('/').pop() || path
+              name: path.split('/').pop() || path,
+              content: file.content
             });
           }
         });
-        
+
         return results;
-      }
+      },
+
+      // Console actions
+      clearConsole: () => set({ consoleOutput: [] }),
+
+      addToConsole: (entry) => {
+        set((state) => ({
+          consoleOutput: [...state.consoleOutput, entry]
+        }));
+      },
+
+      addToConsoleHistory: (command) => {
+        set((state) => ({
+          consoleHistory: [...state.consoleHistory, command]
+        }));
+      },
+
+      setConsoleRunning: (isRunning) => set({ isConsoleRunning: isRunning })
     }),
-    { name: 'project-store' }
+    {
+      name: 'project-store',
+      partialize: (state) => ({
+        name: state.name,
+        stack: state.stack,
+        files: state.files,
+        activeFile: state.activeFile,
+        // We might not want to persist console output and history, but let's do for now
+        consoleOutput: state.consoleOutput,
+        consoleHistory: state.consoleHistory,
+        isConsoleRunning: state.isConsoleRunning
+      })
+    }
   )
 );
 
-export function detectLanguage(path: string): string {
-  return getLanguage(path);
-}
+// Helper function to detect language from file path
+export const detectLanguage = (path: string): string => {
+  const extension = path.split('.').pop()?.toLowerCase();
 
-// Export console helper functions for use throughout the app
+  switch (extension) {
+    case 'ts':
+    case 'tsx':
+      return 'typescript';
+    case 'js':
+    case 'jsx':
+      return 'javascript';
+    case 'py':
+      return 'python';
+    case 'dart':
+      return 'dart';
+    case 'json':
+      return 'json';
+    case 'css':
+      return 'css';
+    case 'scss':
+    case 'sass':
+      return 'scss';
+    case 'html':
+      return 'html';
+    case 'md':
+      return 'markdown';
+    case 'yaml':
+    case 'yml':
+      return 'yaml';
+    case 'sql':
+      return 'sql';
+    case 'sh':
+      return 'shell';
+    case 'dockerfile':
+      return 'dockerfile';
+    default:
+      return 'plaintext';
+  }
+};
+
+// Console API for easy logging
 export const consoleAPI = {
-  log: (message: string, source?: ConsoleEntry['source']) => {
-    useProjectStore.getState().addConsoleOutput(message, 'log', source);
+  log: (message: string) => {
+    useProjectStore.getState().addToConsole({
+      type: 'log',
+      message,
+      timestamp: Date.now()
+    });
   },
-  
-  error: (message: string, source?: ConsoleEntry['source']) => {
-    useProjectStore.getState().addConsoleOutput(message, 'error', source);
+  error: (message: string) => {
+    useProjectStore.getState().addToConsole({
+      type: 'error',
+      message,
+      timestamp: Date.now()
+    });
   },
-  
-  success: (message: string, source?: ConsoleEntry['source']) => {
-    useProjectStore.getState().addConsoleOutput(message, 'success', source);
+  success: (message: string) => {
+    useProjectStore.getState().addToConsole({
+      type: 'success',
+      message,
+      timestamp: Date.now()
+    });
   },
-  
-  info: (message: string, source?: ConsoleEntry['source']) => {
-    useProjectStore.getState().addConsoleOutput(message, 'info', source);
-  },
-  
-  warn: (message: string, source?: ConsoleEntry['source']) => {
-    useProjectStore.getState().addConsoleOutput(message, 'warning', source);
-  },
-  
   ai: (message: string) => {
-    useProjectStore.getState().addConsoleOutput(message, 'ai', 'ai');
+    useProjectStore.getState().addToConsole({
+      type: 'ai',
+      message,
+      timestamp: Date.now()
+    });
   },
-  
-  command: (command: string) => {
-    const state = useProjectStore.getState();
-    state.addConsoleOutput(`$ ${command}`, 'command', 'terminal');
-    state.addToConsoleHistory(command);
-  },
-  
-  build: (message: string) => {
-    useProjectStore.getState().addConsoleOutput(message, 'info', 'build');
-  },
-  
-  preview: (message: string) => {
-    useProjectStore.getState().addConsoleOutput(message, 'info', 'preview');
+  command: (message: string) => {
+    useProjectStore.getState().addToConsole({
+      type: 'command',
+      message,
+      timestamp: Date.now()
+    });
   }
 };

@@ -1,33 +1,28 @@
-"use client";
-
-import EnhancedCanvasPanel from '../components/canvas/EnhancedCanvasPanel';
-import { StackConfig } from '../components/canvas/types';
+import EnhancedCanvasPanel from '../../components/canvas/EnhancedCanvasPanel';
 
 export default function CanvasPage() {
-  // These would come from your data fetching/state
-  const initialFiles = {};
-  const onFilesChange = (files: Record<string, string>) => {
-    console.log('Files changed:', Object.keys(files).length);
+  const stack = {
+    frontend: 'nextjs' as const,
+    backend: 'node' as const,
+    database: 'postgresql' as const,
   };
-  
-  // Create a proper StackConfig object
-  const stack: StackConfig = {
-    frontend: 'nextjs',
-    backend: 'nodejs',
-    database: 'supabase',
-    gitProvider: 'github'
-  };
-  
-  const projectName = 'My AI Generated Project';
-  const session = null; // You would get this from your auth provider
 
   return (
-    <EnhancedCanvasPanel
-      initialFiles={initialFiles}
-      onFilesChange={onFilesChange}
-      stack={stack}
-      projectName={projectName}
-      session={session}
-    />
+    <div className="h-screen">
+      <EnhancedCanvasPanel
+        projectName="AI Meta Factory"
+        stack={stack}
+        initialFiles={{
+          'src/App.tsx': `export default function App() {
+  return (
+    <div>
+      <h1>Welcome to AI Meta Factory</h1>
+    </div>
+  );
+}`,
+          'README.md': '# AI Meta Factory\n\nBuild and deploy AI-powered applications.',
+        }}
+      />
+    </div>
   );
 }

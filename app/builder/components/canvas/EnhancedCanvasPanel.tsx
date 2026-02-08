@@ -2,9 +2,28 @@
 
 import { useEffect } from 'react';
 import { EnhancedCanvasLayout } from './layout/EnhancedCanvasLayout';
-import { configureMonaco } from './editor/MonacoConfig';
-import { useProjectStore } from './state/project-store';
-import { CanvasProps } from './types';
+import { useProjectStore } from '../state/project-store';
+
+// Simple types to avoid external dependencies
+type FrontendStack = 'react' | 'nextjs' | 'vue' | 'flutter';
+type BackendStack = 'node' | 'python' | 'go' | 'none';
+type DatabaseStack = 'postgresql' | 'mongodb' | 'sqlite' | 'none';
+type DeploymentStack = 'vercel' | 'netlify' | 'aws' | 'railway' | 'none';
+
+type StackConfig = {
+  frontend: FrontendStack;
+  backend: BackendStack;
+  database: DatabaseStack;
+  deployment: DeploymentStack;
+};
+
+interface CanvasProps {
+  initialFiles?: Record<string, string>;
+  onFilesChange?: (files: Record<string, string>) => void;
+  stack?: Partial<StackConfig>;
+  projectName?: string;
+  session?: any;
+}
 
 export default function EnhancedCanvasPanel(props: CanvasProps) {
   const {
@@ -23,8 +42,6 @@ export default function EnhancedCanvasPanel(props: CanvasProps) {
   } = useProjectStore();
 
   useEffect(() => {
-    configureMonaco();
-    
     const initializeProject = async () => {
       try {
         if (projectName && projectName !== 'New Project') {
@@ -32,7 +49,13 @@ export default function EnhancedCanvasPanel(props: CanvasProps) {
         }
         
         if (stack) {
-          setStack(stack);
+          const completeStack: StackConfig = {
+            frontend: (stack.frontend as FrontendStack) || 'react',
+            backend: (stack.backend as BackendStack) || 'none',
+            database: (stack.database as DatabaseStack) || 'none',
+            deployment: (stack.deployment as DeploymentStack) || 'vercel'
+          };
+          setStack(completeStack);
         }
         
         const currentState = useProjectStore.getState();
@@ -50,9 +73,9 @@ export default function EnhancedCanvasPanel(props: CanvasProps) {
         }
         
         if (onFilesChange && typeof onFilesChange === 'function') {
-          const unsubscribe = useProjectStore.subscribe((state) => {
+          const unsubscribe = useProjectStore.subscribe((state: any) => {
             const filesForCallback: Record<string, string> = {};
-            Object.entries(state.files).forEach(([path, fileData]) => {
+            Object.entries(state.files).forEach(([path, fileData]: [string, any]) => {
               if (!path.includes('.folder-marker')) {
                 filesForCallback[path] = fileData.content;
               }

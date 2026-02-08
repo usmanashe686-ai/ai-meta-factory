@@ -4,18 +4,19 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, ExternalLink, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 
-// Simple preview without Sandpack for now
 export function PreviewEngine() {
-  const { stack, preview } = useProjectStore();
+  const { stack } = useProjectStore();
   const [isBuilding, setIsBuilding] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [status, setStatus] = useState<'idle' | 'building' | 'running' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'building' | 'running' | 'error' | 'success'>('idle');
 
   const statusColors: Record<string, string> = {
     idle: 'bg-gray-500',
     building: 'bg-yellow-500',
     running: 'bg-green-500',
+    success: 'bg-green-500',
     error: 'bg-red-500',
+    initial: 'bg-gray-500',
   };
 
   const buildPreview = async () => {
@@ -31,7 +32,7 @@ export function PreviewEngine() {
       
       // Simulate successful build
       setTimeout(() => {
-        // No 'success' status, stay in 'running'
+        setStatus('success');
       }, 1000);
       
     } catch (error) {
@@ -51,6 +52,7 @@ export function PreviewEngine() {
       case 'building':
         return <Loader2 className="w-4 h-4 animate-spin" />;
       case 'running':
+      case 'success':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'error':
         return <AlertCircle className="w-4 h-4 text-red-500" />;
