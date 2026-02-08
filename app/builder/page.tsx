@@ -1,189 +1,241 @@
 "use client";
 
-import { useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { Code, Database, GitBranch, Cloud, Zap, ChevronRight, Check, Settings, Download, Layout, Package, User, LogOut } from 'lucide-react';
-import Link from 'next/link';
-import HonestAIPipeline from './components/HonestAIPipeline';
-import FullStackFactory from './components/FullStackFactory';
-import EnhancedCanvasPanel from './components/canvas/EnhancedCanvasPanel';
-import { StackConfig } from './components/canvas/types';
+import React, { useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
+import { useCanvasStore } from "./components/canvas/store";
+import { DndProvider, useDrag, useDrop } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
+import { v4 as uuidv4 } from "uuid";
 
-type TabType = 'component' | 'fullstack' | 'canvas' | 'export';
-type ModeType = 'nextjs' | 'react' | 'flutter' | 'node' | 'python';
-type DatabaseType = 'supabase' | 'firebase' | 'mongodb' | 'planetscale' | 'none';
-type GitProviderType = 'github' | 'gitlab' | 'bitbucket';
+// Dynamic imports for editors (Monaco/Sandpack)
+const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
-export default function BuilderPage() {
-  const { data: session } = useSession();
-  const [activeTab, setActiveTab] = useState<TabType>('component');
-  const [mode, setMode] = useState<ModeType>('nextjs');
-  const [database, setDatabase] = useState<DatabaseType>('supabase');
-  const [gitProvider, setGitProvider] = useState<GitProviderType>('github');
-  const [baseFiles, setBaseFiles] = useState<Record<string, string>>({});
-  const [generatedFiles, setGeneratedFiles] = useState<Record<string, string>>({});
+interface CanvasItem {
+  id: string;
+  type: string;
+  content?: string;
+  x: number;
+  y: number;
+}
 
-  const modeConfigs = {
-    nextjs: { name: 'Next.js', icon: '⚡', color: 'bg-black', textColor: 'text-white' },
-    react: { name: 'React', icon: '⚛️', color: 'bg-blue-600', textColor: 'text-white' },
-    flutter: { name: 'Flutter', icon: '📱', color: 'bg-blue-400', textColor: 'text-white' },
-    node: { name: 'Node.js', icon: '🟢', color: 'bg-green-600', textColor: 'text-white' },
-    python: { name: 'Python', icon: '🐍', color: 'bg-gradient-to-r from-yellow-500 to-blue-500', textColor: 'text-white' }
-  } as const;
+const CanvasBlock: React.FC<{ item: CanvasItem }> = ({ item }) => {
+  const { moveItem, removeItem } = useCanvasStore();
 
-  const databaseConfigs = {
-    supabase: { name: 'Supabase', icon: '🟢', color: 'bg-green-500', textColor: 'text-white' },
-    firebase: { name: 'Firebase', icon: '🟠', color: 'bg-orange-500', textColor: 'text-white' },
-    mongodb: { name: 'MongoDB', icon: '🍃', color: 'bg-green-700', textColor: 'text-white' },
-    planetscale: { name: 'PlanetScale', icon: '🪐', color: 'bg-purple-600', textColor: 'text-white' },
-    none: { name: 'No Database', icon: '⚪', color: 'bg-gray-300', textColor: 'text-gray-700' }
-  } as const;
-
-  const gitConfigs = {
-    github: { name: 'GitHub', icon: '🐙', color: 'bg-gray-800', textColor: 'text-white' },
-    gitlab: { name: 'GitLab', icon: '🦊', color: 'bg-orange-600', textColor: 'text-white' },
-    bitbucket: { name: 'BitBucket', icon: '🐋', color: 'bg-blue-700', textColor: 'text-white' }
-  } as const;
-
-  const getStackConfig = (): StackConfig => {
-    let frontend: 'nextjs' | 'react' | 'flutter' = 'nextjs';
-    let backend: 'node' | 'python' | 'none' = 'node';
-    switch (mode) {
-      case 'nextjs': frontend='nextjs'; backend='node'; break;
-      case 'react': frontend='react'; backend='node'; break;
-      case 'flutter': frontend='flutter'; backend='none'; break;
-      case 'node': frontend='nextjs'; backend='node'; break;
-      case 'python': frontend='nextjs'; backend='python'; break;
-    }
-    return { frontend, backend, database, gitProvider };
-  };
-
-  const handleGenerateComponents = () => {
-    const mockFiles = {
-      'src/components/Button.tsx': `export default function Button() { return <button>Button</button>; }`,
-      'README.md': '# AI Meta Factory Project'
-    };
-    setGeneratedFiles(mockFiles);
-    setTimeout(() => setBaseFiles(mockFiles), 500);
-  };
-
-  const tabs = [
-    { id: 'component' as TabType, label: 'AI Component Generator', icon: <Zap className="w-4 h-4" /> },
-    { id: 'fullstack' as TabType, label: 'Full-Stack Factory', icon: <Package className="w-4 h-4" /> },
-    { id: 'canvas' as TabType, label: 'Canvas', icon: <Layout className="w-4 h-4" /> },
-    { id: 'export' as TabType, label: 'Export & Deploy', icon: <Cloud className="w-4 h-4" /> }
-  ];
-
-  const stackConfig = getStackConfig();
+  const [{ isDragging }, drag] = useDrag({
+    type: "CANVAS_ITEM",
+    item: { id: item.id },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-50 bg-white border-b">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">AI</div>
-            <div>
-              <h1 className="font-bold text-gray-900">AI Meta Factory</h1>
-              <p className="text-xs text-gray-500">Builder Interface</p>
-            </div>
-          </Link>
-          <div className="flex items-center gap-4">
-            {session ? (
-              <div className="flex items-center gap-3">
-                <img src={session.user?.image || ''} alt="User" className="w-8 h-8 rounded-full" />
-                <span className="text-sm text-gray-700">{session.user?.name}</span>
-                <Link href="/api/auth/signout" className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"><LogOut className="w-4 h-4" /></Link>
-              </div>
-            ) : (
-              <Link href="/api/auth/signin" className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm flex items-center gap-2 hover:bg-black transition-colors"><User className="w-4 h-4" />Sign in</Link>
-            )}
-          </div>
-        </div>
-        <div className="flex gap-1 mt-4 border-b max-w-7xl mx-auto px-6">
-          {tabs.map(tab => (
-            <button 
-              key={tab.id} 
-              onClick={() => setActiveTab(tab.id)} 
-              className={`px-6 py-3 text-sm font-medium flex items-center gap-2 ${
-                activeTab === tab.id 
-                  ? 'text-blue-600 border-b-2 border-blue-600' 
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              } transition-colors`}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </div>
-      </header>
+    <div
+      ref={drag}
+      style={{
+        position: "absolute",
+        top: item.y,
+        left: item.x,
+        width: 140,
+        height: 70,
+        backgroundColor: "#4f46e5",
+        color: "#fff",
+        borderRadius: 8,
+        padding: 12,
+        cursor: "move",
+        opacity: isDragging ? 0.6 : 1,
+        boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <div className="font-semibold">{item.type}</div>
+      {item.content && <div className="text-xs mt-1 truncate">{item.content}</div>}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          removeItem(item.id);
+        }}
+        className="absolute top-1 right-1 text-xs bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+      >
+        ×
+      </button>
+    </div>
+  );
+};
 
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {activeTab === 'component' && (
-          <div>
-            <HonestAIPipeline />
-            <div className="mt-6">
-              <button 
-                onClick={handleGenerateComponents} 
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90 transition-opacity font-medium"
+export default function BuilderPage() {
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const { items, addItem, moveItem } = useCanvasStore();
+  const [code, setCode] = React.useState("// Start coding here...\n");
+
+  const [, drop] = useDrop({
+    accept: "CANVAS_ITEM",
+    drop: (dragged: { id: string }, monitor) => {
+      const offset = monitor.getClientOffset();
+      if (!offset || !canvasRef.current) return;
+      const rect = canvasRef.current.getBoundingClientRect();
+      moveItem(dragged.id, offset.x - rect.left, offset.y - rect.top);
+    },
+  });
+
+  useEffect(() => {
+    // Example: Add initial block if canvas is empty
+    if (items.length === 0) {
+      addItem({
+        type: "Welcome",
+        content: "Drag me!",
+        x: 50,
+        y: 50,
+      });
+    }
+  }, [items.length, addItem]);
+
+  return (
+    <DndProvider backend={HTML5Backend}>
+      <div className="min-h-screen bg-gray-50">
+        <header className="sticky top-0 z-50 bg-white border-b px-6 py-4">
+          <h1 className="text-2xl font-bold text-gray-900">AI Meta Factory Canvas</h1>
+          <p className="text-gray-600">Drag and drop components to build your project</p>
+        </header>
+        
+        <div className="flex h-[calc(100vh-80px)]">
+          {/* Sidebar */}
+          <div className="w-64 bg-white border-r p-4">
+            <h2 className="font-bold mb-4 text-lg">Components</h2>
+            <div className="space-y-2">
+              <button
+                onClick={() =>
+                  addItem({
+                    type: "Button",
+                    content: "Click me",
+                    x: 20,
+                    y: 20,
+                  })
+                }
+                className="w-full bg-indigo-500 text-white px-4 py-3 rounded-lg hover:bg-indigo-600 transition-colors"
               >
-                Generate Components
+                Add Button
+              </button>
+              <button
+                onClick={() =>
+                  addItem({
+                    type: "Text",
+                    content: "Hello World",
+                    x: 20,
+                    y: 100,
+                  })
+                }
+                className="w-full bg-green-500 text-white px-4 py-3 rounded-lg hover:bg-green-600 transition-colors"
+              >
+                Add Text
+              </button>
+              <button
+                onClick={() =>
+                  addItem({
+                    type: "Input",
+                    content: "Enter text",
+                    x: 20,
+                    y: 180,
+                  })
+                }
+                className="w-full bg-blue-500 text-white px-4 py-3 rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                Add Input
+              </button>
+              <button
+                onClick={() =>
+                  addItem({
+                    type: "Card",
+                    content: "Card content",
+                    x: 20,
+                    y: 260,
+                  })
+                }
+                className="w-full bg-purple-500 text-white px-4 py-3 rounded-lg hover:bg-purple-600 transition-colors"
+              >
+                Add Card
               </button>
             </div>
-          </div>
-        )}
-
-        {activeTab === 'fullstack' && (
-          <FullStackFactory
-            selectedStack={mode}
-            selectedDatabase={database}
-            selectedGitProvider={gitProvider}
-            isGitConnected={!!session}
-            onExport={() => alert('Export triggered')}
-          />
-        )}
-
-        {activeTab === 'canvas' && (
-          <div className="min-h-[600px]">
-            <EnhancedCanvasPanel
-              initialFiles={{ ...baseFiles, ...generatedFiles }}
-              onFilesChange={setGeneratedFiles}
-              stack={stackConfig}
-              projectName="ai-meta-factory-project"
-              session={session}
-            />
-          </div>
-        )}
-
-        {activeTab === 'export' && (
-          <div className="bg-white rounded-xl p-6 border shadow-sm">
-            <h2 className="text-xl font-bold mb-4">Export & Deploy</h2>
-            <div className="space-y-4">
-              <div className="flex gap-4">
-                <button className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors flex items-center gap-2">
-                  <Download className="w-4 h-4" />
-                  Download ZIP
-                </button>
-                <button className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2">
-                  <Cloud className="w-4 h-4" />
-                  Deploy to Vercel
-                </button>
-                <button 
-                  className={`px-4 py-2 ${session ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-400 cursor-not-allowed'} text-white rounded-lg transition-colors flex items-center gap-2`}
-                  disabled={!session}
-                >
-                  <GitBranch className="w-4 h-4" />
-                  Push to GitHub
-                </button>
+            
+            <div className="mt-8">
+              <h3 className="font-semibold mb-2">Stats</h3>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Components:</span>
+                  <span className="font-bold">{items.length}</span>
+                </div>
               </div>
-              {!session && (
-                <p className="text-sm text-gray-500">
-                  Sign in to enable GitHub integration
-                </p>
-              )}
             </div>
           </div>
-        )}
-      </main>
-    </div>
+
+          {/* Canvas */}
+          <div className="flex-1 relative bg-gray-100 overflow-hidden">
+            <div
+              ref={(node) => {
+                canvasRef.current = node;
+                drop(node);
+              }}
+              className="w-full h-full relative"
+            >
+              {items.map((item) => (
+                <CanvasBlock key={item.id} item={item} />
+              ))}
+              
+              {/* Canvas grid background */}
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute inset-0" style={{
+                  backgroundImage: `linear-gradient(to right, #e5e7eb 1px, transparent 1px),
+                                   linear-gradient(to bottom, #e5e7eb 1px, transparent 1px)`,
+                  backgroundSize: '20px 20px',
+                }}></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Editor Panel */}
+          <div className="w-96 bg-white border-l p-4 flex flex-col">
+            <h2 className="font-bold mb-4 text-lg">Code Editor</h2>
+            <div className="flex-1 min-h-0">
+              <MonacoEditor
+                height="100%"
+                language="typescript"
+                theme="vs-light"
+                value={code}
+                onChange={(value) => setCode(value || '')}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  wordWrap: 'on',
+                }}
+              />
+            </div>
+            
+            <div className="mt-4 pt-4 border-t">
+              <h3 className="font-semibold mb-2">Generated Code Preview</h3>
+              <pre className="bg-gray-50 p-3 rounded-lg text-sm overflow-auto max-h-32">
+                {code.substring(0, 200)}...
+              </pre>
+              <div className="flex gap-2 mt-4">
+                <button 
+                  className="flex-1 bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-black transition-colors"
+                  onClick={() => navigator.clipboard.writeText(code)}
+                >
+                  Copy Code
+                </button>
+                <button 
+                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  onClick={() => alert('Saved!')}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </DndProvider>
   );
 }
