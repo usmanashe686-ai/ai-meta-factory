@@ -1,13 +1,27 @@
 "use client";
 
-import * as React from "react";
-import * as ResizablePrimitive from "react-resizable-panels";
+import React from "react";
 
-export const ResizablePanelGroup =
-  ResizablePrimitive.PanelGroup;
+export const ResizablePanelGroup = ({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => {
+  return <div className={`flex w-full h-full ${className}`}>{children}</div>;
+};
 
-export const ResizablePanel =
-  ResizablePrimitive.Panel;
+export const ResizablePanel = ({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => {
+  return <div className={`flex-1 ${className}`}>{children}</div>;
+};
 
-export const ResizableHandle =
-  ResizablePrimitive.PanelResizeHandle;
+export const ResizableHandle = () => {
+  return <div className="w-[2px] bg-gray-700" />;
+};
