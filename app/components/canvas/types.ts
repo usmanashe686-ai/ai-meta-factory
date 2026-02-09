@@ -1,6 +1,6 @@
 export interface StackConfig {
   frontend: 'nextjs' | 'react' | 'flutter';
-  backend: 'nodejs' | 'python' | 'none';
+  backend: 'node' | 'python' | 'none';
   database: 'supabase' | 'firebase' | 'mongodb' | 'planetscale' | 'none';
   gitProvider: 'github' | 'gitlab' | 'bitbucket';
 }
@@ -29,4 +29,4 @@ export interface ProjectExport {
 export type DatabaseStack = 'supabase' | 'firebase' | 'mongodb' | 'planetscale' | 'none';
 export type GitProvider = 'github' | 'gitlab' | 'bitbucket';
 export type FrontendStack = 'nextjs' | 'react' | 'flutter';
-export type BackendStack = 'nodejs' | 'python' | 'none';
+export type BackendStack = 'node' | 'python' | 'none';

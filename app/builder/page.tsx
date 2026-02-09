@@ -19,16 +19,18 @@ const EnhancedCanvasPanel = dynamic(() => import('./components/canvas/EnhancedCa
   loading: () => <div className="h-[600px] bg-gray-900 rounded-xl animate-pulse"></div>
 });
 
+// Import types from canvas
+import { 
+  StackConfig, 
+  DatabaseStack, 
+  GitProvider, 
+  FrontendStack, 
+  BackendStack 
+} from './components/canvas/types';
+
 // 🔥 PRODUCTION-GRADE TYPE DEFINITIONS
 type TabType = 'component' | 'fullstack' | 'canvas' | 'code' | 'export';
-type FrontendStack = 'nextjs' | 'react' | 'flutter';
-type BackendStack = 'nodejs' | 'python' | 'none';
-type ModeType = FrontendStack | BackendStack;
-type DatabaseStack = 'supabase' | 'firebase' | 'mongodb' | 'planetscale' | 'none';
-type GitProvider = 'github' | 'gitlab' | 'bitbucket';
-
-// Import StackConfig from types
-import { StackConfig } from './components/canvas/types';
+type ModeType = 'nextjs' | 'react' | 'flutter' | 'node' | 'python';
 
 // Base files for the canvas (ESCAPED BACKTICKS PROPERLY)
 const baseFiles: Record<string, string> = {
@@ -131,9 +133,8 @@ const modeConfigs: Record<ModeType, { name: string; icon: string; color: string 
   nextjs: { name: 'Next.js', icon: '⚡', color: 'from-black to-gray-800' },
   react: { name: 'React', icon: '⚛️', color: 'from-blue-500 to-blue-700' },
   flutter: { name: 'Flutter', icon: '📱', color: 'from-blue-400 to-sky-500' },
-  nodejs: { name: 'Node.js', icon: '🟢', color: 'from-green-600 to-green-800' },
-  python: { name: 'Python', icon: '🐍', color: 'from-yellow-500 to-blue-500' },
-  none: { name: 'None', icon: '⚫', color: 'from-gray-400 to-gray-600' }
+  node: { name: 'Node.js', icon: '🟢', color: 'from-green-600 to-green-800' },
+  python: { name: 'Python', icon: '🐍', color: 'from-yellow-500 to-blue-500' }
 };
 
 const databaseConfigs: Record<DatabaseStack, { name: string; icon: string; color: string }> = {
@@ -190,10 +191,10 @@ export default function BuilderPage() {
     // Map mode to frontend/backend
     if (mode === 'nextjs' || mode === 'react' || mode === 'flutter') {
       frontend = mode as FrontendStack;
-      backend = 'nodejs'; // Default backend for frontend frameworks
-    } else if (mode === 'nodejs') {
+      backend = 'node'; // Default backend for frontend frameworks
+    } else if (mode === 'node') {
       frontend = 'react'; // Default frontend for node
-      backend = 'nodejs';
+      backend = 'node';
     } else if (mode === 'python') {
       frontend = 'react'; // Default frontend for python
       backend = 'python';
