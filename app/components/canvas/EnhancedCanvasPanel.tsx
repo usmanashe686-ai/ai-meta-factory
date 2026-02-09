@@ -610,7 +610,9 @@ export function example(): string {
       <SandpackProvider
         template="react-ts"
         files={files}
-        activeFile={activeFile}
+        options={{
+          activeFile: activeFile,
+        }}
         theme="dark"
       >
         <SPPreview
