@@ -1,14 +1,13 @@
 "use client";
 
 import React from "react";
+import {
+  Panel as ResizablePanel,
+  PanelGroup as ResizablePanelGroup,
+  Handle as ResizableHandle,
+} from "react-resizable-panels";
 
-// Placeholder Resizable components to fix build
-export const ResizableHandle = () => <div className="resizable-handle" />;
+import { cn } from "@/lib/utils"; // optional, if you have your utility function
 
-export const ResizablePanel = ({ children }: { children: React.ReactNode }) => (
-  <div className="resizable-panel">{children}</div>
-);
-
-export const ResizablePanelGroup = ({ children }: { children: React.ReactNode }) => (
-  <div className="resizable-panel-group">{children}</div>
-);
+// If you want to wrap them with default classes or props:
+export { ResizablePanel, ResizablePanelGroup, ResizableHandle };
