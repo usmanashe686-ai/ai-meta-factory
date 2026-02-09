@@ -7,7 +7,6 @@ export { AIAssistant } from './ai/AIAssistant';
 export { PreviewEngine } from './preview/PreviewEngine';
 export { ExportEngine } from './export/ExportEngine';
 export { useProjectStore } from './state/project-store';
-export type { CanvasProps } from './types';
 
 // Default export
 export default EnhancedCanvasPanel;
