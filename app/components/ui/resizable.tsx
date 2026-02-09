@@ -1,12 +1,13 @@
 "use client";
 
-import React from "react";
-import {
-  Panel as ResizablePanel,
-  PanelGroup as ResizablePanelGroup,
-} from "react-resizable-panels";
+import * as React from "react";
+import * as ResizablePrimitive from "react-resizable-panels";
 
-import { cn } from "@/lib/utils"; // optional, if you have your utility function
+export const ResizablePanelGroup =
+  ResizablePrimitive.PanelGroup;
 
-// If you want to wrap them with default classes or props:
-export { ResizablePanel, ResizablePanelGroup, ResizableHandle };
+export const ResizablePanel =
+  ResizablePrimitive.Panel;
+
+export const ResizableHandle =
+  ResizablePrimitive.PanelResizeHandle;
