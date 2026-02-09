@@ -25,8 +25,8 @@ export interface ProjectExport {
   };
 }
 
-// Export the union types for use in other files
-export type DatabaseStack = 'supabase' | 'firebase' | 'mongodb' | 'planetscale' | 'none';
-export type GitProvider = 'github' | 'gitlab' | 'bitbucket';
-export type FrontendStack = 'nextjs' | 'react' | 'flutter';
-export type BackendStack = 'node' | 'python' | 'none';
+// Export type aliases for convenience
+export type DatabaseStack = StackConfig['database'];
+export type GitProvider = StackConfig['gitProvider'];
+export type FrontendStack = StackConfig['frontend'];
+export type BackendStack = StackConfig['backend'];
