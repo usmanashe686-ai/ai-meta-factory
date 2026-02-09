@@ -19,20 +19,18 @@ const EnhancedCanvasPanel = dynamic(() => import('./components/canvas/EnhancedCa
   loading: () => <div className="h-[600px] bg-gray-900 rounded-xl animate-pulse"></div>
 });
 
-// Import types from canvas
-import { 
-  StackConfig, 
-  DatabaseStack, 
-  GitProvider, 
-  FrontendStack, 
-  BackendStack 
-} from './components/canvas/types';
+// Only import StackConfig - nothing else
+import { StackConfig } from './components/canvas/types';
 
-// 🔥 PRODUCTION-GRADE TYPE DEFINITIONS
+// 🔥 LOCAL TYPE DEFINITIONS
 type TabType = 'component' | 'fullstack' | 'canvas' | 'code' | 'export';
-type ModeType = 'nextjs' | 'react' | 'flutter' | 'node' | 'python';
+type DatabaseStack = 'supabase' | 'firebase' | 'mongodb' | 'planetscale' | 'none';
+type GitProvider = 'github' | 'gitlab' | 'bitbucket';
+type FrontendStack = 'nextjs' | 'react' | 'flutter';
+type BackendStack = 'node' | 'python' | 'none';
+type ModeType = FrontendStack | 'node' | 'python';
 
-// Base files for the canvas (ESCAPED BACKTICKS PROPERLY)
+// Base files for the canvas
 const baseFiles: Record<string, string> = {
   'App.tsx': `import React from 'react';
 import AIComponent from './components/AIComponent';
@@ -128,7 +126,7 @@ export default function AIComponent({
 }`
 };
 
-// 🔥 STRONGLY TYPED CONFIG OBJECTS (PRODUCTION PATTERN)
+// 🔥 STRONGLY TYPED CONFIG OBJECTS
 const modeConfigs: Record<ModeType, { name: string; icon: string; color: string }> = {
   nextjs: { name: 'Next.js', icon: '⚡', color: 'from-black to-gray-800' },
   react: { name: 'React', icon: '⚛️', color: 'from-blue-500 to-blue-700' },
@@ -175,7 +173,6 @@ export default function BuilderPage() {
       alert('⚠️ Connect GitHub first to export projects.');
       return;
     }
-    // ✅ NOW TYPE-SAFE - TypeScript is happy!
     alert(`🚀 Exporting ${modeConfigs[mode].name} project with ${databaseConfigs[database].name} to ${gitConfigs[gitProvider].name}...`);
   };
 
