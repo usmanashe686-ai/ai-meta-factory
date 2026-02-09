@@ -588,22 +588,3 @@ export function example(): string {
           }}
         />
       );
-    } else if (viewMode === 'split') {
-      return (
-        <div className="flex h-full">
-          <div className="flex-1 border-r border-gray-700">
-            <Editor
-              height="100%"
-              language={editorLanguage}
-              value={files[activeFile]}
-              onChange={handleEditorChange}
-              onMount={handleEditorMount}
-              theme="vs-dark"
-              options={{
-                minimap: { enabled: true },
-                fontSize: 14,
-                wordWrap: 'on'
-              }}
-            />
-          </div>
-          <div className="flex-1">
