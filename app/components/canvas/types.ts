@@ -24,3 +24,9 @@ export interface ProjectExport {
     exportedAt: Date;
   };
 }
+
+// Export the union types for use in other files
+export type DatabaseStack = 'supabase' | 'firebase' | 'mongodb' | 'planetscale' | 'none';
+export type GitProvider = 'github' | 'gitlab' | 'bitbucket';
+export type FrontendStack = 'nextjs' | 'react' | 'flutter';
+export type BackendStack = 'nodejs' | 'python' | 'none';
