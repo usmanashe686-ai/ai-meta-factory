@@ -4,7 +4,6 @@ import React from "react";
 import {
   Panel as ResizablePanel,
   PanelGroup as ResizablePanelGroup,
-  Handle as ResizableHandle,
 } from "react-resizable-panels";
 
 import { cn } from "@/lib/utils"; // optional, if you have your utility function
