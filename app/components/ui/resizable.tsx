@@ -2,7 +2,7 @@
 
 import React from "react";
 
-// Minimal resizable components for Canvas
+// Placeholder Resizable components to fix build
 export const ResizableHandle = () => <div className="resizable-handle" />;
 
 export const ResizablePanel = ({ children }: { children: React.ReactNode }) => (
