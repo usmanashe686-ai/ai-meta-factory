@@ -623,12 +623,6 @@ export function example(): string {
         files={files}
         options={{
           activeFile: activeFile,
-          showLineNumbers: true,
-          showNavigator: true,
-          showConsole: true
-        }}
-        theme="dark"
-      >
         <SandpackPreview 
           showRefreshButton={true}
           showOpenInCodeSandbox={false}
