@@ -623,7 +623,6 @@ export function example(): string {
         files={files}
         options={{
           activeFile: activeFile,
-          showTabs: true,
           showLineNumbers: true,
           showNavigator: true,
           showConsole: true
