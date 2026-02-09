@@ -5,7 +5,7 @@ import { StackConfig } from './types';
 import { SandpackProvider, SandpackPreview as SPPreview, SandpackCodeEditor, SandpackFileExplorer } from '@codesandbox/sandpack-react';
 import Editor from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../ui/resizable';
 import {
   Code, FileText, Folder, Search, Save, Download, Eye, EyeOff,
   Split, Maximize2, Minimize2, X, Plus, Settings, GitBranch,
