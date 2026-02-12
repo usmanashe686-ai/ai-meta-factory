@@ -39,12 +39,12 @@ interface ProjectStore {
   stack: StackConfig;
   files: Record<string, FileData>;
   activeFile: string | null;
-
+  
   // Console state
   consoleOutput: ConsoleEntry[];
   consoleHistory: string[];
   isConsoleRunning: boolean;
-
+  
   // Actions
   setName: (name: string) => void;
   setStack: (stack: StackConfig) => void;
@@ -56,7 +56,7 @@ interface ProjectStore {
   setActiveFile: (path: string | null) => void;
   resetProject: () => void;
   searchFiles: (query: string) => SearchResult[];
-
+  
   // Console actions
   clearConsole: () => void;
   addToConsole: (entry: ConsoleEntry) => void;
@@ -93,13 +93,13 @@ const INITIAL_FILES: Record<string, FileData> = {
     lastModified: Date.now()
   },
   'src/App.tsx': {
-    content: `export default function App() {
+    content: \`export default function App() {
   return (
     <div>
       <h1>Hello World</h1>
     </div>
   );
-}`,
+}\`,
     isCodeFile: true,
     lastModified: Date.now(),
     language: 'typescript'
@@ -118,9 +118,9 @@ export const useProjectStore = create<ProjectStore>()(
       isConsoleRunning: false,
 
       setName: (name) => set({ name }),
-
+      
       setStack: (stack) => set({ stack }),
-
+      
       createFile: (path, content, isCodeFile = false) => {
         set((state) => {
           const newFiles = { ...state.files };
@@ -129,14 +129,14 @@ export const useProjectStore = create<ProjectStore>()(
             isCodeFile,
             lastModified: Date.now()
           };
-
+          
           // Create parent directories if they don't exist
           const parts = path.split('/');
           if (parts.length > 1) {
             for (let i = 1; i < parts.length; i++) {
               const dirPath = parts.slice(0, i).join('/');
-              if (!newFiles[`${dirPath}/.folder-marker`]) {
-                newFiles[`${dirPath}/.folder-marker`] = {
+              if (!newFiles[\`\${dirPath}/.folder-marker\`]) {
+                newFiles[\`\${dirPath}/.folder-marker\`] = {
                   content: '',
                   isCodeFile: false,
                   lastModified: Date.now()
@@ -144,7 +144,7 @@ export const useProjectStore = create<ProjectStore>()(
               }
             }
           }
-
+          
           return { files: newFiles };
         });
       },
@@ -153,14 +153,14 @@ export const useProjectStore = create<ProjectStore>()(
         set((state) => {
           const file = state.files[path];
           if (!file) return state;
-
+          
           const newFiles = { ...state.files };
           newFiles[path] = {
             ...file,
             content,
             lastModified: Date.now()
           };
-
+          
           return { files: newFiles };
         });
       },
@@ -169,22 +169,22 @@ export const useProjectStore = create<ProjectStore>()(
         set((state) => {
           const newFiles = { ...state.files };
           delete newFiles[path];
-
+          
           // Clean up empty directories
           const parts = path.split('/');
           if (parts.length > 1) {
             const dirPath = parts.slice(0, parts.length - 1).join('/');
-            const hasOtherFiles = Object.keys(newFiles).some(filePath =>
-              filePath.startsWith(dirPath + '/') &&
+            const hasOtherFiles = Object.keys(newFiles).some(filePath => 
+              filePath.startsWith(dirPath + '/') && 
               !filePath.includes('.folder-marker')
             );
-
+            
             if (!hasOtherFiles && dirPath) {
-              delete newFiles[`${dirPath}/.folder-marker`];
+              delete newFiles[\`\${dirPath}/.folder-marker\`];
             }
           }
-
-          return {
+          
+          return { 
             files: newFiles,
             activeFile: state.activeFile === path ? null : state.activeFile
           };
@@ -195,12 +195,12 @@ export const useProjectStore = create<ProjectStore>()(
         set((state) => {
           const file = state.files[oldPath];
           if (!file) return state;
-
+          
           const newFiles = { ...state.files };
           delete newFiles[oldPath];
           newFiles[newPath] = file;
-
-          return {
+          
+          return { 
             files: newFiles,
             activeFile: state.activeFile === oldPath ? newPath : state.activeFile
           };
@@ -211,17 +211,17 @@ export const useProjectStore = create<ProjectStore>()(
         set((state) => {
           const file = state.files[path];
           if (!file) return state;
-
+          
           const extension = path.split('.').pop();
           const baseName = path.replace(/\.[^/.]+$/, '');
-          const copyPath = `${baseName}.copy.${extension}`;
-
+          const copyPath = \`\${baseName}.copy.\${extension}\`;
+          
           const newFiles = { ...state.files };
           newFiles[copyPath] = {
             ...file,
             lastModified: Date.now()
           };
-
+          
           return { files: newFiles };
         });
       },
@@ -241,11 +241,11 @@ export const useProjectStore = create<ProjectStore>()(
       searchFiles: (query) => {
         const { files } = get();
         const results: SearchResult[] = [];
-
+        
         Object.entries(files).forEach(([path, file]) => {
           if (path.includes('.folder-marker')) return;
-
-          if (path.toLowerCase().includes(query.toLowerCase()) ||
+          
+          if (path.toLowerCase().includes(query.toLowerCase()) || 
               file.content.toLowerCase().includes(query.toLowerCase())) {
             results.push({
               path,
@@ -254,25 +254,25 @@ export const useProjectStore = create<ProjectStore>()(
             });
           }
         });
-
+        
         return results;
       },
 
       // Console actions
       clearConsole: () => set({ consoleOutput: [] }),
-
+      
       addToConsole: (entry) => {
         set((state) => ({
           consoleOutput: [...state.consoleOutput, entry]
         }));
       },
-
+      
       addToConsoleHistory: (command) => {
         set((state) => ({
           consoleHistory: [...state.consoleHistory, command]
         }));
       },
-
+      
       setConsoleRunning: (isRunning) => set({ isConsoleRunning: isRunning })
     }),
     {
@@ -294,7 +294,7 @@ export const useProjectStore = create<ProjectStore>()(
 // Helper function to detect language from file path
 export const detectLanguage = (path: string): string => {
   const extension = path.split('.').pop()?.toLowerCase();
-
+  
   switch (extension) {
     case 'ts':
     case 'tsx':

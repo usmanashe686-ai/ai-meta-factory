@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  platform    String   // website, mobile, desktop, api, bot, game, iot
+  template    String?  // template id used
+  visibility  String   @default("private") // private, public, unlisted
+  isTemplate  Boolean  @default(false)
+
+  // User ownership (store userId from auth service – no FK constraint)
+  userId      String
+
+  // Files stored in MinIO/S3 – reference only
+  filesHash   String?  // IPFS hash or S3 key
+  thumbnail   String?
+
+  // Stats
+  stars       Int      @default(0)
+  forks       Int      @default(0)
+  views       Int      @default(0)
+
+  // Metadata
+  config      Json?    // Project configuration (build settings, env vars)
+  tags        String[]
+
+  // Relations (with other tables, we'll add later)
+  builds      Build[]
+  deployments Deployment[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([platform])
+  @@index([createdAt])
+}
+
+model Build {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Build info
+  type        String   // apk, ipa, exe, dmg, zip, docker
+  platform    String   // android, ios, windows, mac, linux, web
+  status      String   @default("pending") // pending, building, success, failed, cancelled
+  version     String?
+  buildNumber Int      @default(1)
+
+  // Artifacts
+  artifactUrl String?  // S3/MinIO URL
+  logs        String?  // Build logs
+  size        Int?     // File size in bytes
+
+  // Metadata
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model Deployment {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  provider    String   // vercel, netlify, railway, etc
+  url         String?
+  status      String   @default("deploying") // deploying, live, failed, cancelled
+  branch      String?  @default("main")
+  environment Json?    // Environment variables
+
+  deployedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([projectId])
+}

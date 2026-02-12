@@ -1,0 +1,269 @@
+// ------------------------------------------------------------------
+// AI META FACTORY – UNIFIED DATABASE SCHEMA (PostgreSQL)
+// ------------------------------------------------------------------
+// This schema defines all entities for the platform.
+// It is designed to be used with Prisma ORM.
+// ------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------------
+// USER – Core identity
+// ------------------------------------------------------------------
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String?   @unique
+  name          String?
+  avatar        String?
+  password      String?   // hashed, nullable for OAuth users
+  provider      String?   // "local", "github", "google"
+  providerId    String?
+  emailVerified Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  projects      Project[]
+  builds        Build[]   // builds triggered by this user
+  aiRequests    AIRequest[]
+  exports       Export[]
+  apiKeys       ApiKey[]
+  teams         TeamMember[]
+  deployments   Deployment[] // deployments created by user
+
+  @@index([email])
+  @@index([username])
+}
+
+// ------------------------------------------------------------------
+// PROJECT – The heart of the platform
+// ------------------------------------------------------------------
+model Project {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String?   @unique // human-readable identifier
+  description String?
+  
+  // Classification
+  platform    String    // website, mobile, desktop, api, bot, game, iot
+  framework   String?   // nextjs, react, flutter, electron, etc
+  template    String?   // template id used at creation
+  
+  // Visibility & ownership
+  visibility  String    @default("private") // private, public, unlisted
+  isTemplate  Boolean   @default(false)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Forking
+  forkedFromId String?  @map("forked_from_id")
+  forkedFrom   Project? @relation("ProjectForks", fields: [forkedFromId], references: [id])
+  forks        Project[] @relation("ProjectForks")
+  
+  // Files & assets
+  filesHash   String?   // IPFS CID or S3 key – points to project source bundle
+  thumbnail   String?   // Project preview image URL
+  
+  // Stats
+  stars       Int       @default(0)
+  forks       Int       @default(0)
+  views       Int       @default(0)
+  
+  // Configuration
+  config      Json?     // Build settings, environment variables, etc.
+  tags        String[]
+  
+  // Relations
+  builds      Build[]
+  deployments Deployment[]
+  exports     Export[]
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([platform])
+  @@index([slug])
+  @@index([createdAt])
+}
+
+// ------------------------------------------------------------------
+// BUILD – Compilation artifacts (APK, IPA, EXE, etc.)
+// ------------------------------------------------------------------
+model Build {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId      String?  // who triggered the build (optional)
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  // Build metadata
+  type        String   // apk, ipa, exe, dmg, zip, docker
+  platform    String   // android, ios, windows, mac, linux, web
+  status      String   @default("pending") // pending, building, success, failed, cancelled
+  version     String?
+  buildNumber Int      @default(1)
+  
+  // Artifacts
+  artifactUrl String?  // S3/MinIO URL
+  logs        String?  // Build logs (text or URL)
+  size        Int?     // File size in bytes
+  
+  // Timing
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([projectId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ------------------------------------------------------------------
+// DEPLOYMENT – Live hosting of projects
+// ------------------------------------------------------------------
+model Deployment {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId      String?  // user who deployed
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  // Deployment target
+  provider    String   // vercel, netlify, railway, github-pages, etc.
+  url         String?
+  status      String   @default("deploying") // deploying, live, failed, cancelled
+  branch      String?  @default("main")
+  environment Json?    // Environment variables
+  
+  // Metadata
+  deployedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([projectId])
+}
+
+// ------------------------------------------------------------------
+// AI REQUEST – Track all AI interactions
+// ------------------------------------------------------------------
+model AIRequest {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Request context
+  type        String   // generate, explain, fix, optimize, chat
+  model       String   // phi-2, codellama, gpt-4, etc.
+  prompt      String
+  inputTokens Int?
+  outputTokens Int?
+  
+  // Response
+  response    String?
+  error       String?
+  
+  // Performance & cost
+  latency     Int?     // response time in ms
+  cost        Float?   // API cost in USD (if applicable)
+  
+  // Related entity (optional)
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  filePath    String?  // If request was made for a specific file
+  
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([projectId])
+  @@index([createdAt])
+}
+
+// ------------------------------------------------------------------
+// EXPORT – Downloadable project packages
+// ------------------------------------------------------------------
+model Export {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  // Export format
+  format      String   // zip, apk, ipa, exe, docker, pwa
+  status      String   @default("processing") // processing, ready, failed
+  url         String?  // Download URL (expiring)
+  size        Int?     // File size in bytes
+  
+  // Expiry
+  expiresAt   DateTime? // Link expiration
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([status])
+}
+
+// ------------------------------------------------------------------
+// API KEY – For programmatic access
+// ------------------------------------------------------------------
+model ApiKey {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  lastUsed    DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  
+  // Permissions
+  scopes      String[] // projects:read, projects:write, builds:create, etc.
+
+  @@index([userId])
+  @@index([key])
+}
+
+// ------------------------------------------------------------------
+// TEAM – Collaboration groups
+// ------------------------------------------------------------------
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  avatar      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Billing / plan
+  plan        String   @default("free")
+  
+  // Relations
+  members     TeamMember[]
+  projects    Project[] // optional: team-owned projects (future)
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  role      String   @default("member") // owner, admin, member
+  joinedAt  DateTime @default(now())
+
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}

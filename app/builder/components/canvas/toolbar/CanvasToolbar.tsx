@@ -1,0 +1,113 @@
+'use client';
+
+import React, { useState } from 'react';
+import { 
+  Save, 
+  Download, 
+  Upload, 
+  GitBranch, 
+  Play, 
+  Settings, 
+  Brain,
+  Zap,
+  Globe,
+  Users
+} from 'lucide-react';
+import { useProjectStore } from '../state/project-store';
+import { ExportModal } from '../export/ExportModal';
+
+interface CanvasToolbarProps {
+  onOpenAI: () => void;
+}
+
+export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
+  const [showExportModal, setShowExportModal] = useState(false);
+  const projectName = useProjectStore((state) => state.name);
+  const stack = useProjectStore((state) => state.stack);
+  
+  const handleSave = () => {
+    alert('Project saved successfully!');
+  };
+  
+  const handleDeploy = () => {
+    setShowExportModal(true);
+  };
+  
+  return (
+    <>
+      <div className="h-12 border-b border-gray-700 bg-gray-800 px-4 flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded flex items-center justify-center">
+              <Zap size={14} className="text-white" />
+            </div>
+            <span className="font-bold text-sm">AI Meta Factory</span>
+          </div>
+          
+          <div className="h-4 w-px bg-gray-600" />
+          
+          <div className="flex items-center space-x-2">
+            <input
+              type="text"
+              value={projectName}
+              onChange={(e) => useProjectStore.getState().setProjectName(e.target.value)}
+              className="bg-transparent border-none text-sm px-2 py-1 hover:bg-gray-700 rounded"
+            />
+            <span className="text-xs text-gray-400 px-2 py-1 bg-gray-700 rounded">
+              {stack.frontend}
+            </span>
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={handleSave}
+            className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+          >
+            <Save size={14} />
+            <span>Save</span>
+          </button>
+          
+          <button
+            onClick={onOpenAI}
+            className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 rounded text-sm"
+          >
+            <Brain size={14} />
+            <span>AI Assistant</span>
+          </button>
+          
+          <button
+            onClick={handleDeploy}
+            className="flex items-center space-x-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded text-sm"
+          >
+            <Globe size={14} />
+            <span>Deploy</span>
+          </button>
+          
+          <button
+            className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+          >
+            <Play size={14} />
+            <span>Run</span>
+          </button>
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <button className="p-2 hover:bg-gray-700 rounded">
+            <GitBranch size={16} />
+          </button>
+          <button className="p-2 hover:bg-gray-700 rounded">
+            <Users size={16} />
+          </button>
+          <button className="p-2 hover:bg-gray-700 rounded">
+            <Settings size={16} />
+          </button>
+        </div>
+      </div>
+      
+      {showExportModal && (
+        <ExportModal onClose={() => setShowExportModal(false)} />
+      )}
+    </>
+  );
+};

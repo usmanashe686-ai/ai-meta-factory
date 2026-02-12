@@ -22,7 +22,7 @@ export function AIAssistant() {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
+  
   const { addToConsole } = useProjectStore();
 
   const handleSend = async () => {
@@ -42,7 +42,7 @@ export function AIAssistant() {
     // Add user message to console
     addToConsole({
       type: 'command',
-      message: `User: ${input}`,
+      message: \`User: \${input}\`,
       timestamp: Date.now()
     });
 
@@ -50,7 +50,7 @@ export function AIAssistant() {
       // Simulate AI response
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const aiResponse = `I received your message: "${input}". This is a simulated response. In a real implementation, I would connect to an AI API.`;
+      const aiResponse = \`I received your message: "\${input}". This is a simulated response. In a real implementation, I would connect to an AI API.\`;
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -64,13 +64,13 @@ export function AIAssistant() {
       // Add AI response to console
       addToConsole({
         type: 'ai',
-        message: `AI: ${aiResponse}`,
+        message: \`AI: \${aiResponse}\`,
         timestamp: Date.now()
       });
 
     } catch (error) {
       console.error('AI request failed:', error);
-
+      
       addToConsole({
         type: 'error',
         message: 'AI request failed. Please try again.',
@@ -112,16 +112,16 @@ export function AIAssistant() {
         {messages.map((message) => (
           <div
             key={message.id}
-            className={`flex gap-3 ${message.role === 'assistant' ? 'flex-row' : 'flex-row-reverse'}`}
+            className={\`flex gap-3 \${message.role === 'assistant' ? 'flex-row' : 'flex-row-reverse'}\`}
           >
-            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${message.role === 'assistant' ? 'bg-green-500/20' : 'bg-blue-500/20'}`}>
+            <div className={\`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center \${message.role === 'assistant' ? 'bg-green-500/20' : 'bg-blue-500/20'}\`}>
               {message.role === 'assistant' ? (
                 <Bot className="w-4 h-4 text-green-400" />
               ) : (
                 <User className="w-4 h-4 text-blue-400" />
               )}
             </div>
-            <div className={`rounded-lg px-4 py-2 max-w-[80%] ${message.role === 'assistant' ? 'bg-gray-800 text-gray-100' : 'bg-blue-500 text-white'}`}>
+            <div className={\`rounded-lg px-4 py-2 max-w-[80%] \${message.role === 'assistant' ? 'bg-gray-800 text-gray-100' : 'bg-blue-500 text-white'}\`}>
               <div className="whitespace-pre-wrap">{message.content}</div>
               <div className="text-xs opacity-50 mt-1">
                 {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -129,7 +129,7 @@ export function AIAssistant() {
             </div>
           </div>
         ))}
-
+        
         {isLoading && (
           <div className="flex gap-3">
             <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-green-500/20">
@@ -157,7 +157,7 @@ export function AIAssistant() {
             ))}
           </div>
         </div>
-
+        
         <div className="flex gap-2">
           <input
             type="text"

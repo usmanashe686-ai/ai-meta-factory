@@ -1,0 +1,125 @@
+# ============================================================================
+# AI Meta Factory – Docker Compose (Development)
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ------------------------------------------------------------
+  # PostgreSQL – primary database
+  # ------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: aimf_postgres
+    environment:
+      POSTGRES_DB: aimetafactory
+      POSTGRES_USER: aimf_user
+      POSTGRES_PASSWORD: aimf_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aimf_user -d aimetafactory"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aimf_network
+
+  # ------------------------------------------------------------
+  # Redis – caching, queues, real‑time
+  # ------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: aimf_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aimf_network
+
+  # ------------------------------------------------------------
+  # MinIO – S3‑compatible object storage
+  # ------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: aimf_minio
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Console
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aimf_network
+
+  # ------------------------------------------------------------
+  # API Gateway – routes requests to microservices
+  # ------------------------------------------------------------
+  api-gateway:
+    build:
+      context: ../../apps/api-gateway
+      dockerfile: ../../backend/infrastructure/Dockerfile.api-gateway
+    container_name: aimf_api_gateway
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      AUTH_SERVICE_URL: http://auth-service:3002   # future
+      PROJECT_SERVICE_URL: http://project-service:3003 # future
+      BUILD_SERVICE_URL: http://build-service:8080     # future
+      AI_SERVICE_URL: http://ai-service:8000           # future
+      DATABASE_URL: postgresql://aimf_user:aimf_password@postgres:5432/aimetafactory
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      JWT_SECRET: ${JWT_SECRET:-development-secret}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - aimf_network
+
+  # ------------------------------------------------------------
+  # (Optional) Adminer – database GUI
+  # ------------------------------------------------------------
+  adminer:
+    image: adminer:latest
+    container_name: aimf_adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - aimf_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+
+networks:
+  aimf_network:
+    driver: bridge

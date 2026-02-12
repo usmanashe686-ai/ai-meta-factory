@@ -1,0 +1,41 @@
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+export function useAuth() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) { setLoading(false); return; }
+    fetch('/api/auth/profile', { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => res.json())
+      .then(data => { setUser(data); setLoading(false); })
+      .catch(() => { localStorage.removeItem('accessToken'); setLoading(false); });
+  }, []);
+  const login = async (email: string, password: string) => {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      setUser(data.user);
+      router.push('/builder');
+    }
+    return data;
+  };
+  const logout = async () => {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+    });
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    setUser(null);
+    router.push('/');
+  };
+  return { user, loading, login, logout };
+}
