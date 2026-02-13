@@ -1,371 +1,181 @@
-"use client";
-
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { FileNode } from '../types/project.types';
+import { apiClient } from '../../utils/apiClient'; // adjust path as needed
 
-export type FrontendStack = 'react' | 'nextjs' | 'vue' | 'flutter';
-export type BackendStack = 'node' | 'python' | 'go' | 'none';
-export type DatabaseStack = 'postgresql' | 'mongodb' | 'sqlite' | 'none';
-export type DeploymentStack = 'vercel' | 'netlify' | 'aws' | 'railway' | 'none';
+interface ProjectState {
+  // Project metadata
+  projectId: string | null;
+  setProjectId: (id: string) => void;
 
-export type StackConfig = {
-  frontend: FrontendStack;
-  backend: BackendStack;
-  database: DatabaseStack;
-  deployment: DeploymentStack;
-};
+  // File tree
+  files: FileNode[];
+  setFiles: (files: FileNode[]) => void;
+  addFile: (parentPath: string, file: FileNode) => void;
+  updateFileContent: (path: string, content: string) => void;
+  deleteFile: (path: string) => void;
+  moveFile: (sourceId: string, targetId: string) => void;
 
-export interface FileData {
-  content: string;
-  isCodeFile: boolean;
-  lastModified: number;
-  language?: string; // Added missing language property
+  // Open tabs / active file
+  openFiles: FileNode[];          // files currently opened in tabs
+  activeFileId: string | null;
+  setActiveFile: (fileId: string | null) => void;
+  closeFile: (fileId: string) => void;
+
+  // Actions that call backend
+  saveCurrentFile: () => Promise<void>;
+  formatCurrentFile: () => Promise<void>;
+  runPreview: () => void;          // triggers preview update
 }
 
-export interface ConsoleEntry {
-  type: 'log' | 'error' | 'warning' | 'info' | 'success' | 'ai' | 'command';
-  message: string;
-  timestamp: number;
-}
-
-interface SearchResult {
-  path: string;
-  name: string;
-  content: string;
-}
-
-interface ProjectStore {
-  name: string;
-  stack: StackConfig;
-  files: Record<string, FileData>;
-  activeFile: string | null;
-  
-  // Console state
-  consoleOutput: ConsoleEntry[];
-  consoleHistory: string[];
-  isConsoleRunning: boolean;
-  
-  // Actions
-  setName: (name: string) => void;
-  setStack: (stack: StackConfig) => void;
-  createFile: (path: string, content: string, isCodeFile?: boolean) => void;
-  updateFile: (path: string, content: string) => void;
-  removeFile: (path: string) => void;
-  renameFile: (oldPath: string, newPath: string) => void;
-  copyFile: (path: string) => void;
-  setActiveFile: (path: string | null) => void;
-  resetProject: () => void;
-  searchFiles: (query: string) => SearchResult[];
-  
-  // Console actions
-  clearConsole: () => void;
-  addToConsole: (entry: ConsoleEntry) => void;
-  addToConsoleHistory: (command: string) => void;
-  setConsoleRunning: (isRunning: boolean) => void;
-}
-
-const DEFAULT_STACK: StackConfig = {
-  frontend: 'react',
-  backend: 'none',
-  database: 'none',
-  deployment: 'vercel'
-};
-
-const INITIAL_FILES: Record<string, FileData> = {
-  'README.md': {
-    content: '# Project\n\nWelcome to your new project!',
-    isCodeFile: false,
-    lastModified: Date.now()
-  },
-  'package.json': {
-    content: JSON.stringify({
-      name: 'my-project',
-      version: '1.0.0',
-      dependencies: {},
-      devDependencies: {}
-    }, null, 2),
-    isCodeFile: true,
-    lastModified: Date.now()
-  },
-  'src/.folder-marker': {
-    content: '',
-    isCodeFile: false,
-    lastModified: Date.now()
-  },
-  'src/App.tsx': {
-    content: \`export default function App() {
-  return (
-    <div>
-      <h1>Hello World</h1>
-    </div>
-  );
-}\`,
-    isCodeFile: true,
-    lastModified: Date.now(),
-    language: 'typescript'
-  }
-};
-
-export const useProjectStore = create<ProjectStore>()(
-  persist(
-    (set, get) => ({
-      name: 'New Project',
-      stack: DEFAULT_STACK,
-      files: INITIAL_FILES,
-      activeFile: 'src/App.tsx',
-      consoleOutput: [],
-      consoleHistory: [],
-      isConsoleRunning: false,
-
-      setName: (name) => set({ name }),
-      
-      setStack: (stack) => set({ stack }),
-      
-      createFile: (path, content, isCodeFile = false) => {
-        set((state) => {
-          const newFiles = { ...state.files };
-          newFiles[path] = {
-            content,
-            isCodeFile,
-            lastModified: Date.now()
-          };
-          
-          // Create parent directories if they don't exist
-          const parts = path.split('/');
-          if (parts.length > 1) {
-            for (let i = 1; i < parts.length; i++) {
-              const dirPath = parts.slice(0, i).join('/');
-              if (!newFiles[\`\${dirPath}/.folder-marker\`]) {
-                newFiles[\`\${dirPath}/.folder-marker\`] = {
-                  content: '',
-                  isCodeFile: false,
-                  lastModified: Date.now()
-                };
-              }
-            }
-          }
-          
-          return { files: newFiles };
-        });
-      },
-
-      updateFile: (path, content) => {
-        set((state) => {
-          const file = state.files[path];
-          if (!file) return state;
-          
-          const newFiles = { ...state.files };
-          newFiles[path] = {
-            ...file,
-            content,
-            lastModified: Date.now()
-          };
-          
-          return { files: newFiles };
-        });
-      },
-
-      removeFile: (path) => {
-        set((state) => {
-          const newFiles = { ...state.files };
-          delete newFiles[path];
-          
-          // Clean up empty directories
-          const parts = path.split('/');
-          if (parts.length > 1) {
-            const dirPath = parts.slice(0, parts.length - 1).join('/');
-            const hasOtherFiles = Object.keys(newFiles).some(filePath => 
-              filePath.startsWith(dirPath + '/') && 
-              !filePath.includes('.folder-marker')
-            );
-            
-            if (!hasOtherFiles && dirPath) {
-              delete newFiles[\`\${dirPath}/.folder-marker\`];
-            }
-          }
-          
-          return { 
-            files: newFiles,
-            activeFile: state.activeFile === path ? null : state.activeFile
-          };
-        });
-      },
-
-      renameFile: (oldPath, newPath) => {
-        set((state) => {
-          const file = state.files[oldPath];
-          if (!file) return state;
-          
-          const newFiles = { ...state.files };
-          delete newFiles[oldPath];
-          newFiles[newPath] = file;
-          
-          return { 
-            files: newFiles,
-            activeFile: state.activeFile === oldPath ? newPath : state.activeFile
-          };
-        });
-      },
-
-      copyFile: (path) => {
-        set((state) => {
-          const file = state.files[path];
-          if (!file) return state;
-          
-          const extension = path.split('.').pop();
-          const baseName = path.replace(/\.[^/.]+$/, '');
-          const copyPath = \`\${baseName}.copy.\${extension}\`;
-          
-          const newFiles = { ...state.files };
-          newFiles[copyPath] = {
-            ...file,
-            lastModified: Date.now()
-          };
-          
-          return { files: newFiles };
-        });
-      },
-
-      setActiveFile: (path) => set({ activeFile: path }),
-
-      resetProject: () => set({
-        name: 'New Project',
-        stack: DEFAULT_STACK,
-        files: INITIAL_FILES,
-        activeFile: 'src/App.tsx',
-        consoleOutput: [],
-        consoleHistory: [],
-        isConsoleRunning: false
-      }),
-
-      searchFiles: (query) => {
-        const { files } = get();
-        const results: SearchResult[] = [];
-        
-        Object.entries(files).forEach(([path, file]) => {
-          if (path.includes('.folder-marker')) return;
-          
-          if (path.toLowerCase().includes(query.toLowerCase()) || 
-              file.content.toLowerCase().includes(query.toLowerCase())) {
-            results.push({
-              path,
-              name: path.split('/').pop() || path,
-              content: file.content
-            });
-          }
-        });
-        
-        return results;
-      },
-
-      // Console actions
-      clearConsole: () => set({ consoleOutput: [] }),
-      
-      addToConsole: (entry) => {
-        set((state) => ({
-          consoleOutput: [...state.consoleOutput, entry]
-        }));
-      },
-      
-      addToConsoleHistory: (command) => {
-        set((state) => ({
-          consoleHistory: [...state.consoleHistory, command]
-        }));
-      },
-      
-      setConsoleRunning: (isRunning) => set({ isConsoleRunning: isRunning })
-    }),
-    {
-      name: 'project-store',
-      partialize: (state) => ({
-        name: state.name,
-        stack: state.stack,
-        files: state.files,
-        activeFile: state.activeFile,
-        // We might not want to persist console output and history, but let's do for now
-        consoleOutput: state.consoleOutput,
-        consoleHistory: state.consoleHistory,
-        isConsoleRunning: state.isConsoleRunning
-      })
+// Helper: find node by ID
+const findNode = (nodes: FileNode[], id: string): FileNode | null => {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    if (node.children) {
+      const found = findNode(node.children, id);
+      if (found) return found;
     }
-  )
-);
-
-// Helper function to detect language from file path
-export const detectLanguage = (path: string): string => {
-  const extension = path.split('.').pop()?.toLowerCase();
-  
-  switch (extension) {
-    case 'ts':
-    case 'tsx':
-      return 'typescript';
-    case 'js':
-    case 'jsx':
-      return 'javascript';
-    case 'py':
-      return 'python';
-    case 'dart':
-      return 'dart';
-    case 'json':
-      return 'json';
-    case 'css':
-      return 'css';
-    case 'scss':
-    case 'sass':
-      return 'scss';
-    case 'html':
-      return 'html';
-    case 'md':
-      return 'markdown';
-    case 'yaml':
-    case 'yml':
-      return 'yaml';
-    case 'sql':
-      return 'sql';
-    case 'sh':
-      return 'shell';
-    case 'dockerfile':
-      return 'dockerfile';
-    default:
-      return 'plaintext';
   }
+  return null;
 };
 
-// Console API for easy logging
-export const consoleAPI = {
-  log: (message: string) => {
-    useProjectStore.getState().addToConsole({
-      type: 'log',
-      message,
-      timestamp: Date.now()
-    });
-  },
-  error: (message: string) => {
-    useProjectStore.getState().addToConsole({
-      type: 'error',
-      message,
-      timestamp: Date.now()
-    });
-  },
-  success: (message: string) => {
-    useProjectStore.getState().addToConsole({
-      type: 'success',
-      message,
-      timestamp: Date.now()
-    });
-  },
-  ai: (message: string) => {
-    useProjectStore.getState().addToConsole({
-      type: 'ai',
-      message,
-      timestamp: Date.now()
-    });
-  },
-  command: (message: string) => {
-    useProjectStore.getState().addToConsole({
-      type: 'command',
-      message,
-      timestamp: Date.now()
-    });
-  }
+// Helper: update node in tree
+const updateNode = (
+  nodes: FileNode[],
+  id: string,
+  updater: (node: FileNode) => FileNode
+): FileNode[] => {
+  return nodes.map(node => {
+    if (node.id === id) return updater(node);
+    if (node.children) {
+      return { ...node, children: updateNode(node.children, id, updater) };
+    }
+    return node;
+  });
 };
+
+// Helper: remove node from tree
+const removeNode = (nodes: FileNode[], id: string): FileNode[] => {
+  return nodes.reduce((acc, node) => {
+    if (node.id === id) return acc;
+    if (node.children) {
+      acc.push({ ...node, children: removeNode(node.children, id) });
+    } else {
+      acc.push(node);
+    }
+    return acc;
+  }, [] as FileNode[]);
+};
+
+export const useProjectStore = create<ProjectState>((set, get) => ({
+  // Project ID
+  projectId: null,
+  setProjectId: (id) => set({ projectId: id }),
+
+  // File tree
+  files: [],
+  setFiles: (files) => set({ files }),
+
+  addFile: (parentPath, file) => set((state) => {
+    const parentId = parentPath; // simplified: assume parentPath is the node's ID
+    const newFiles = updateNode(state.files, parentId, (parent) => ({
+      ...parent,
+      children: [...(parent.children || []), file],
+    }));
+    return { files: newFiles };
+  }),
+
+  updateFileContent: (path, content) => set((state) => {
+    const newFiles = updateNode(state.files, path, (node) => ({
+      ...node,
+      content,
+    }));
+    return { files: newFiles };
+  }),
+
+  deleteFile: (path) => set((state) => ({
+    files: removeNode(state.files, path),
+  })),
+
+  moveFile: (sourceId, targetId) => set((state) => {
+    const sourceNode = findNode(state.files, sourceId);
+    if (!sourceNode) return state;
+
+    const withoutSource = removeNode(state.files, sourceId);
+    const targetNode = findNode(withoutSource, targetId);
+    if (!targetNode) return state;
+
+    if (targetNode.type === 'folder') {
+      const newFiles = updateNode(withoutSource, targetId, (folder) => ({
+        ...folder,
+        children: [...(folder.children || []), sourceNode],
+      }));
+      return { files: newFiles };
+    }
+    // If target is a file, we could insert as sibling – not implemented for simplicity
+    return state;
+  }),
+
+  // Open tabs / active file
+  openFiles: [],
+  activeFileId: null,
+
+  setActiveFile: (fileId) => set((state) => {
+    if (!fileId) return { activeFileId: null };
+    const file = findNode(state.files, fileId);
+    if (!file) return state;
+    // Add to openFiles if not already present
+    const isOpen = state.openFiles.some(f => f.id === fileId);
+    const newOpenFiles = isOpen ? state.openFiles : [...state.openFiles, file];
+    return {
+      activeFileId: fileId,
+      openFiles: newOpenFiles,
+    };
+  }),
+
+  closeFile: (fileId) => set((state) => {
+    const newOpenFiles = state.openFiles.filter(f => f.id !== fileId);
+    const newActiveId = state.activeFileId === fileId
+      ? (newOpenFiles.length > 0 ? newOpenFiles[newOpenFiles.length - 1].id : null)
+      : state.activeFileId;
+    return {
+      openFiles: newOpenFiles,
+      activeFileId: newActiveId,
+    };
+  }),
+
+  // Backend actions
+  saveCurrentFile: async () => {
+    const { activeFileId, files, projectId } = get();
+    if (!activeFileId || !projectId) return;
+    const file = findNode(files, activeFileId);
+    if (!file || file.type === 'folder') return;
+    try {
+      await apiClient.post(`/projects/${projectId}/files/${encodeURIComponent(file.path)}`, {
+        content: file.content,
+      });
+      // Optionally show a success message
+    } catch (error) {
+      console.error('Save failed:', error);
+      // Optionally show error toast
+    }
+  },
+
+  formatCurrentFile: async () => {
+    const { activeFileId, files, updateFileContent } = get();
+    if (!activeFileId) return;
+    const file = findNode(files, activeFileId);
+    if (!file || file.type === 'folder') return;
+    // Simple formatting: just a placeholder – you could integrate prettier later
+    // For now, just trim whitespace
+    const formatted = file.content?.trim() || '';
+    updateFileContent(file.path, formatted);
+    // Also trigger save after format? Maybe optionally.
+  },
+
+  runPreview: () => {
+    // This could update a preview store or emit an event
+    console.log('Preview requested');
+    // In a real app, you might use an event bus or another store
+  },
+}));
