@@ -79,3 +79,24 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
+
+  ai-service:
+    build:
+      context: ./backend/services/ai-service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DEVICE=cpu
+      - MODEL_NAME=codellama/CodeLlama-7b-hf
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    restart: unless-stopped
+    # Uncomment for GPU support:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]

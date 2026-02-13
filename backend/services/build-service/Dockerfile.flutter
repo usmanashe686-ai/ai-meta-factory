@@ -1,0 +1,12 @@
+FROM cirrusci/flutter:stable AS builder
+WORKDIR /app
+COPY src ./src
+COPY go.mod .
+RUN go build -o build-service ./src/main.go
+
+FROM cirrusci/flutter:stable
+WORKDIR /root/
+COPY --from=builder /app/build-service .
+COPY --from=builder /app/src ./src
+EXPOSE 8080
+CMD ["./build-service"]
