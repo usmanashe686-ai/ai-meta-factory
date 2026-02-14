@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sandpack, useSandpack } from '@codesandbox/sandpack-react';
+import { SandpackProvider, SandpackPreview } from '@codesandbox/sandpack-react';
 import { useProjectStore } from '../state/project-store';
 import { PreviewToolbar } from './PreviewToolbar';
 import { DeviceEmulator, DeviceType } from './DeviceEmulator';
 import { PreviewLogs, LogEntry } from './PreviewLogs';
+import { useSandpack } from '@codesandbox/sandpack-react';
 
 // Listener component that captures console logs from the sandbox
 function SandpackLogListener({ onLog }: { onLog: (log: LogEntry) => void }) {
@@ -13,16 +14,12 @@ function SandpackLogListener({ onLog }: { onLog: (log: LogEntry) => void }) {
 
   useEffect(() => {
     const stopListening = listen((msg) => {
-      // Check if this is a console message and has log array
       if (msg.type === 'console' && Array.isArray(msg.log)) {
-        // Iterate over each log entry in the array
         msg.log.forEach((logItem: any) => {
-          // Map Sandpack console method to our LogEntry type
           let type: LogEntry['type'] = 'log';
           if (logItem.method === 'warn') type = 'warn';
           if (logItem.method === 'error') type = 'error';
           if (logItem.method === 'info') type = 'info';
-
           onLog({
             type,
             message: logItem.data.join(' '),
@@ -31,7 +28,6 @@ function SandpackLogListener({ onLog }: { onLog: (log: LogEntry) => void }) {
         });
       }
     });
-
     return () => stopListening();
   }, [listen, onLog]);
 
@@ -48,7 +44,6 @@ export function UniversalPreview({ showLogsByDefault = false }: UniversalPreview
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const { files, activeFile } = useProjectStore();
 
-  // Convert project files to Sandpack format
   const sandpackFiles = files.reduce((acc, file) => {
     const path = file.path.startsWith('/') ? file.path : `/${file.path}`;
     acc[path] = { code: file.content ?? '' };
@@ -56,12 +51,11 @@ export function UniversalPreview({ showLogsByDefault = false }: UniversalPreview
   }, {} as Record<string, { code: string }>);
 
   const handleLog = (log: LogEntry) => {
-    setLogs(prev => [...prev, log].slice(-50)); // keep last 50 logs
+    setLogs(prev => [...prev, log].slice(-50));
   };
 
   const clearLogs = () => setLogs([]);
 
-  // Default template – can be made dynamic later
   const template = 'react-ts';
 
   if (files.length === 0) {
@@ -82,29 +76,29 @@ export function UniversalPreview({ showLogsByDefault = false }: UniversalPreview
       />
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex-1">
-          <DeviceEmulator device={device}>
-            <Sandpack
-              template={template}
-              files={sandpackFiles}
-              options={{
-                showNavigator: true,
-                showTabs: true,
-                editorHeight: '100%',
-                activeFile: activeFile ?? undefined,
-                wrapContent: true,
-                autorun: true,
-              }}
-              theme="auto"
-              customSetup={{
-                dependencies: {
-                  "react": "^18.2.0",
-                  "react-dom": "^18.2.0",
-                },
-              }}
-            >
-              <SandpackLogListener onLog={handleLog} />
-            </Sandpack>
-          </DeviceEmulator>
+          <SandpackProvider
+            template={template}
+            files={sandpackFiles}
+            options={{
+              showNavigator: true,
+              showTabs: true,
+              editorHeight: '100%',
+              activeFile: activeFile ?? undefined,
+              wrapContent: true,
+              autorun: true,
+            }}
+            customSetup={{
+              dependencies: {
+                "react": "^18.2.0",
+                "react-dom": "^18.2.0",
+              },
+            }}
+          >
+            <DeviceEmulator device={device}>
+              <SandpackPreview />
+            </DeviceEmulator>
+            <SandpackLogListener onLog={handleLog} />
+          </SandpackProvider>
         </div>
         {showLogs && (
           <div className="h-64 border-t border-gray-300 dark:border-gray-700">
