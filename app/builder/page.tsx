@@ -3,17 +3,20 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 
-// Dynamically import heavy components (using named exports)
-const HonestAIPipeline = dynamic(() => import('./components/HonestAIPipeline').then(mod => mod.HonestAIPipeline), {
+// Dynamically import heavy components
+// HonestAIPipeline is a default export
+const HonestAIPipeline = dynamic(() => import('./components/HonestAIPipeline'), {
   ssr: false,
   loading: () => <div className="h-64 bg-gray-100 animate-pulse rounded-xl"></div>
 });
 
-const FullStackFactory = dynamic(() => import('./components/FullStackFactory').then(mod => mod.FullStackFactory), {
+// FullStackFactory is also a default export (based on common pattern)
+const FullStackFactory = dynamic(() => import('./components/FullStackFactory'), {
   ssr: false,
   loading: () => <div className="h-64 bg-gray-100 animate-pulse rounded-xl"></div>
 });
 
+// EnhancedCanvasPanel is a named export
 const EnhancedCanvasPanel = dynamic(() => import('./components/canvas/EnhancedCanvasPanel').then(mod => mod.EnhancedCanvasPanel), {
   ssr: false,
   loading: () => <div className="h-[600px] bg-gray-900 rounded-xl animate-pulse"></div>
@@ -378,7 +381,7 @@ export default function BuilderPage() {
         {/* Component Generator Tab */}
         {activeTab === 'component' && (
           <div className="space-y-8">
-            <HonestAIPipeline />
+            <HonestAIPipeline onFilesGenerated={handleFilesChange} />
             {/* Quick Actions */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-white p-6 rounded-xl shadow text-center">
