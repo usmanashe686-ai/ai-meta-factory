@@ -110,12 +110,13 @@ export const PROJECT_TYPE_REGISTRY: Record<ProjectType, ProjectTypeInfo> = {
 
 /** Supported frameworks / engines */
 export type Framework =
-  | 'react' | 'vue' | 'svelte' | 'next' | 'nuxt' | 'sveltekit' | 'astro'
+  | 'react' | 'vue' | 'svelte' | 'next' | 'nuxt' | 'sveltekit' | 'astro' | 'static-html'
   | 'react-native' | 'flutter' | 'ionic' | 'capacitor'
   | 'electron' | 'tauri' | 'flutter-desktop'
   | 'phaser' | 'threejs' | 'babylon'
   | 'discordjs' | 'python-telegram'
-  | 'arduino' | 'raspberry-pi' | 'esp32';
+  | 'arduino' | 'raspberry-pi' | 'esp32'
+  | 'express' | 'fastify'; // Added missing frameworks
 
 /** Export formats / build outputs */
 export type ExportFormat =
