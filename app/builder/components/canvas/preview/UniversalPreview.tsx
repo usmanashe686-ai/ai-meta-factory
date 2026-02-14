@@ -7,22 +7,34 @@ import { PreviewToolbar } from './PreviewToolbar';
 import { DeviceEmulator, DeviceType } from './DeviceEmulator';
 import { PreviewLogs, LogEntry } from './PreviewLogs';
 
+// Listener component that captures console logs from the sandbox
 function SandpackLogListener({ onLog }: { onLog: (log: LogEntry) => void }) {
   const { listen } = useSandpack();
+
   useEffect(() => {
     const stopListening = listen((msg) => {
+      // Check if this is a console message and has log array
       if (msg.type === 'console' && Array.isArray(msg.log)) {
+        // Iterate over each log entry in the array
         msg.log.forEach((logItem: any) => {
+          // Map Sandpack console method to our LogEntry type
           let type: LogEntry['type'] = 'log';
           if (logItem.method === 'warn') type = 'warn';
           if (logItem.method === 'error') type = 'error';
           if (logItem.method === 'info') type = 'info';
-          onLog({ type, message: logItem.data.join(' '), timestamp: Date.now() });
+
+          onLog({
+            type,
+            message: logItem.data.join(' '),
+            timestamp: Date.now(),
+          });
         });
       }
     });
+
     return () => stopListening();
   }, [listen, onLog]);
+
   return null;
 }
 
@@ -36,28 +48,60 @@ export function UniversalPreview({ showLogsByDefault = false }: UniversalPreview
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const { files, activeFile } = useProjectStore();
 
+  // Convert project files to Sandpack format
   const sandpackFiles = files.reduce((acc, file) => {
     const path = file.path.startsWith('/') ? file.path : `/${file.path}`;
     acc[path] = { code: file.content ?? '' };
     return acc;
   }, {} as Record<string, { code: string }>);
 
-  const handleLog = (log: LogEntry) => setLogs(prev => [...prev, log].slice(-50));
+  const handleLog = (log: LogEntry) => {
+    setLogs(prev => [...prev, log].slice(-50)); // keep last 50 logs
+  };
+
   const clearLogs = () => setLogs([]);
 
+  // Default template – can be made dynamic later
   const template = 'react-ts';
 
   if (files.length === 0) {
-    return <div className="h-full w-full flex items-center justify-center text-gray-500">No files to preview</div>;
+    return (
+      <div className="h-full w-full flex items-center justify-center text-gray-500">
+        No files to preview
+      </div>
+    );
   }
 
   return (
     <div className="h-full w-full flex flex-col bg-gray-100 dark:bg-gray-900">
-      <PreviewToolbar device={device} onDeviceChange={setDevice} onToggleLogs={() => setShowLogs(!showLogs)} showLogs={showLogs} />
+      <PreviewToolbar
+        device={device}
+        onDeviceChange={setDevice}
+        onToggleLogs={() => setShowLogs(!showLogs)}
+        showLogs={showLogs}
+      />
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex-1">
           <DeviceEmulator device={device}>
-            <Sandpack template={template} files={sandpackFiles} options={{ showNavigator: true, showTabs: true, editorHeight: '100%', activeFile: activeFile ?? undefined, wrapContent: true, autorun: true }} theme="auto" customSetup={{ dependencies: { "react": "^18.2.0", "react-dom": "^18.2.0" } }}>
+            <Sandpack
+              template={template}
+              files={sandpackFiles}
+              options={{
+                showNavigator: true,
+                showTabs: true,
+                editorHeight: '100%',
+                activeFile: activeFile ?? undefined,
+                wrapContent: true,
+                autorun: true,
+              }}
+              theme="auto"
+              customSetup={{
+                dependencies: {
+                  "react": "^18.2.0",
+                  "react-dom": "^18.2.0",
+                },
+              }}
+            >
               <SandpackLogListener onLog={handleLog} />
             </Sandpack>
           </DeviceEmulator>
