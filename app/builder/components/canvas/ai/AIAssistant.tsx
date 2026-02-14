@@ -43,7 +43,6 @@ export function AIAssistant() {
     addToConsole({
       type: 'command',
       message: `User: ${input}`,
-      timestamp: Date.now()
     });
 
     try {
@@ -65,7 +64,6 @@ export function AIAssistant() {
       addToConsole({
         type: 'ai',
         message: `AI: ${aiResponse}`,
-        timestamp: Date.now()
       });
 
     } catch (error) {
@@ -74,7 +72,6 @@ export function AIAssistant() {
       addToConsole({
         type: 'error',
         message: 'AI request failed. Please try again.',
-        timestamp: Date.now()
       });
     } finally {
       setIsLoading(false);
