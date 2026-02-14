@@ -3,8 +3,9 @@
 // Prepare projects for export, create ZIP files, generate APK instructions.
 // ============================================================================
 
-import { Project, ProjectFile } from '../types/project.types';
+import { Project } from '../types/project.types';
 import { ExportFormat, BuildResult } from '../types/platform.types';
+import { FileNode } from '../types/project.types';
 
 /**
  * Prepare a project for export as a ZIP file
@@ -12,14 +13,21 @@ import { ExportFormat, BuildResult } from '../types/platform.types';
 export async function createProjectZip(project: Project): Promise<Blob> {
   const { default: JSZip } = await import('jszip');
   const zip = new JSZip();
-  
-  // Add all files to the ZIP
-  Object.entries(project.files).forEach(([path, file]) => {
-    if (file.type === 'file') {
-      zip.file(path, file.content);
-    }
-  });
-  
+
+  // Helper to flatten the file tree
+  const addFilesToZip = (nodes: FileNode[], basePath = '') => {
+    nodes.forEach(node => {
+      const fullPath = basePath ? `${basePath}/${node.name}` : node.name;
+      if (node.type === 'file') {
+        zip.file(fullPath, node.content ?? '');
+      } else if (node.children) {
+        addFilesToZip(node.children, fullPath);
+      }
+    });
+  };
+
+  addFilesToZip(project.files);
+
   // Add metadata file
   zip.file('project.json', JSON.stringify({
     name: project.name,
@@ -29,7 +37,7 @@ export async function createProjectZip(project: Project): Promise<Blob> {
     createdAt: project.createdAt.toISOString(),
     version: project.config.version,
   }, null, 2));
-  
+
   return await zip.generateAsync({ type: 'blob' });
 }
 
@@ -39,7 +47,7 @@ export async function createProjectZip(project: Project): Promise<Blob> {
 export function generateFlutterProject(project: Project): Record<string, string> {
   const name = project.slug || 'app';
   const description = project.description || 'Created with AI Meta Factory';
-  
+
   return {
     'pubspec.yaml': `name: ${name}
 description: ${description}
@@ -77,19 +85,19 @@ class MyApp extends StatelessWidget {
     'android/app/src/main/AndroidManifest.xml': `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.aimetafactory.${name}">
-    <application
-        android:label="${project.name}"
-        android:name="\${applicationName}"
-        android:icon="@mipmap/ic_launcher">
-        <activity
-            android:name=".MainActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-    </application>
+  <application
+      android:label="${project.name}"
+      android:name="\${applicationName}"
+      android:icon="@mipmap/ic_launcher">
+    <activity
+        android:name=".MainActivity"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+    </activity>
+  </application>
 </manifest>`,
   };
 }
@@ -149,30 +157,30 @@ export function generateWebProject(project: Project): Record<string, string> {
     'index.html': `<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${project.name}</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${project.name}</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="app">
-        <h1>${project.name}</h1>
-        <p>${project.description || 'Built with AI Meta Factory'}</p>
-    </div>
-    <script src="script.js"></script>
+  <div id="app">
+    <h1>${project.name}</h1>
+    <p>${project.description || 'Built with AI Meta Factory'}</p>
+  </div>
+  <script src="script.js"></script>
 </body>
 </html>`,
     'style.css': `body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-    margin: 0;
-    padding: 2rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  margin: 0;
+  padding: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  text-align: center;
 }
 
 h1 { font-size: 3rem; margin-bottom: 1rem; }
@@ -206,14 +214,24 @@ export function getExportInstructions(format: ExportFormat): string {
  * Estimate build time based on project size and complexity
  */
 export function estimateBuildTime(project: Project, format: ExportFormat): number {
-  const fileCount = Object.keys(project.files).length;
-  const totalSize = Object.values(project.files).reduce((acc, f) => acc + (f.size || 0), 0);
-  
+  // Flatten files to count and get total size
+  const flattenFiles = (nodes: FileNode[]): FileNode[] => {
+    let files: FileNode[] = [];
+    nodes.forEach(node => {
+      if (node.type === 'file') files.push(node);
+      if (node.children) files = files.concat(flattenFiles(node.children));
+    });
+    return files;
+  };
+  const allFiles = flattenFiles(project.files);
+  const fileCount = allFiles.length;
+  const totalSize = allFiles.reduce((acc, f) => acc + (f.content?.length || 0), 0);
+
   // Rough heuristic: base 2 seconds + 0.1s per file + 0.001s per KB
   let base = 2;
   if (format === 'apk' || format === 'ipa') base = 15;
   if (format === 'docker') base = 10;
-  
+
   return Math.round(base + fileCount * 0.1 + totalSize / 1024 * 0.001);
 }
 
