@@ -3,7 +3,20 @@
 // Virtual filesystem helpers, path manipulation, file operations.
 // ============================================================================
 
-import { ProjectFile } from '../types/project.types';
+import { FileNode } from '../types/project.types';
+
+// Helper to flatten tree into a record keyed by path
+function flattenTreeToRecord(nodes: FileNode[], prefix = ''): Record<string, FileNode> {
+  let result: Record<string, FileNode> = {};
+  nodes.forEach(node => {
+    const path = prefix ? `${prefix}/${node.name}` : node.name;
+    result[path] = node;
+    if (node.children) {
+      result = { ...result, ...flattenTreeToRecord(node.children, path) };
+    }
+  });
+  return result;
+}
 
 /**
  * Normalize file path (remove leading/trailing slashes, ensure consistent separator)
@@ -50,14 +63,14 @@ export function joinPaths(...segments: string[]): string {
  * Build a file tree from a flat record of files
  * Returns a nested structure for tree views
  */
-export function buildFileTree(files: Record<string, ProjectFile>): FileTreeNode[] {
+export function buildFileTree(files: Record<string, FileNode>): FileTreeNode[] {
   const root: Record<string, any> = {};
-  
+
   Object.keys(files).forEach((path) => {
     const normalized = normalizePath(path);
     const parts = normalized.split('/');
     let current = root;
-    
+
     parts.forEach((part, index) => {
       const isFile = index === parts.length - 1 && files[path].type === 'file';
       if (!current[part]) {
@@ -68,7 +81,7 @@ export function buildFileTree(files: Record<string, ProjectFile>): FileTreeNode[
       current = current[part].children || current[part];
     });
   });
-  
+
   return Object.values(root).map((item) => {
     if (item.children) {
       item.children = Object.values(item.children);
@@ -87,16 +100,18 @@ export interface FileTreeNode {
 }
 
 /**
- * Check if a path exists in the project files
+ * Check if a path exists in the project files (accepts tree nodes)
  */
-export function fileExists(files: Record<string, ProjectFile>, path: string): boolean {
-  return !!files[normalizePath(path)];
+export function fileExists(nodes: FileNode[], path: string): boolean {
+  const flat = flattenTreeToRecord(nodes);
+  return !!flat[normalizePath(path)];
 }
 
 /**
- * Get all files matching a glob pattern (simple implementation)
+ * Get all files matching a glob pattern (simple implementation) – works with tree
  */
-export function glob(files: Record<string, ProjectFile>, pattern: string): string[] {
+export function glob(nodes: FileNode[], pattern: string): string[] {
+  const flat = flattenTreeToRecord(nodes);
   const isMatch = (path: string): boolean => {
     if (pattern === '*') return true;
     if (pattern.endsWith('/*')) {
@@ -109,48 +124,48 @@ export function glob(files: Record<string, ProjectFile>, pattern: string): strin
     }
     return path === pattern;
   };
-  
-  return Object.keys(files).filter(isMatch);
+  return Object.keys(flat).filter(isMatch);
 }
 
 /**
- * Estimate project size (sum of file sizes)
+ * Estimate project size (sum of file sizes) – works with tree
  */
-export function estimateProjectSize(files: Record<string, ProjectFile>): number {
-  return Object.values(files).reduce((total, file) => {
-    if (file.type === 'file' && file.size) {
-      return total + file.size;
+export function estimateProjectSize(nodes: FileNode[]): number {
+  const flat = flattenTreeToRecord(nodes);
+  return Object.values(flat).reduce((total, file) => {
+    if (file.type === 'file' && file.content) {
+      return total + file.content.length;
     }
     return total;
   }, 0);
 }
 
 /**
- * Create a new file object
+ * Create a new file object (returns a FileNode)
  */
 export function createFile(
   path: string,
   content: string | Buffer = '',
   binary = false
-): ProjectFile {
+): FileNode {
   return {
+    id: Math.random().toString(36).substr(2, 9),
+    name: basename(normalizePath(path)),
     path: normalizePath(path),
-    content,
-    lastModified: new Date(),
     type: 'file',
-    size: content.length,
-    binary,
+    content: content.toString(),
   };
 }
 
 /**
- * Create a new directory object
+ * Create a new directory object (returns a FileNode)
  */
-export function createDirectory(path: string): ProjectFile {
+export function createDirectory(path: string): FileNode {
   return {
+    id: Math.random().toString(36).substr(2, 9),
+    name: basename(normalizePath(path)),
     path: normalizePath(path),
-    content: '',
-    lastModified: new Date(),
-    type: 'directory',
+    type: 'folder',
+    children: [],
   };
 }
