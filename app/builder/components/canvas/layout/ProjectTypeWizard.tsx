@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Platform, PlatformSelector } from './PlatformSelector';
-import { useProjectStore } from '../../state/project-store';
+import { useProjectStore } from '../state/project-store';
 
 type WizardStep = 'platform' | 'template' | 'details' | 'review';
 
