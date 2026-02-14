@@ -11,7 +11,6 @@ import { usePlatformStore } from '../state/platform-store';
 
 export function EnhancedCanvasLayout() {
   const { currentProject } = useProjectStore();
-  // Temporarily ignore type error – platform store may not have selectedPlatform yet
   // @ts-ignore
   const { selectedPlatform = 'web' } = usePlatformStore();
   const [activeFile, setActiveFile] = useState('/index.tsx');
@@ -29,9 +28,9 @@ export function EnhancedCanvasLayout() {
       <CanvasHeader />
       <div className="flex-1 overflow-hidden">
         <ResizablePanels
-          left={<FileExplorer />}  // removed onFileSelect prop
-          center={<CodeEditor filePath={activeFile} project={currentProject} />}
-          right={<UniversalPreview project={currentProject} platform={selectedPlatform} />}
+          left={<FileExplorer />}
+          center={<CodeEditor />}
+          right={<UniversalPreview />}
           defaultLeftSize={18}
           defaultRightSize={35}
         />
