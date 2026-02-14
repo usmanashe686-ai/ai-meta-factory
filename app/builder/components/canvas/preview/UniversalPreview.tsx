@@ -82,8 +82,6 @@ export function UniversalPreview({ showLogsByDefault = false }: UniversalPreview
             options={{
               activeFile: activeFile ?? undefined,
               autorun: true,
-              editorHeight: '100%',
-              editorWidthPercentage: 0, // Hide editor since we only want preview
             }}
             customSetup={{
               dependencies: {
