@@ -37,7 +37,7 @@ export function ConsolePanel() {
     // Add command to console output
     useProjectStore.getState().addToConsole({
       type: 'command',
-      message: \`> \${input}\`,
+      message: `> ${input}`,
       timestamp: Date.now()
     });
 
@@ -69,7 +69,7 @@ export function ConsolePanel() {
       } else {
         useProjectStore.getState().addToConsole({
           type: 'log',
-          message: \`Executed: \${input}\`,
+          message: `Executed: ${input}`,
           timestamp: Date.now()
         });
       }
@@ -85,7 +85,7 @@ export function ConsolePanel() {
   };
 
   const handleCopy = () => {
-    const text = consoleOutput.map((entry: any) => \`[\${entry.type.toUpperCase()}] \${entry.message}\`).join('\n');
+    const text = consoleOutput.map((entry: any) => `[${entry.type.toUpperCase()}] ${entry.message}`).join('\n');
     navigator.clipboard.writeText(text);
     
     // Add success message
@@ -157,7 +157,7 @@ export function ConsolePanel() {
           <Terminal className="w-5 h-5 text-green-400" />
           <h3 className="font-semibold">Console</h3>
           <div className="flex items-center gap-2 ml-4">
-            <div className={\`w-2 h-2 rounded-full \${isConsoleRunning ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}\`}></div>
+            <div className={`w-2 h-2 rounded-full ${isConsoleRunning ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}></div>
             <span className="text-xs text-gray-400">
               {isConsoleRunning ? 'Running...' : 'Ready'}
             </span>
@@ -168,27 +168,27 @@ export function ConsolePanel() {
           <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden">
             <button
               onClick={() => setFilter('all')}
-              className={\`px-3 py-1 text-xs \${filter === 'all' ? 'bg-gray-800' : 'hover:bg-gray-800'}\`}
+              className={`px-3 py-1 text-xs ${filter === 'all' ? 'bg-gray-800' : 'hover:bg-gray-800'}`}
             >
               All ({consoleOutput.length})
             </button>
             <button
               onClick={() => setFilter('error')}
-              className={\`px-3 py-1 text-xs flex items-center gap-1 \${filter === 'error' ? 'bg-red-500/20' : 'hover:bg-gray-800'}\`}
+              className={`px-3 py-1 text-xs flex items-center gap-1 ${filter === 'error' ? 'bg-red-500/20' : 'hover:bg-gray-800'}`}
             >
               <AlertCircle className="w-3 h-3" />
               <span>({consoleOutput.filter((e: any) => e.type === 'error').length})</span>
             </button>
             <button
               onClick={() => setFilter('success')}
-              className={\`px-3 py-1 text-xs flex items-center gap-1 \${filter === 'success' ? 'bg-green-500/20' : 'hover:bg-gray-800'}\`}
+              className={`px-3 py-1 text-xs flex items-center gap-1 ${filter === 'success' ? 'bg-green-500/20' : 'hover:bg-gray-800'}`}
             >
               <CheckCircle className="w-3 h-3" />
               <span>({consoleOutput.filter((e: any) => e.type === 'success').length})</span>
             </button>
             <button
               onClick={() => setFilter('ai')}
-              className={\`px-3 py-1 text-xs flex items-center gap-1 \${filter === 'ai' ? 'bg-purple-500/20' : 'hover:bg-gray-800'}\`}
+              className={`px-3 py-1 text-xs flex items-center gap-1 ${filter === 'ai' ? 'bg-purple-500/20' : 'hover:bg-gray-800'}`}
             >
               <Bot className="w-3 h-3" />
               <span>({consoleOutput.filter((e: any) => e.type === 'ai').length})</span>
@@ -227,7 +227,7 @@ export function ConsolePanel() {
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between">
-                    <span className={\`\${getEntryColor(entry.type)}\`}>
+                    <span className={`${getEntryColor(entry.type)}`}>
                       {entry.message}
                     </span>
                     <span className="text-xs text-gray-500">
