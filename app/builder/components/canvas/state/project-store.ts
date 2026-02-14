@@ -1,33 +1,7 @@
 import { create } from 'zustand';
 import { FileNode } from '../types/project.types';
-import apiClient from '../utils/apiClient'; // adjust path as needed
+import apiClient from '../utils/apiClient';
 
-interface ProjectState {
-  // Project metadata
-  projectId: string | null;
-  setProjectId: (id: string) => void;
-
-  // File tree
-  files: FileNode[];
-  setFiles: (files: FileNode[]) => void;
-  addFile: (parentPath: string, file: FileNode) => void;
-  updateFileContent: (path: string, content: string) => void;
-  deleteFile: (path: string) => void;
-  moveFile: (sourceId: string, targetId: string) => void;
-
-  // Open tabs / active file
-  openFiles: FileNode[];          // files currently opened in tabs
-  activeFileId: string | null;
-  setActiveFile: (fileId: string | null) => void;
-  closeFile: (fileId: string) => void;
-
-  // Actions that call backend
-  saveCurrentFile: () => Promise<void>;
-  formatCurrentFile: () => Promise<void>;
-  runPreview: () => void;          // triggers preview update
-}
-
-// Helper: find node by ID
 const findNode = (nodes: FileNode[], id: string): FileNode | null => {
   for (const node of nodes) {
     if (node.id === id) return node;
@@ -39,7 +13,6 @@ const findNode = (nodes: FileNode[], id: string): FileNode | null => {
   return null;
 };
 
-// Helper: update node in tree
 const updateNode = (
   nodes: FileNode[],
   id: string,
@@ -54,7 +27,6 @@ const updateNode = (
   });
 };
 
-// Helper: remove node from tree
 const removeNode = (nodes: FileNode[], id: string): FileNode[] => {
   return nodes.reduce((acc, node) => {
     if (node.id === id) return acc;
@@ -67,24 +39,60 @@ const removeNode = (nodes: FileNode[], id: string): FileNode[] => {
   }, [] as FileNode[]);
 };
 
+const generateId = () => Math.random().toString(36).substr(2, 9);
+
+interface ProjectState {
+  projectId: string | null;
+  setProjectId: (id: string) => void;
+  projectName: string;
+  setProjectName: (name: string) => void;
+  files: FileNode[];
+  setFiles: (files: FileNode[]) => void;
+  addFile: (parentPath: string, file: FileNode) => void;
+  updateFileContent: (path: string, content: string) => void;
+  deleteFile: (path: string) => void;
+  moveFile: (sourceId: string, targetId: string) => void;
+  createFile: (path: string, content: string, language?: string) => void;
+  updateFile: (path: string, content: string) => void;
+  removeFile: (path: string) => void;
+  renameFile: (oldPath: string, newPath: string) => void;
+  copyFile: (sourcePath: string, destPath: string) => void;
+  searchFiles: (query: string) => FileNode[];
+  openFiles: FileNode[];
+  activeFileId: string | null;
+  setActiveFile: (fileId: string | null) => void;
+  closeFile: (fileId: string) => void;
+  consoleOutput: Array<{ type: string; message: string; timestamp: number }>;
+  addToConsole: (entry: { type: string; message: string }) => void;
+  clearConsole: () => void;
+  consoleHistory: string[];
+  addToConsoleHistory: (command: string) => void;
+  isConsoleRunning: boolean;
+  setConsoleRunning: (running: boolean) => void;
+  stack: any;
+  currentProject: any;
+  saveCurrentFile: () => Promise<void>;
+  formatCurrentFile: () => Promise<void>;
+  runPreview: () => void;
+  saveProject: () => Promise<void>;
+  exportProject: () => Promise<void>;
+}
+
 export const useProjectStore = create<ProjectState>((set, get) => ({
-  // Project ID
   projectId: null,
   setProjectId: (id) => set({ projectId: id }),
-
-  // File tree
+  projectName: 'Untitled Project',
+  setProjectName: (name) => set({ projectName: name }),
   files: [],
   setFiles: (files) => set({ files }),
-
   addFile: (parentPath, file) => set((state) => {
-    const parentId = parentPath; // simplified: assume parentPath is the node's ID
+    const parentId = parentPath;
     const newFiles = updateNode(state.files, parentId, (parent) => ({
       ...parent,
       children: [...(parent.children || []), file],
     }));
     return { files: newFiles };
   }),
-
   updateFileContent: (path, content) => set((state) => {
     const newFiles = updateNode(state.files, path, (node) => ({
       ...node,
@@ -92,19 +100,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }));
     return { files: newFiles };
   }),
-
   deleteFile: (path) => set((state) => ({
     files: removeNode(state.files, path),
   })),
-
   moveFile: (sourceId, targetId) => set((state) => {
     const sourceNode = findNode(state.files, sourceId);
     if (!sourceNode) return state;
-
     const withoutSource = removeNode(state.files, sourceId);
     const targetNode = findNode(withoutSource, targetId);
     if (!targetNode) return state;
-
     if (targetNode.type === 'folder') {
       const newFiles = updateNode(withoutSource, targetId, (folder) => ({
         ...folder,
@@ -112,39 +116,64 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }));
       return { files: newFiles };
     }
-    // If target is a file, we could insert as sibling – not implemented for simplicity
     return state;
   }),
-
-  // Open tabs / active file
+  createFile: (path, content, language) => {
+    const newFile: FileNode = {
+      id: generateId(),
+      name: path.split('/').pop() || 'file',
+      type: 'file',
+      path,
+      content,
+    };
+    const parentPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '';
+    get().addFile(parentPath, newFile);
+  },
+  updateFile: (path, content) => get().updateFileContent(path, content),
+  removeFile: (path) => get().deleteFile(path),
+  renameFile: (oldPath, newPath) => console.log('renameFile stub', oldPath, newPath),
+  copyFile: (sourcePath, destPath) => console.log('copyFile stub', sourcePath, destPath),
+  searchFiles: (query) => {
+    const allFiles: FileNode[] = [];
+    const collect = (nodes: FileNode[]) => {
+      nodes.forEach(node => {
+        if (node.type === 'file') allFiles.push(node);
+        if (node.children) collect(node.children);
+      });
+    };
+    collect(get().files);
+    return allFiles.filter(f => f.name.includes(query));
+  },
   openFiles: [],
   activeFileId: null,
-
   setActiveFile: (fileId) => set((state) => {
     if (!fileId) return { activeFileId: null };
     const file = findNode(state.files, fileId);
     if (!file) return state;
-    // Add to openFiles if not already present
     const isOpen = state.openFiles.some(f => f.id === fileId);
     const newOpenFiles = isOpen ? state.openFiles : [...state.openFiles, file];
-    return {
-      activeFileId: fileId,
-      openFiles: newOpenFiles,
-    };
+    return { activeFileId: fileId, openFiles: newOpenFiles };
   }),
-
   closeFile: (fileId) => set((state) => {
     const newOpenFiles = state.openFiles.filter(f => f.id !== fileId);
     const newActiveId = state.activeFileId === fileId
       ? (newOpenFiles.length > 0 ? newOpenFiles[newOpenFiles.length - 1].id : null)
       : state.activeFileId;
-    return {
-      openFiles: newOpenFiles,
-      activeFileId: newActiveId,
-    };
+    return { openFiles: newOpenFiles, activeFileId: newActiveId };
   }),
-
-  // Backend actions
+  consoleOutput: [],
+  addToConsole: (entry) => set((state) => ({
+    consoleOutput: [...state.consoleOutput, { ...entry, timestamp: Date.now() }]
+  })),
+  clearConsole: () => set({ consoleOutput: [] }),
+  consoleHistory: [],
+  addToConsoleHistory: (command) => set((state) => ({
+    consoleHistory: [...state.consoleHistory, command]
+  })),
+  isConsoleRunning: false,
+  setConsoleRunning: (running) => set({ isConsoleRunning: running }),
+  stack: { frontend: 'react', backend: 'node', database: 'none', gitProvider: 'github' },
+  currentProject: {},
   saveCurrentFile: async () => {
     const { activeFileId, files, projectId } = get();
     if (!activeFileId || !projectId) return;
@@ -154,28 +183,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       await apiClient.post(`/projects/${projectId}/files/${encodeURIComponent(file.path)}`, {
         content: file.content,
       });
-      // Optionally show a success message
     } catch (error) {
       console.error('Save failed:', error);
-      // Optionally show error toast
     }
   },
-
   formatCurrentFile: async () => {
     const { activeFileId, files, updateFileContent } = get();
     if (!activeFileId) return;
     const file = findNode(files, activeFileId);
     if (!file || file.type === 'folder') return;
-    // Simple formatting: just a placeholder – you could integrate prettier later
-    // For now, just trim whitespace
     const formatted = file.content?.trim() || '';
     updateFileContent(file.path, formatted);
-    // Also trigger save after format? Maybe optionally.
   },
-
-  runPreview: () => {
-    // This could update a preview store or emit an event
-    console.log('Preview requested');
-    // In a real app, you might use an event bus or another store
-  },
+  runPreview: () => console.log('Preview requested'),
+  saveProject: async () => console.log('saveProject stub'),
+  exportProject: async () => console.log('exportProject stub'),
 }));
