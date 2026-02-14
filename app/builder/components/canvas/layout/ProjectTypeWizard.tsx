@@ -66,7 +66,8 @@ export function ProjectTypeWizard() {
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
 
-  const { createProject } = useProjectStore();
+  // Use existing store actions
+  const { setProjectName: setStoreProjectName, createFile } = useProjectStore();
 
   const handlePlatformSelect = (platform: Platform) => {
     setSelectedPlatform(platform);
@@ -81,18 +82,14 @@ export function ProjectTypeWizard() {
   const handleCreateProject = async () => {
     if (!selectedPlatform || !selectedTemplate || !projectName.trim()) return;
 
-    const newProject = {
-      name: projectName,
-      description: projectDescription,
-      platform: selectedPlatform,
-      template: selectedTemplate.id,
-      files: {
-        'README.md': `# ${projectName}\n\n${projectDescription}\n\nBuilt with AI Meta Factory.`,
-        'index.tsx': '// Start coding here...',
-      },
-    };
+    // Set project name in store
+    setStoreProjectName(projectName);
 
-    await createProject(newProject);
+    // Create initial files
+    createFile('README.md', `# ${projectName}\n\n${projectDescription}\n\nBuilt with AI Meta Factory.`, false);
+    createFile('index.tsx', '// Start coding here...', false);
+
+    // Navigate to builder
     router.push('/builder');
   };
 
