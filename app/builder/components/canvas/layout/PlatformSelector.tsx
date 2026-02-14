@@ -1,8 +1,8 @@
 'use client';
 
-import { usePlatformStore } from '../../state/platform-store';
+import { usePlatformStore } from '../state/platform-store';
 
-export type Platform = 
+export type Platform =
   | 'website'
   | 'webapp'
   | 'mobile'
@@ -84,9 +84,9 @@ interface PlatformSelectorProps {
   selectedPlatform?: Platform | null;
 }
 
-export function PlatformSelector({ 
-  onSelect, 
-  selectedPlatform = null 
+export function PlatformSelector({
+  onSelect,
+  selectedPlatform = null
 }: PlatformSelectorProps) {
   const { selectedPlatform: storePlatform, setSelectedPlatform } = usePlatformStore();
 
