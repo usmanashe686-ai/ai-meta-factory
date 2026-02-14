@@ -7,10 +7,12 @@ import { useProjectStore } from './state/project-store';
 export const EnhancedCanvasPanel: React.FC = () => {
   React.useEffect(() => {
     const store = useProjectStore.getState();
-    if (Object.keys(store.files).length === 0) {
+    // Check if any files exist (array length)
+    if (store.files.length === 0) {
       if (typeof store.createFile === 'function') {
-        store.createFile('app/page.tsx', defaultHomePage, 'typescript');
-        store.createFile('app/globals.css', defaultCss, 'css');
+        // Create default files – third argument is `isFolder` (false for files)
+        store.createFile('app/page.tsx', defaultHomePage, false);
+        store.createFile('app/globals.css', defaultCss, false);
       } else {
         console.warn('createFile method not available');
       }
