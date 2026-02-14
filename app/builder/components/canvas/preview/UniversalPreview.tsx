@@ -13,17 +13,21 @@ function SandpackLogListener({ onLog }: { onLog: (log: LogEntry) => void }) {
 
   useEffect(() => {
     const stopListening = listen((msg) => {
-      if (msg.type === 'console') {
-        // Map Sandpack console method to our LogEntry type
-        let type: LogEntry['type'] = 'log';
-        if (msg.log.method === 'warn') type = 'warn';
-        if (msg.log.method === 'error') type = 'error';
-        if (msg.log.method === 'info') type = 'info';
+      // Check if this is a console message and has log array
+      if (msg.type === 'console' && Array.isArray(msg.log)) {
+        // Iterate over each log entry in the array
+        msg.log.forEach((logItem: any) => {
+          // Map Sandpack console method to our LogEntry type
+          let type: LogEntry['type'] = 'log';
+          if (logItem.method === 'warn') type = 'warn';
+          if (logItem.method === 'error') type = 'error';
+          if (logItem.method === 'info') type = 'info';
 
-        onLog({
-          type,
-          message: msg.log.data.join(' '),
-          timestamp: Date.now(),
+          onLog({
+            type,
+            message: logItem.data.join(' '),
+            timestamp: Date.now(),
+          });
         });
       }
     });
@@ -47,7 +51,7 @@ export function UniversalPreview({ showLogsByDefault = false }: UniversalPreview
   // Convert project files to Sandpack format
   const sandpackFiles = files.reduce((acc, file) => {
     const path = file.path.startsWith('/') ? file.path : `/${file.path}`;
-    acc[path] = { code: file.content };
+    acc[path] = { code: file.content ?? '' };
     return acc;
   }, {} as Record<string, { code: string }>);
 
@@ -86,7 +90,7 @@ export function UniversalPreview({ showLogsByDefault = false }: UniversalPreview
                 showNavigator: true,
                 showTabs: true,
                 editorHeight: '100%',
-                activeFile: activeFile?.path,
+                activeFile: activeFile ?? undefined,
                 wrapContent: true,
                 autorun: true,
               }}
