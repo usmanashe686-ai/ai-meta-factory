@@ -1,5 +1,6 @@
 // Export canvas components
-import EnhancedCanvasPanel from './EnhancedCanvasPanel';
+import { EnhancedCanvasPanel } from './EnhancedCanvasPanel';
+
 export { EnhancedCanvasLayout } from './layout/EnhancedCanvasLayout';
 export { CodeEditor } from './editor/CodeEditor';
 export { EnhancedFileExplorer } from './explorer/EnhancedFileExplorer';

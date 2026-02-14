@@ -11,8 +11,8 @@ import { useProjectStore } from '../state/project-store';
 export function CanvasLayout() {
   const [fullScreen, setFullScreen] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
-  const { name, stack } = useProjectStore();
-  
+  const { projectName, stack } = useProjectStore();
+
   return (
     <div className={`${fullScreen ? 'fixed inset-0' : 'h-screen'} flex flex-col bg-gray-950`}>
       {/* Top Bar */}
@@ -20,7 +20,7 @@ export function CanvasLayout() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              {name}
+              {projectName}
             </h1>
             <div className="flex items-center gap-2 text-xs">
               <span className="px-2 py-1 bg-blue-500/20 rounded">{stack.frontend}</span>
@@ -30,7 +30,7 @@ export function CanvasLayout() {
               <span className="px-2 py-1 bg-yellow-500/20 rounded">{stack.database}</span>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowTerminal(!showTerminal)}
@@ -47,33 +47,33 @@ export function CanvasLayout() {
           </div>
         </div>
       </div>
-      
+
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left - File Explorer */}
         <div className="w-64 border-r border-gray-800">
           <FileExplorer />
         </div>
-        
+
         {/* Center - Editor & Preview */}
         <div className="flex-1 flex">
           {/* Code Editor (Left side of center) */}
           <div className="flex-1 border-r border-gray-800">
             <CodeEditor />
           </div>
-          
+
           {/* Preview (Right side of center) */}
           <div className="w-1/2 border-r border-gray-800">
             <PreviewEngine />
           </div>
         </div>
-        
+
         {/* Right - AI Assistant */}
         <div className="w-80">
           <AIAssistant />
         </div>
       </div>
-      
+
       {/* Terminal */}
       {showTerminal && (
         <div className="h-48 border-t border-gray-800 bg-black">

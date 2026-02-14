@@ -23,7 +23,8 @@ export function useBuildService() {
       // Prepare files in the format expected by build service
       const filesMap: Record<string, string> = {};
       files.forEach(file => {
-        filesMap[file.path] = file.content;
+        // Provide fallback empty string if content is undefined
+        filesMap[file.path] = file.content ?? '';
       });
 
       const response = await fetch(`${BUILD_SERVICE_URL}/build`, {
@@ -48,7 +49,8 @@ export function useBuildService() {
       // Start polling for status
       pollBuildStatus(buildId);
     } catch (error) {
-      setBuildStatus({ buildId: '', status: 'failed', error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setBuildStatus({ buildId: '', status: 'failed', error: errorMessage });
       setIsLoading(false);
     }
   }, [files]);
@@ -72,7 +74,8 @@ export function useBuildService() {
         }
         return false; // continue polling
       } catch (error) {
-        setBuildStatus({ buildId, status: 'failed', error: error.message });
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        setBuildStatus({ buildId, status: 'failed', error: errorMessage });
         setIsLoading(false);
         return true;
       }
