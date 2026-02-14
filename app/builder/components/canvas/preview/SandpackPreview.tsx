@@ -6,7 +6,7 @@ import { useMemo } from 'react';
 import '@codesandbox/sandpack-react/dist/index.css';
 
 export function SandpackPreview() {
-  const { files, activeFile } = useProjectStore();
+  const { files, activeFile } = useProjectStore(); // activeFile is a string (path) or null
 
   const sandpackFiles = useMemo(() => {
     return files.reduce((acc, file) => {
@@ -36,7 +36,7 @@ export function SandpackPreview() {
           showNavigator: true,
           showTabs: true,
           editorHeight: '100%',
-          activeFile: activeFile?.path,
+          activeFile: activeFile ?? undefined,
           wrapContent: true,
           autorun: true,
           externalResources: [],
