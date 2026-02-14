@@ -4,31 +4,25 @@ import { X } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 
 export function FileTabs() {
-  const { files, activeFile, setActiveFile, removeFile } = useProjectStore();
-  
-  const openFiles = Object.keys(files).filter(path => 
-    !path.includes('.folder-marker') && path.split('/').pop()
-  );
-  
+  const { openFiles, activeFileId, setActiveFile, closeFile } = useProjectStore();
+
   if (openFiles.length === 0) {
     return null;
   }
-  
+
   return (
-    <div className="flex items-center border-b border-gray-800 bg-gray-900/50">
-      {openFiles.map((path) => {
-        const fileName = path.split('/').pop() || path;
-        const isActive = activeFile === path;
-        
+    <div className="flex items-center border-b border-gray-800 bg-gray-900/50 overflow-x-auto">
+      {openFiles.map((file) => {
+        const fileName = file.name;
+        const isActive = activeFileId === file.id;
+
         return (
           <div
-            key={path}
-            className={`group flex items-center px-4 py-2 border-r border-gray-800 cursor-pointer ${
-              isActive 
-                ? 'bg-gray-800' 
-                : 'bg-gray-900/30 hover:bg-gray-800/50'
+            key={file.id}
+            className={`group flex items-center px-4 py-2 border-r border-gray-800 cursor-pointer whitespace-nowrap ${
+              isActive ? 'bg-gray-800' : 'bg-gray-900/30 hover:bg-gray-800/50'
             }`}
-            onClick={() => setActiveFile(path)}
+            onClick={() => setActiveFile(file.id)}
           >
             <span className="text-sm font-medium text-gray-300">
               {fileName}
@@ -36,7 +30,7 @@ export function FileTabs() {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                removeFile(path);
+                closeFile(file.id);
               }}
               className="ml-2 p-0.5 rounded hover:bg-gray-700 opacity-0 group-hover:opacity-100 transition-opacity"
             >
