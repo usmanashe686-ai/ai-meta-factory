@@ -1,0 +1,121 @@
+// app/builder/components/canvas/state/platform-store.ts
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { Platform, PlatformTarget, ExportFormat, PLATFORM_CAPABILITIES } from '../types/platform.types';
+
+// Define the shape of the platform state
+export interface PlatformState {
+  // Current platform selection
+  currentPlatform: Platform;
+  // Selected target configuration (platform + format + architecture)
+  target: PlatformTarget;
+  // Available export formats for the current platform
+  availableFormats: ExportFormat[];
+  // Device emulation mode (e.g., responsive width, device model)
+  emulationDevice: string | null;
+  // Whether the platform is ready for export/build
+  isPlatformReady: boolean;
+  // Any platform-specific errors
+  platformError: string | null;
+
+  // Actions
+  setPlatform: (platform: Platform) => void;
+  setTargetFormat: (format: ExportFormat) => void;
+  setEmulationDevice: (device: string | null) => void;
+  resetPlatform: () => void;
+  validatePlatform: () => boolean;
+}
+
+// Helper to get default target for a platform
+const getDefaultTarget = (platform: Platform): PlatformTarget => {
+  const caps = PLATFORM_CAPABILITIES.find(c => c.platform === platform);
+  return {
+    platform,
+    format: caps?.exportFormats[0] || 'zip',
+    architecture: 'x64', // sensible default
+  };
+};
+
+// Create the store with persistence (optional, but useful)
+export const usePlatformStore = create<PlatformState>()(
+  persist(
+    (set, get) => ({
+      currentPlatform: 'web',
+      target: getDefaultTarget('web'),
+      availableFormats: PLATFORM_CAPABILITIES.find(c => c.platform === 'web')?.exportFormats || [],
+      emulationDevice: null,
+      isPlatformReady: true,
+      platformError: null,
+
+      setPlatform: (platform) => {
+        const caps = PLATFORM_CAPABILITIES.find(c => c.platform === platform);
+        const defaultTarget = getDefaultTarget(platform);
+        set({
+          currentPlatform: platform,
+          target: defaultTarget,
+          availableFormats: caps?.exportFormats || [],
+          emulationDevice: null, // reset device when platform changes
+          platformError: null,
+          isPlatformReady: true,
+        });
+        // Optionally validate platform after change
+        get().validatePlatform();
+      },
+
+      setTargetFormat: (format) => {
+        const { currentPlatform, target } = get();
+        // Ensure the format is available for the current platform
+        const caps = PLATFORM_CAPABILITIES.find(c => c.platform === currentPlatform);
+        if (caps && !caps.exportFormats.includes(format)) {
+          set({ platformError: `Format ${format} not supported for ${currentPlatform}` });
+          return;
+        }
+        set({
+          target: { ...target, format },
+          platformError: null,
+        });
+        get().validatePlatform();
+      },
+
+      setEmulationDevice: (device) => {
+        set({ emulationDevice: device });
+      },
+
+      resetPlatform: () => {
+        set({
+          currentPlatform: 'web',
+          target: getDefaultTarget('web'),
+          availableFormats: PLATFORM_CAPABILITIES.find(c => c.platform === 'web')?.exportFormats || [],
+          emulationDevice: null,
+          isPlatformReady: true,
+          platformError: null,
+        });
+      },
+
+      validatePlatform: () => {
+        const { currentPlatform, target } = get();
+        const caps = PLATFORM_CAPABILITIES.find(c => c.platform === currentPlatform);
+        if (!caps) {
+          set({ isPlatformReady: false, platformError: 'Platform capabilities not found' });
+          return false;
+        }
+        if (!caps.exportFormats.includes(target.format)) {
+          set({ isPlatformReady: false, platformError: `Format ${target.format} not supported` });
+          return false;
+        }
+        set({ isPlatformReady: true, platformError: null });
+        return true;
+      },
+    }),
+    {
+      name: 'platform-storage', // unique name for localStorage persistence
+      // Optionally whitelist fields to persist (e.g., keep platform selection across sessions)
+      partialize: (state) => ({
+        currentPlatform: state.currentPlatform,
+        target: state.target,
+        emulationDevice: state.emulationDevice,
+      }),
+    }
+  )
+);
+

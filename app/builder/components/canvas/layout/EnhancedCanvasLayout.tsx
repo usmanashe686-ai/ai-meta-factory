@@ -1,16 +1,19 @@
 'use client';
+
 import { useState } from 'react';
 import { ResizablePanels } from './ResizablePanels';
 import { FileExplorer } from '../explorer/FileExplorer';
 import { CodeEditor } from '../editor/CodeEditor';
 import { UniversalPreview } from '../preview/UniversalPreview';
-import { CanvasHeader } from './CanvasHeader';
-import { useProjectStore } from '../../state/project-store';
-import { usePlatformStore } from '../../state/platform-store';
+import CanvasHeader from './CanvasHeader';
+import { useProjectStore } from '../state/project-store';
+import { usePlatformStore } from '../state/platform-store';
+
 export function EnhancedCanvasLayout() {
   const { currentProject } = useProjectStore();
   const { selectedPlatform } = usePlatformStore();
   const [activeFile, setActiveFile] = useState('/index.tsx');
+
   if (!currentProject) {
     return (
       <div className="flex h-full items-center justify-center bg-gray-900 text-white">
@@ -18,6 +21,7 @@ export function EnhancedCanvasLayout() {
       </div>
     );
   }
+
   return (
     <div className="flex h-screen flex-col bg-gray-900">
       <CanvasHeader />
