@@ -4,28 +4,23 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 
 // Dynamically import heavy components
-// HonestAIPipeline is a default export
 const HonestAIPipeline = dynamic(() => import('./components/HonestAIPipeline'), {
   ssr: false,
   loading: () => <div className="h-64 bg-gray-100 animate-pulse rounded-xl"></div>
 });
 
-// FullStackFactory is also a default export (based on common pattern)
 const FullStackFactory = dynamic(() => import('./components/FullStackFactory'), {
   ssr: false,
   loading: () => <div className="h-64 bg-gray-100 animate-pulse rounded-xl"></div>
 });
 
-// EnhancedCanvasPanel is a named export
 const EnhancedCanvasPanel = dynamic(() => import('./components/canvas/EnhancedCanvasPanel').then(mod => mod.EnhancedCanvasPanel), {
   ssr: false,
   loading: () => <div className="h-[600px] bg-gray-900 rounded-xl animate-pulse"></div>
 });
 
-// Only import StackConfig - nothing else
 import { StackConfig } from './components/canvas/types';
 
-// 🔥 LOCAL TYPE DEFINITIONS
 type TabType = 'component' | 'fullstack' | 'canvas' | 'code' | 'export';
 type DatabaseStack = 'supabase' | 'firebase' | 'mongodb' | 'planetscale' | 'none';
 type GitProvider = 'github' | 'gitlab' | 'bitbucket';
@@ -33,7 +28,6 @@ type FrontendStack = 'nextjs' | 'react' | 'flutter';
 type BackendStack = 'node' | 'python' | 'none';
 type ModeType = FrontendStack | 'node' | 'python';
 
-// Base files for the canvas
 const baseFiles: Record<string, string> = {
   'App.tsx': `import React from 'react';
 import AIComponent from './components/AIComponent';
@@ -45,7 +39,6 @@ export default function App() {
         <h1 className="text-4xl font-bold">AI Meta Factory Project</h1>
         <p className="text-gray-400 mt-2">Built with Next.js, TypeScript, and AI</p>
       </header>
-
       <main className="container mx-auto px-4 py-8">
         <AIComponent
           title="Welcome to AI Meta Factory"
@@ -55,7 +48,6 @@ export default function App() {
     </div>
   );
 }`,
-
   'components/AIComponent.tsx': `import React from 'react';
 
 interface AIComponentProps {
@@ -76,23 +68,14 @@ export default function AIComponent({
           <span className="font-bold">AI Generated</span>
         </div>
       </div>
-
-      <p className="text-gray-300 mb-6 text-lg">
-        {description}
-      </p>
-
+      <p className="text-gray-300 mb-6 text-lg">{description}</p>
       <div className="flex flex-wrap gap-4">
-        <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg font-bold hover:opacity-90 transition">
-          Edit Component
-        </button>
-        <button className="px-6 py-3 bg-gray-700 rounded-lg font-bold hover:bg-gray-600 transition">
-          View Code
-        </button>
+        <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg font-bold hover:opacity-90 transition">Edit Component</button>
+        <button className="px-6 py-3 bg-gray-700 rounded-lg font-bold hover:bg-gray-600 transition">View Code</button>
       </div>
     </div>
   );
 }`,
-
   'index.html': `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -106,7 +89,6 @@ export default function AIComponent({
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>`,
-
   'package.json': `{
   "name": "ai-meta-factory-project",
   "version": "1.0.0",
@@ -129,7 +111,6 @@ export default function AIComponent({
 }`
 };
 
-// 🔥 STRONGLY TYPED CONFIG OBJECTS
 const modeConfigs: Record<ModeType, { name: string; icon: string; color: string }> = {
   nextjs: { name: 'Next.js', icon: '⚡', color: 'from-black to-gray-800' },
   react: { name: 'React', icon: '⚛️', color: 'from-blue-500 to-blue-700' },
@@ -153,7 +134,6 @@ const gitConfigs: Record<GitProvider, { name: string; icon: string; color: strin
 };
 
 export default function BuilderPage() {
-  // 🔥 STRONGLY TYPED STATE VARIABLES
   const [activeTab, setActiveTab] = useState<TabType>('component');
   const [mode, setMode] = useState<ModeType>('nextjs');
   const [database, setDatabase] = useState<DatabaseStack>('supabase');
@@ -183,34 +163,24 @@ export default function BuilderPage() {
     setGeneratedFiles(files);
   };
 
-  // Build stack config for EnhancedCanvasPanel
   const getStackConfig = (): StackConfig => {
     let frontend: FrontendStack = 'nextjs';
     let backend: BackendStack = 'none';
-
-    // Map mode to frontend/backend
     if (mode === 'nextjs' || mode === 'react' || mode === 'flutter') {
       frontend = mode as FrontendStack;
-      backend = 'node'; // Default backend for frontend frameworks
+      backend = 'node';
     } else if (mode === 'node') {
-      frontend = 'react'; // Default frontend for node
+      frontend = 'react';
       backend = 'node';
     } else if (mode === 'python') {
-      frontend = 'react'; // Default frontend for python
+      frontend = 'react';
       backend = 'python';
     }
-
-    return {
-      frontend,
-      backend,
-      database,
-      gitProvider
-    };
+    return { frontend, backend, database, gitProvider };
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      {/* Header */}
       <header className="bg-white shadow-lg border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex justify-between items-center">
@@ -218,14 +188,10 @@ export default function BuilderPage() {
               <div className="text-3xl">🏭</div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">AI Meta Factory</h1>
-                <p className="text-gray-600 text-sm">
-                  Full-Stack AI Development Platform
-                </p>
+                <p className="text-gray-600 text-sm">Full-Stack AI Development Platform</p>
               </div>
             </div>
-
             <div className="flex items-center gap-4">
-              {/* Git Connection */}
               <div className="flex items-center gap-2">
                 {connectedGit ? (
                   <div className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 rounded-full">
@@ -249,8 +215,6 @@ export default function BuilderPage() {
               </div>
             </div>
           </div>
-
-          {/* Main Navigation Tabs */}
           <div className="flex gap-1 mt-6 overflow-x-auto">
             {[
               { id: 'component', label: '🧠 AI Component Generator', icon: '🧠' },
@@ -277,25 +241,18 @@ export default function BuilderPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {/* Tech Stack Selector - Show on all tabs except export */}
         {activeTab !== 'export' && (
           <div className="mb-8 p-4 sm:p-6 bg-white rounded-2xl shadow-lg border">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 sm:gap-6">
-              {/* Tech Stack */}
               <div>
-                <h3 className="font-bold mb-3 flex items-center gap-2">
-                  <span>⚙️</span>
-                  <span>Stack</span>
-                </h3>
+                <h3 className="font-bold mb-3 flex items-center gap-2"><span>⚙️</span><span>Stack</span></h3>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(modeConfigs).map(([key, config]) => (
                     <button
                       key={key}
                       onClick={() => setMode(key as ModeType)}
                       className={`px-3 sm:px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 ${
-                        mode === key
-                          ? `bg-gradient-to-r ${config.color} text-white shadow-lg scale-105`
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        mode === key ? `bg-gradient-to-r ${config.color} text-white shadow-lg scale-105` : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
                       <span className="text-xl">{config.icon}</span>
@@ -304,22 +261,15 @@ export default function BuilderPage() {
                   ))}
                 </div>
               </div>
-
-              {/* Database Selector */}
               <div>
-                <h3 className="font-bold mb-3 flex items-center gap-2">
-                  <span>🗄️</span>
-                  <span>Database</span>
-                </h3>
+                <h3 className="font-bold mb-3 flex items-center gap-2"><span>🗄️</span><span>Database</span></h3>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(databaseConfigs).map(([key, config]) => (
                     <button
                       key={key}
                       onClick={() => setDatabase(key as DatabaseStack)}
                       className={`px-3 py-2 rounded-lg font-bold transition-all flex items-center gap-2 ${
-                        database === key
-                          ? `bg-gradient-to-r ${config.color} text-white shadow-lg`
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        database === key ? `bg-gradient-to-r ${config.color} text-white shadow-lg` : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
                       <span>{config.icon}</span>
@@ -328,22 +278,15 @@ export default function BuilderPage() {
                   ))}
                 </div>
               </div>
-
-              {/* Git Provider */}
               <div>
-                <h3 className="font-bold mb-3 flex items-center gap-2">
-                  <span>🔗</span>
-                  <span>Git Provider</span>
-                </h3>
+                <h3 className="font-bold mb-3 flex items-center gap-2"><span>🔗</span><span>Git Provider</span></h3>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(gitConfigs).map(([key, config]) => (
                     <button
                       key={key}
                       onClick={() => setGitProvider(key as GitProvider)}
                       className={`px-3 py-2 rounded-lg font-bold transition-all flex items-center gap-2 ${
-                        gitProvider === key
-                          ? `bg-gradient-to-r ${config.color} text-white shadow-lg`
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        gitProvider === key ? `bg-gradient-to-r ${config.color} text-white shadow-lg` : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
                       <span>{config.icon}</span>
@@ -353,8 +296,6 @@ export default function BuilderPage() {
                 </div>
               </div>
             </div>
-
-            {/* Configuration Summary */}
             <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex flex-wrap items-center gap-2 sm:gap-4">
@@ -378,11 +319,9 @@ export default function BuilderPage() {
           </div>
         )}
 
-        {/* Component Generator Tab */}
         {activeTab === 'component' && (
           <div className="space-y-8">
             <HonestAIPipeline onFilesGenerated={handleFilesChange} />
-            {/* Quick Actions */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-white p-6 rounded-xl shadow text-center">
                 <div className="text-2xl font-bold">{modeConfigs[mode].icon}</div>
@@ -407,7 +346,6 @@ export default function BuilderPage() {
           </div>
         )}
 
-        {/* Full-Stack Factory Tab */}
         {activeTab === 'fullstack' && (
           <div className="space-y-8">
             <FullStackFactory
@@ -420,20 +358,12 @@ export default function BuilderPage() {
           </div>
         )}
 
-        {/* Canvas Tab - Enhanced IDE */}
         {activeTab === 'canvas' && (
           <div className="min-h-[600px]">
-            <EnhancedCanvasPanel
-              initialFiles={{ ...baseFiles, ...generatedFiles }}
-              onFilesChange={handleFilesChange}
-              stack={getStackConfig()}
-              projectName="ai-meta-factory-project"
-              session={null}
-            />
+            <EnhancedCanvasPanel />
           </div>
         )}
 
-        {/* Code Editor Tab (Simple version) */}
         {activeTab === 'code' && (
           <div className="bg-white rounded-2xl shadow-xl p-6 min-h-[500px]">
             <h2 className="text-2xl font-bold mb-6">💻 Code Editor</h2>
@@ -456,15 +386,10 @@ const AIGeneratedComponent: React.FC<ComponentProps> = ({
   theme = 'dark'
 }) => {
   return (
-    <div className={\`p-6 rounded-xl \${
-      theme === 'dark'
-        ? 'bg-gray-900 text-white'
-        : 'bg-white text-gray-900'
-    }\`}>
+    <div className={\`p-6 rounded-xl \${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}\`}>
       <h1 className="text-2xl font-bold">{title}</h1>
       <p className="mt-3">
-        This component was AI-generated with ${modeConfigs[mode].name}
-        and ${databaseConfigs[database].name} configuration.
+        This component was AI-generated with ${modeConfigs[mode].name} and ${databaseConfigs[database].name} configuration.
       </p>
     </div>
   );
@@ -476,31 +401,22 @@ export default AIGeneratedComponent;`}
           </div>
         )}
 
-        {/* Export & Deploy Tab */}
         {activeTab === 'export' && (
           <div className="bg-white rounded-2xl shadow-xl p-6">
             <h2 className="text-2xl font-bold mb-6">📦 Export & Deploy</h2>
-
-            {/* Export Options */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
               <div className="border-2 border-gray-200 rounded-xl p-6 text-center hover:border-blue-500 hover:shadow-lg transition">
                 <div className="text-4xl mb-4">📦</div>
                 <h3 className="font-bold mb-2">Download ZIP</h3>
                 <p className="text-sm text-gray-600 mb-4">Complete project files</p>
-                <button className="px-4 py-2 bg-gray-900 text-white rounded-lg w-full">
-                  Download
-                </button>
+                <button className="px-4 py-2 bg-gray-900 text-white rounded-lg w-full">Download</button>
               </div>
-
               <div className="border-2 border-gray-200 rounded-xl p-6 text-center hover:border-green-500 hover:shadow-lg transition">
                 <div className="text-4xl mb-4">🚀</div>
                 <h3 className="font-bold mb-2">Deploy to Vercel</h3>
                 <p className="text-sm text-gray-600 mb-4">One-click deployment</p>
-                <button className="px-4 py-2 bg-black text-white rounded-lg w-full">
-                  Deploy Now
-                </button>
+                <button className="px-4 py-2 bg-black text-white rounded-lg w-full">Deploy Now</button>
               </div>
-
               <div className="border-2 border-gray-200 rounded-xl p-6 text-center hover:border-orange-500 hover:shadow-lg transition">
                 <div className="text-4xl mb-4">🐙</div>
                 <h3 className="font-bold mb-2">Push to GitHub</h3>
@@ -514,23 +430,12 @@ export default AIGeneratedComponent;`}
                 </button>
               </div>
             </div>
-
-            {/* Project Configuration */}
             <div className="bg-gray-50 rounded-xl p-6">
               <h3 className="font-bold mb-4">Project Configuration</h3>
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span>Stack</span>
-                  <span className="font-bold">{modeConfigs[mode].name}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Database</span>
-                  <span className="font-bold">{databaseConfigs[database].name}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Git Provider</span>
-                  <span className="font-bold">{gitConfigs[gitProvider].name}</span>
-                </div>
+                <div className="flex justify-between items-center"><span>Stack</span><span className="font-bold">{modeConfigs[mode].name}</span></div>
+                <div className="flex justify-between items-center"><span>Database</span><span className="font-bold">{databaseConfigs[database].name}</span></div>
+                <div className="flex justify-between items-center"><span>Git Provider</span><span className="font-bold">{gitConfigs[gitProvider].name}</span></div>
                 <div className="flex justify-between items-center">
                   <span>Git Connection</span>
                   <span className={`font-bold ${connectedGit ? 'text-green-600' : 'text-red-600'}`}>
