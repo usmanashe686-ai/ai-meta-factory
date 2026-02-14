@@ -82,12 +82,6 @@ export function UniversalPreview({ showLogsByDefault = false }: UniversalPreview
             options={{
               activeFile: activeFile ?? undefined,
               autorun: true,
-              classes: {
-                'sp-preview': 'h-full w-full',
-              },
-              showNavigator: true,
-              showRefreshButton: true,
-              wrapContent: true,
               editorHeight: '100%',
               editorWidthPercentage: 0, // Hide editor since we only want preview
             }}
@@ -99,7 +93,11 @@ export function UniversalPreview({ showLogsByDefault = false }: UniversalPreview
             }}
           >
             <DeviceEmulator device={device}>
-              <SandpackPreview />
+              <SandpackPreview
+                showNavigator
+                showRefreshButton
+                wrapContent
+              />
             </DeviceEmulator>
             <SandpackLogListener onLog={handleLog} />
           </SandpackProvider>
