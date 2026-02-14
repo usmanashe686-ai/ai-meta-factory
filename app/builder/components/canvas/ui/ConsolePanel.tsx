@@ -13,7 +13,7 @@ export function ConsolePanel() {
     isConsoleRunning,
     setConsoleRunning
   } = useProjectStore();
-  
+
   const [input, setInput] = useState('');
   const [filter, setFilter] = useState<'all' | 'error' | 'success' | 'ai' | 'command'>('all');
   const consoleEndRef = useRef<HTMLDivElement>(null);
@@ -34,43 +34,38 @@ export function ConsolePanel() {
     // Add to console history
     addToConsoleHistory(input);
 
-    // Add command to console output
+    // Add command to console output (timestamp added by store)
     useProjectStore.getState().addToConsole({
       type: 'command',
       message: `> ${input}`,
-      timestamp: Date.now()
     });
 
     // Simulate command execution
     setConsoleRunning(true);
-    
+
     setTimeout(() => {
       // Simulate different responses based on input
       const lowerInput = input.toLowerCase();
-      
+
       if (lowerInput.includes('error')) {
         useProjectStore.getState().addToConsole({
           type: 'error',
           message: 'Command failed: This is a simulated error.',
-          timestamp: Date.now()
         });
       } else if (lowerInput.includes('build') || lowerInput.includes('start')) {
         useProjectStore.getState().addToConsole({
           type: 'success',
           message: 'Build completed successfully!',
-          timestamp: Date.now()
         });
       } else if (lowerInput.includes('ai')) {
         useProjectStore.getState().addToConsole({
           type: 'ai',
           message: 'AI agent activated: Processing your request...',
-          timestamp: Date.now()
         });
       } else {
         useProjectStore.getState().addToConsole({
           type: 'log',
           message: `Executed: ${input}`,
-          timestamp: Date.now()
         });
       }
 
@@ -87,12 +82,11 @@ export function ConsolePanel() {
   const handleCopy = () => {
     const text = consoleOutput.map((entry: any) => `[${entry.type.toUpperCase()}] ${entry.message}`).join('\n');
     navigator.clipboard.writeText(text);
-    
-    // Add success message
+
+    // Add success message (timestamp added by store)
     useProjectStore.getState().addToConsole({
       type: 'success',
       message: 'Console output copied to clipboard!',
-      timestamp: Date.now()
     });
   };
 
@@ -135,8 +129,8 @@ export function ConsolePanel() {
     }
   };
 
-  const filteredOutput = filter === 'all' 
-    ? consoleOutput 
+  const filteredOutput = filter === 'all'
+    ? consoleOutput
     : consoleOutput.filter((entry: any) => entry.type === filter);
 
   const commonCommands = [
@@ -163,7 +157,7 @@ export function ConsolePanel() {
             </span>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <div className="flex items-center border border-gray-700 rounded-lg overflow-hidden">
             <button
@@ -194,7 +188,7 @@ export function ConsolePanel() {
               <span>({consoleOutput.filter((e: any) => e.type === 'ai').length})</span>
             </button>
           </div>
-          
+
           <button
             onClick={handleCopy}
             className="p-1.5 hover:bg-gray-800 rounded"
@@ -231,8 +225,8 @@ export function ConsolePanel() {
                       {entry.message}
                     </span>
                     <span className="text-xs text-gray-500">
-                      {new Date(entry.timestamp).toLocaleTimeString([], { 
-                        hour: '2-digit', 
+                      {new Date(entry.timestamp).toLocaleTimeString([], {
+                        hour: '2-digit',
                         minute: '2-digit',
                         second: '2-digit'
                       })}
@@ -293,7 +287,7 @@ export function ConsolePanel() {
             Run
           </button>
         </div>
-        
+
         {consoleHistory.length > 0 && (
           <div className="mt-3">
             <div className="text-xs text-gray-400 mb-1">History (↑↓ to navigate)</div>
