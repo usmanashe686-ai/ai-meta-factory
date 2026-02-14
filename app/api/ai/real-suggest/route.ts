@@ -28,7 +28,7 @@ const MODEL_MAPPING = {
 // ============================================================
 // 3. OLLAMA API CALL (LOCAL)
 // ============================================================
-async function callOllama(request: AIRequest) {
+async function callOllama(request: AIRequest): Promise<Response> {
   const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
   const modelName = MODEL_MAPPING[request.model];
 
@@ -60,12 +60,20 @@ async function callOllama(request: AIRequest) {
 }
 
 // ============================================================
-// 4. FALLBACK: TRANSFORMERS.JS (EDGE/BROWSER)
+// 4. FALLBACK: TRANSFORMERS.JS MOCK (RETURNS A RESPONSE)
 // ============================================================
-async function callTransformers(request: AIRequest) {
-  // This runs on Edge Runtime or in‑browser – requires @xenova/transformers
-  // For serverless, we recommend Ollama; this is a placeholder.
-  throw new Error('Transformers.js fallback not implemented – please use Ollama');
+async function callTransformers(request: AIRequest): Promise<Response> {
+  // This is a mock fallback – returns a helpful message instead of crashing.
+  // In a production environment, you could replace this with actual Transformers.js.
+  const mockResponse = {
+    response: `// Transformers.js fallback – Ollama not available.\n// Your request: ${request.prompt}\n// Please install Ollama locally for full functionality.\n\n// Generated code placeholder`,
+    model: request.model,
+    created_at: new Date().toISOString(),
+    done: true,
+  };
+  return new Response(JSON.stringify(mockResponse), {
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
 // ============================================================
@@ -75,12 +83,14 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const validation = RequestSchema.safeParse(body);
+
     if (!validation.success) {
       return NextResponse.json(
         { error: 'Invalid request', details: validation.error.issues },
         { status: 400 }
       );
     }
+
     const request = validation.data;
 
     // Call Ollama (local)
@@ -89,7 +99,7 @@ export async function POST(req: NextRequest) {
       response = await callOllama(request);
     } catch (ollamaError) {
       console.error('Ollama error, falling back to Transformers:', ollamaError);
-      response = await callTransformers(request);
+      response = await callTransformers(request); // Now returns a proper Response
     }
 
     // Handle streaming response
@@ -127,5 +137,5 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Edge runtime for lower latency
+// Edge runtime for lower latency (optional)
 export const runtime = 'edge';
