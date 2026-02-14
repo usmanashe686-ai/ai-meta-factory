@@ -30,18 +30,30 @@ const getFileLanguage = (path: string) => {
   }
 };
 
+// Helper to find file by ID in the tree
+const findFileById = (nodes: any[], id: string): any => {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    if (node.children) {
+      const found = findFileById(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
 export function EnhancedCodeEditor() {
-  const { files, activeFile, updateFile } = useProjectStore();
+  const { files, activeFileId, updateFileContent } = useProjectStore();
   
-  const file = activeFile ? files[activeFile] : null;
-  const content = file?.content || "";
-  
+  const activeFile = activeFileId ? findFileById(files, activeFileId) : null;
+  const content = activeFile?.content || "";
+
   const handleBeforeChange = (editor: any, data: any, value: string) => {
-    if (activeFile) {
-      updateFile(activeFile, value);
+    if (activeFileId && activeFile) {
+      updateFileContent(activeFile.path, value);
     }
   };
-  
+
   const handleEditorDidMount = (editor: any) => {
     editor.focus();
   };
@@ -50,7 +62,7 @@ export function EnhancedCodeEditor() {
     <CodeMirror
       value={content}
       options={{
-        mode: activeFile ? getFileLanguage(activeFile) : 'javascript',
+        mode: activeFile ? getFileLanguage(activeFile.path) : 'javascript',
         theme: 'material',
         lineNumbers: true,
       }}
