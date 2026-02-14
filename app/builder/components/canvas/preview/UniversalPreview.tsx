@@ -94,7 +94,6 @@ export function UniversalPreview({ showLogsByDefault = false }: UniversalPreview
               <SandpackPreview
                 showNavigator
                 showRefreshButton
-                wrapContent
               />
             </DeviceEmulator>
             <SandpackLogListener onLog={handleLog} />
