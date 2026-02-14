@@ -1,11 +1,38 @@
 'use client';
 
-import { useState } from 'react';
-import { Sandpack } from '@codesandbox/sandpack-react';
+import { useState, useEffect } from 'react';
+import { Sandpack, useSandpack } from '@codesandbox/sandpack-react';
 import { useProjectStore } from '../state/project-store';
 import { PreviewToolbar } from './PreviewToolbar';
 import { DeviceEmulator, DeviceType } from './DeviceEmulator';
-import { PreviewLogs } from './PreviewLogs';
+import { PreviewLogs, LogEntry } from './PreviewLogs';
+
+// Listener component that captures console logs from the sandbox
+function SandpackLogListener({ onLog }: { onLog: (log: LogEntry) => void }) {
+  const { listen } = useSandpack();
+
+  useEffect(() => {
+    const stopListening = listen((msg) => {
+      if (msg.type === 'console') {
+        // Map Sandpack console method to our LogEntry type
+        let type: LogEntry['type'] = 'log';
+        if (msg.log.method === 'warn') type = 'warn';
+        if (msg.log.method === 'error') type = 'error';
+        if (msg.log.method === 'info') type = 'info';
+
+        onLog({
+          type,
+          message: msg.log.data.join(' '),
+          timestamp: Date.now(),
+        });
+      }
+    });
+
+    return () => stopListening();
+  }, [listen, onLog]);
+
+  return null;
+}
 
 interface UniversalPreviewProps {
   showLogsByDefault?: boolean;
@@ -14,6 +41,7 @@ interface UniversalPreviewProps {
 export function UniversalPreview({ showLogsByDefault = false }: UniversalPreviewProps) {
   const [device, setDevice] = useState<DeviceType>('desktop');
   const [showLogs, setShowLogs] = useState(showLogsByDefault);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const { files, activeFile } = useProjectStore();
 
   // Convert project files to Sandpack format
@@ -22,6 +50,12 @@ export function UniversalPreview({ showLogsByDefault = false }: UniversalPreview
     acc[path] = { code: file.content };
     return acc;
   }, {} as Record<string, { code: string }>);
+
+  const handleLog = (log: LogEntry) => {
+    setLogs(prev => [...prev, log].slice(-50)); // keep last 50 logs
+  };
+
+  const clearLogs = () => setLogs([]);
 
   // Default template – can be made dynamic later
   const template = 'react-ts';
@@ -63,12 +97,14 @@ export function UniversalPreview({ showLogsByDefault = false }: UniversalPreview
                   "react-dom": "^18.2.0",
                 },
               }}
-            />
+            >
+              <SandpackLogListener onLog={handleLog} />
+            </Sandpack>
           </DeviceEmulator>
         </div>
         {showLogs && (
           <div className="h-64 border-t border-gray-300 dark:border-gray-700">
-            <PreviewLogs />
+            <PreviewLogs logs={logs} onClear={clearLogs} />
           </div>
         )}
       </div>

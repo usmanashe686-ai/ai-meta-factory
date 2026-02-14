@@ -1,49 +1,32 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
-interface LogEntry {
+export interface LogEntry {
   type: 'info' | 'warn' | 'error' | 'log';
   message: string;
   timestamp: number;
 }
 
-// This would normally come from a store or WebSocket connection
-// For now, we'll use a simple mock
-export function PreviewLogs() {
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const logsEndRef = useRef<HTMLDivElement>(null);
+interface PreviewLogsProps {
+  logs: LogEntry[];
+  onClear: () => void;
+}
 
-  // Mock adding logs – in real app, connect to preview iframe console
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // This is just for demo; you'd capture actual console logs from the preview
-      // via a custom Sandpack listener or iframe message passing
-      setLogs(prev => [
-        ...prev,
-        {
-          type: 'log',
-          message: `[${new Date().toLocaleTimeString()}] Application rendered`,
-          timestamp: Date.now()
-        }
-      ].slice(-50)); // keep last 50 logs
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+export function PreviewLogs({ logs, onClear }: PreviewLogsProps) {
+  const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
-  const clearLogs = () => setLogs([]);
-
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Console Logs</h3>
         <button
-          onClick={clearLogs}
+          onClick={onClear}
           className="text-xs px-2 py-1 text-gray-600 hover:bg-gray-200 rounded dark:text-gray-400 dark:hover:bg-gray-700"
         >
           Clear
