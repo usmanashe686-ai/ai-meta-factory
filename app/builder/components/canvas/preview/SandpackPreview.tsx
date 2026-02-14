@@ -11,7 +11,8 @@ export function SandpackPreview() {
   const sandpackFiles = useMemo(() => {
     return files.reduce((acc, file) => {
       const path = file.path.startsWith('/') ? file.path : `/${file.path}`;
-      acc[path] = { code: file.content };
+      // Provide fallback empty string if content is undefined
+      acc[path] = { code: file.content ?? '' };
       return acc;
     }, {} as Record<string, { code: string }>);
   }, [files]);
