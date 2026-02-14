@@ -88,49 +88,42 @@ function FileTreeNode({ node, level, onSelect, onRename, onDelete, onNewFile, on
 }
 
 export function FileExplorer() {
-  const { files, setActiveFile } = useProjectStore();
+  const { files, setActiveFile, removeFile, renameFile, createFile } = useProjectStore();
 
   const handleSelect = (node: FileNode) => {
-    setActiveFile(node.id);
-    // Here you would also load the file content into the editor
+    setActiveFile(node.id); // still uses ID for editor
   };
 
   const handleRename = (node: FileNode) => {
     const newName = prompt('Enter new name:', node.name);
     if (newName && newName !== node.name) {
-      // Implement rename logic (update store and backend)
-      console.log('Rename', node.id, newName);
+      const newPath = node.path.split('/').slice(0, -1).concat(newName).join('/');
+      renameFile(node.path, newPath);
     }
   };
 
   const handleDelete = (node: FileNode) => {
     if (confirm(`Delete ${node.name}?`)) {
-      // useProjectStore.getState().deleteFile(node.id);
-      console.log('Delete', node.id);
+      removeFile(node.path);
     }
   };
 
   const handleNewFile = (node: FileNode) => {
     const name = prompt('Enter file name:');
     if (name) {
-      // Create file under this node if folder, else same level
-      console.log('New file under', node.id, name);
+      const basePath = node.type === 'folder' ? node.path : node.path.split('/').slice(0, -1).join('/');
+      const fullPath = basePath ? `${basePath}/${name}` : name;
+      createFile(fullPath, '// New file', false);
     }
   };
 
   const handleNewFolder = (node: FileNode) => {
     const name = prompt('Enter folder name:');
     if (name) {
-      console.log('New folder under', node.id, name);
+      const basePath = node.type === 'folder' ? node.path : node.path.split('/').slice(0, -1).join('/');
+      const fullPath = basePath ? `${basePath}/${name}/.folder-marker` : `${name}/.folder-marker`;
+      createFile(fullPath, '', true);
     }
-  };
-
-  const handleMenuClick = ({ id, props }) => {
-    const { node } = props;
-    if (id === 'rename') handleRename(node);
-    if (id === 'delete') handleDelete(node);
-    if (id === 'newFile') handleNewFile(node);
-    if (id === 'newFolder') handleNewFolder(node);
   };
 
   const renderTree = (nodes: FileNode[], level = 0) => {
@@ -154,18 +147,18 @@ export function FileExplorer() {
 
   return (
     <div className="h-full overflow-y-auto bg-gray-800 text-gray-200 p-2">
-      <Menu id={MENU_ID} onItemClick={handleMenuClick}>
-        <Item id="newFile">New File</Item>
-        <Item id="newFolder">New Folder</Item>
-        <Item id="rename">Rename</Item>
-        <Item id="delete">Delete</Item>
+      <Menu id={MENU_ID}>
+        <Item id="newFile" onClick={({ props }) => handleNewFile(props.node)}>New File</Item>
+        <Item id="newFolder" onClick={({ props }) => handleNewFolder(props.node)}>New Folder</Item>
+        <Item id="rename" onClick={({ props }) => handleRename(props.node)}>Rename</Item>
+        <Item id="delete" onClick={({ props }) => handleDelete(props.node)}>Delete</Item>
       </Menu>
       <div className="text-sm font-medium mb-2 px-2 flex justify-between items-center">
         <span>EXPLORER</span>
         <button
           className="text-xs bg-gray-700 px-2 py-1 rounded"
           onClick={() => {
-            // Create root file (if no project yet)
+            // Create root file if needed
           }}
         >
           + New

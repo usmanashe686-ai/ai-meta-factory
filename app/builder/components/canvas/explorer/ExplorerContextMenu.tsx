@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { File, Folder, Copy, Trash2, Edit, ExternalLink } from 'lucide-react';
+import { File, Folder, Copy, Trash2, Edit } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 
 interface ExplorerContextMenuProps {
@@ -11,23 +11,24 @@ interface ExplorerContextMenuProps {
   onClose: () => void;
 }
 
-export const ExplorerContextMenu: React.FC<ExplorerContextMenuProps> = ({ 
-  x, 
-  y, 
-  path, 
-  onClose 
+export const ExplorerContextMenu: React.FC<ExplorerContextMenuProps> = ({
+  x,
+  y,
+  path,
+  onClose
 }) => {
-  const deleteFile = useProjectStore((state) => state.deleteFile);
+  // Use the correct store methods – they all work with paths
+  const removeFile = useProjectStore((state) => state.removeFile);
   const renameFile = useProjectStore((state) => state.renameFile);
   const createFile = useProjectStore((state) => state.createFile);
-  
+
   const handleDelete = () => {
     if (path && confirm(`Delete ${path}?`)) {
-      deleteFile(path);
+      removeFile(path);
     }
     onClose();
   };
-  
+
   const handleRename = () => {
     if (path) {
       const newName = prompt('Enter new name:', path.split('/').pop());
@@ -38,34 +39,36 @@ export const ExplorerContextMenu: React.FC<ExplorerContextMenuProps> = ({
     }
     onClose();
   };
-  
+
   const handleNewFile = () => {
     const fileName = prompt('Enter file name:');
     if (fileName) {
       const folderPath = path || '';
       const fullPath = folderPath ? `${folderPath}/${fileName}` : fileName;
-      createFile(fullPath, '// New file', 'typescript');
+      // For files, isFolder = false
+      createFile(fullPath, '// New file', false);
     }
     onClose();
   };
-  
+
   const handleNewFolder = () => {
     const folderName = prompt('Enter folder name:');
     if (folderName) {
       const basePath = path || '';
-      const fullPath = basePath ? `${basePath}/${folderName}/.keep` : `${folderName}/.keep`;
-      createFile(fullPath, '', 'plaintext');
+      // Use .folder-marker convention for folders
+      const fullPath = basePath ? `${basePath}/${folderName}/.folder-marker` : `${folderName}/.folder-marker`;
+      createFile(fullPath, '', true);
     }
     onClose();
   };
 
   return (
     <>
-      <div 
-        className="fixed inset-0 z-40" 
+      <div
+        className="fixed inset-0 z-40"
         onClick={onClose}
       />
-      <div 
+      <div
         className="fixed z-50 bg-gray-800 border border-gray-700 rounded-lg shadow-xl py-2 min-w-[200px]"
         style={{ left: x, top: y }}
       >
