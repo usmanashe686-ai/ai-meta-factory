@@ -80,12 +80,18 @@ export function UniversalPreview({ showLogsByDefault = false }: UniversalPreview
             template={template}
             files={sandpackFiles}
             options={{
-              showNavigator: true,
-              showTabs: true,
-              editorHeight: '100%',
               activeFile: activeFile ?? undefined,
-              wrapContent: true,
               autorun: true,
+              classes: {
+                'sp-preview': 'h-full w-full',
+              },
+              preview: {
+                showNavigator: true,
+                showRefreshButton: true,
+                wrapContent: true,
+              },
+              editorHeight: '100%',
+              editorWidthPercentage: 0, // Hide editor since we only want preview
             }}
             customSetup={{
               dependencies: {
