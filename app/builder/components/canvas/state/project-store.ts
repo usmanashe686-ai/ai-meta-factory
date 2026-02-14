@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { FileNode } from '../types/project.types';
-import { apiClient } from '../../utils/apiClient'; // adjust path as needed
+import { apiClient } from '../utils/apiClient'; // adjust path as needed
 
 interface ProjectState {
   // Project metadata
