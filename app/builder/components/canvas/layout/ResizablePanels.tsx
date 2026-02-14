@@ -1,6 +1,6 @@
 'use client';
 
-import * as ResizablePrimitives from 'react-resizable-panels';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { ReactNode } from 'react';
 
 interface ResizablePanelsProps {
@@ -23,18 +23,18 @@ export function ResizablePanels({
   minRightSize = 20,
 }: ResizablePanelsProps) {
   return (
-    <ResizablePrimitives.PanelGroup direction="horizontal" className="h-full w-full bg-gray-900">
-      <ResizablePrimitives.Panel defaultSize={defaultLeftSize} minSize={minLeftSize} maxSize={40}>
+    <PanelGroup direction="horizontal" className="h-full w-full bg-gray-900">
+      <Panel defaultSize={defaultLeftSize} minSize={minLeftSize} maxSize={40}>
         <div className="h-full overflow-auto bg-gray-800 text-gray-200">{left}</div>
-      </ResizablePrimitives.Panel>
-      <ResizablePrimitives.PanelResizeHandle className="w-1 bg-gray-700 hover:bg-blue-500 transition-colors" />
-      <ResizablePrimitives.Panel defaultSize={100 - defaultLeftSize - defaultRightSize}>
+      </Panel>
+      <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-blue-500 transition-colors" />
+      <Panel defaultSize={100 - defaultLeftSize - defaultRightSize}>
         <div className="h-full overflow-hidden bg-gray-900">{center}</div>
-      </ResizablePrimitives.Panel>
-      <ResizablePrimitives.PanelResizeHandle className="w-1 bg-gray-700 hover:bg-blue-500 transition-colors" />
-      <ResizablePrimitives.Panel defaultSize={defaultRightSize} minSize={minRightSize}>
+      </Panel>
+      <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-blue-500 transition-colors" />
+      <Panel defaultSize={defaultRightSize} minSize={minRightSize}>
         <div className="h-full overflow-auto bg-white">{right}</div>
-      </ResizablePrimitives.Panel>
-    </ResizablePrimitives.PanelGroup>
+      </Panel>
+    </PanelGroup>
   );
 }
