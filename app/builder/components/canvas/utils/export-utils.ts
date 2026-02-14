@@ -28,14 +28,10 @@ export async function createProjectZip(project: Project): Promise<Blob> {
 
   addFilesToZip(project.files);
 
-  // Add metadata file
+  // Add metadata file – use only fields that exist on Project
   zip.file('project.json', JSON.stringify({
     name: project.name,
-    description: project.description,
-    type: project.type,
-    framework: project.framework,
-    createdAt: project.createdAt.toISOString(),
-    version: project.config.version,
+    createdAt: new Date().toISOString(), // fallback timestamp
   }, null, 2));
 
   return await zip.generateAsync({ type: 'blob' });
@@ -45,8 +41,8 @@ export async function createProjectZip(project: Project): Promise<Blob> {
  * Generate a Flutter project structure for APK building
  */
 export function generateFlutterProject(project: Project): Record<string, string> {
-  const name = project.slug || 'app';
-  const description = project.description || 'Created with AI Meta Factory';
+  const name = project.name.toLowerCase().replace(/\s+/g, '_');
+  const description = `Created with AI Meta Factory`;
 
   return {
     'pubspec.yaml': `name: ${name}
@@ -106,9 +102,10 @@ class MyApp extends StatelessWidget {
  * Generate a React Native project structure
  */
 export function generateReactNativeProject(project: Project): Record<string, string> {
+  const name = project.name.toLowerCase().replace(/\s+/g, '-');
   return {
     'package.json': JSON.stringify({
-      name: project.slug,
+      name: name,
       version: '1.0.0',
       main: 'index.js',
       scripts: {
@@ -165,7 +162,7 @@ export function generateWebProject(project: Project): Record<string, string> {
 <body>
   <div id="app">
     <h1>${project.name}</h1>
-    <p>${project.description || 'Built with AI Meta Factory'}</p>
+    <p>Built with AI Meta Factory</p>
   </div>
   <script src="script.js"></script>
 </body>
@@ -240,19 +237,19 @@ export function estimateBuildTime(project: Project, format: ExportFormat): numbe
  */
 export function generateExportFileName(project: Project, format: ExportFormat): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const slug = project.slug || 'project';
+  const slug = project.name.toLowerCase().replace(/\s+/g, '-');
   return `${slug}-${timestamp}.${format}`;
 }
 
 /**
- * Create a community build request URL
+ * Create a community build request URL (placeholder – no project.id available)
  */
 export function createCommunityBuildUrl(project: Project): string {
   const base = 'https://build.aimetafactory.com/request';
   const params = new URLSearchParams({
-    project: project.id,
     name: project.name,
-    type: project.type,
+    // Use a placeholder; in a real app you'd have a project ID
+    project: encodeURIComponent(project.name),
   });
   return `${base}?${params.toString()}`;
 }
