@@ -32,27 +32,27 @@ interface EditorStore {
   // Currently open files (tabs)
   tabs: EditorTab[];
   activeTabPath: string | null;
-  
+
   // Editor preferences
   theme: EditorTheme;
   fontSize: number;
   wordWrap: 'on' | 'off' | 'wordWrapColumn' | 'bounded';
   minimapEnabled: boolean;
   lineNumbers: 'on' | 'off' | 'relative' | 'interval';
-  
+
   // UI state
   isSidebarOpen: boolean;
   isFileExplorerOpen: boolean;
   isAIPanelOpen: boolean;
   isTerminalOpen: boolean;
-  
+
   // Search/replace
   searchQuery: string;
   replaceQuery: string;
   isCaseSensitive: boolean;
   isRegex: boolean;
   searchResults: Array<{ path: string; line: number; content: string }>;
-  
+
   // Actions
   openFile: (path: string) => void;
   closeTab: (path: string) => void;
@@ -60,20 +60,20 @@ interface EditorStore {
   setActiveTab: (path: string) => void;
   markDirty: (path: string, isDirty: boolean) => void;
   updateCursorPosition: (path: string, lineNumber: number, column: number) => void;
-  
+
   // Preferences
   setTheme: (theme: EditorTheme) => void;
   setFontSize: (size: number) => void;
   setWordWrap: (wrap: 'on' | 'off' | 'wordWrapColumn' | 'bounded') => void;
   toggleMinimap: () => void;
   toggleLineNumbers: () => void;
-  
+
   // UI panels
   toggleSidebar: () => void;
   toggleFileExplorer: () => void;
   toggleAIPanel: () => void;
   toggleTerminal: () => void;
-  
+
   // Search
   setSearchQuery: (query: string) => void;
   setReplaceQuery: (query: string) => void;
@@ -95,31 +95,31 @@ export const useEditorStore = create<EditorStore>()(
           // ------------------------------------------------------------------
           tabs: [],
           activeTabPath: null,
-          
+
           theme: 'vs-dark',
           fontSize: 14,
           wordWrap: 'on',
           minimapEnabled: true,
           lineNumbers: 'on',
-          
+
           isSidebarOpen: true,
           isFileExplorerOpen: true,
           isAIPanelOpen: false,
           isTerminalOpen: false,
-          
+
           searchQuery: '',
           replaceQuery: '',
           isCaseSensitive: false,
           isRegex: false,
           searchResults: [],
-          
+
           // ------------------------------------------------------------------
           // Tab management
           // ------------------------------------------------------------------
           openFile: (path) => {
             set((state) => {
-              // Check if already open
-              const existing = state.tabs.find(t => t.path === path);
+              // Check if already open – explicitly type the callback parameter
+              const existing = state.tabs.find((t: EditorTab) => t.path === path);
               if (!existing) {
                 state.tabs.push({
                   path,
@@ -129,28 +129,28 @@ export const useEditorStore = create<EditorStore>()(
               state.activeTabPath = path;
             });
           },
-          
+
           closeTab: (path) => {
             set((state) => {
               state.tabs = state.tabs.filter(t => t.path !== path);
-              
+
               // If closed tab was active, activate another tab
               if (state.activeTabPath === path) {
-                state.activeTabPath = state.tabs.length > 0 
-                  ? state.tabs[state.tabs.length - 1].path 
+                state.activeTabPath = state.tabs.length > 0
+                  ? state.tabs[state.tabs.length - 1].path
                   : null;
               }
             });
           },
-          
+
           closeAllTabs: () => {
             set({ tabs: [], activeTabPath: null });
           },
-          
+
           setActiveTab: (path) => {
             set({ activeTabPath: path });
           },
-          
+
           markDirty: (path, isDirty) => {
             set((state) => {
               const tab = state.tabs.find(t => t.path === path);
@@ -159,7 +159,7 @@ export const useEditorStore = create<EditorStore>()(
               }
             });
           },
-          
+
           updateCursorPosition: (path, lineNumber, column) => {
             set((state) => {
               const tab = state.tabs.find(t => t.path === path);
@@ -168,7 +168,7 @@ export const useEditorStore = create<EditorStore>()(
               }
             });
           },
-          
+
           // ------------------------------------------------------------------
           // Editor preferences
           // ------------------------------------------------------------------
@@ -176,24 +176,24 @@ export const useEditorStore = create<EditorStore>()(
           setFontSize: (fontSize) => set({ fontSize }),
           setWordWrap: (wordWrap) => set({ wordWrap }),
           toggleMinimap: () => set((state) => ({ minimapEnabled: !state.minimapEnabled })),
-          toggleLineNumbers: () => set((state) => ({ 
-            lineNumbers: state.lineNumbers === 'on' ? 'off' : 'on' 
+          toggleLineNumbers: () => set((state) => ({
+            lineNumbers: state.lineNumbers === 'on' ? 'off' : 'on'
           })),
-          
+
           // ------------------------------------------------------------------
           // UI panels
           // ------------------------------------------------------------------
           toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
-          toggleFileExplorer: () => set((state) => ({ 
-            isFileExplorerOpen: !state.isFileExplorerOpen 
+          toggleFileExplorer: () => set((state) => ({
+            isFileExplorerOpen: !state.isFileExplorerOpen
           })),
-          toggleAIPanel: () => set((state) => ({ 
-            isAIPanelOpen: !state.isAIPanelOpen 
+          toggleAIPanel: () => set((state) => ({
+            isAIPanelOpen: !state.isAIPanelOpen
           })),
-          toggleTerminal: () => set((state) => ({ 
-            isTerminalOpen: !state.isTerminalOpen 
+          toggleTerminal: () => set((state) => ({
+            isTerminalOpen: !state.isTerminalOpen
           })),
-          
+
           // ------------------------------------------------------------------
           // Search
           // ------------------------------------------------------------------
@@ -205,19 +205,19 @@ export const useEditorStore = create<EditorStore>()(
               if (regex !== undefined) state.isRegex = regex;
             });
           },
-          
+
           performSearch: (files) => {
             const { searchQuery, isCaseSensitive, isRegex } = get();
             if (!searchQuery.trim()) {
               set({ searchResults: [] });
               return;
             }
-            
+
             const results: Array<{ path: string; line: number; content: string }> = [];
-            
+
             Object.entries(files).forEach(([path, file]: [string, any]) => {
               if (file.type === 'directory' || typeof file.content !== 'string') return;
-              
+
               const lines = file.content.split('\n');
               lines.forEach((line: string, idx: number) => {
                 let match = false;
@@ -230,11 +230,11 @@ export const useEditorStore = create<EditorStore>()(
                     match = line.includes(searchQuery);
                   }
                 } else {
-                  match = isCaseSensitive 
+                  match = isCaseSensitive
                     ? line.includes(searchQuery)
                     : line.toLowerCase().includes(searchQuery.toLowerCase());
                 }
-                
+
                 if (match) {
                   results.push({
                     path,
@@ -244,10 +244,10 @@ export const useEditorStore = create<EditorStore>()(
                 }
               });
             });
-            
+
             set({ searchResults: results });
           },
-          
+
           clearSearch: () => {
             set({ searchQuery: '', replaceQuery: '', searchResults: [] });
           },
