@@ -132,7 +132,8 @@ export const useEditorStore = create<EditorStore>()(
 
           closeTab: (path) => {
             set((state) => {
-              state.tabs = state.tabs.filter(t => t.path !== path);
+              // Explicitly type the filter callback parameter
+              state.tabs = state.tabs.filter((t: EditorTab) => t.path !== path);
 
               // If closed tab was active, activate another tab
               if (state.activeTabPath === path) {
@@ -153,7 +154,7 @@ export const useEditorStore = create<EditorStore>()(
 
           markDirty: (path, isDirty) => {
             set((state) => {
-              const tab = state.tabs.find(t => t.path === path);
+              const tab = state.tabs.find((t: EditorTab) => t.path === path);
               if (tab) {
                 tab.isDirty = isDirty;
               }
@@ -162,7 +163,7 @@ export const useEditorStore = create<EditorStore>()(
 
           updateCursorPosition: (path, lineNumber, column) => {
             set((state) => {
-              const tab = state.tabs.find(t => t.path === path);
+              const tab = state.tabs.find((t: EditorTab) => t.path === path);
               if (tab) {
                 tab.cursorPosition = { lineNumber, column };
               }
