@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  Save, 
-  Download, 
-  Upload, 
-  GitBranch, 
-  Play, 
-  Settings, 
+import {
+  Save,
+  Download,
+  Upload,
+  GitBranch,
+  Play,
+  Settings,
   Brain,
   Zap,
   Globe,
@@ -22,17 +22,17 @@ interface CanvasToolbarProps {
 
 export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
   const [showExportModal, setShowExportModal] = useState(false);
-  const projectName = useProjectStore((state) => state.name);
+  const projectName = useProjectStore((state) => state.projectName);
   const stack = useProjectStore((state) => state.stack);
-  
+
   const handleSave = () => {
     alert('Project saved successfully!');
   };
-  
+
   const handleDeploy = () => {
     setShowExportModal(true);
   };
-  
+
   return (
     <>
       <div className="h-12 border-b border-gray-700 bg-gray-800 px-4 flex items-center justify-between">
@@ -43,9 +43,9 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
             </div>
             <span className="font-bold text-sm">AI Meta Factory</span>
           </div>
-          
+
           <div className="h-4 w-px bg-gray-600" />
-          
+
           <div className="flex items-center space-x-2">
             <input
               type="text"
@@ -58,7 +58,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
             </span>
           </div>
         </div>
-        
+
         <div className="flex items-center space-x-2">
           <button
             onClick={handleSave}
@@ -67,7 +67,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
             <Save size={14} />
             <span>Save</span>
           </button>
-          
+
           <button
             onClick={onOpenAI}
             className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 rounded text-sm"
@@ -75,7 +75,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
             <Brain size={14} />
             <span>AI Assistant</span>
           </button>
-          
+
           <button
             onClick={handleDeploy}
             className="flex items-center space-x-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded text-sm"
@@ -83,15 +83,13 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
             <Globe size={14} />
             <span>Deploy</span>
           </button>
-          
-          <button
-            className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
-          >
+
+          <button className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm">
             <Play size={14} />
             <span>Run</span>
           </button>
         </div>
-        
+
         <div className="flex items-center space-x-2">
           <button className="p-2 hover:bg-gray-700 rounded">
             <GitBranch size={16} />
@@ -104,7 +102,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
           </button>
         </div>
       </div>
-      
+
       {showExportModal && (
         <ExportModal onClose={() => setShowExportModal(false)} />
       )}
