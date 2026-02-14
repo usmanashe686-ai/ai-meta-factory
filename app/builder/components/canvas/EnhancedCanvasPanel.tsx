@@ -15,6 +15,9 @@ export const EnhancedCanvasPanel: React.FC = () => {
       console.warn('createFile not available');
     }
   }
+      console.warn('createFile not available');
+    }
+  }
   }, []);
 
   return <EnhancedCanvasLayout />;
