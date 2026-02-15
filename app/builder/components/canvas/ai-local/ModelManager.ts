@@ -50,9 +50,7 @@ class ModelManager {
     try {
       const { LLama } = await import('@llama-node/llama-cpp');
       this.llamaInstance = await LLama.load(
-      modelPath,
       {
-        modelPath,
         nCtx: config?.nCtx || 2048,
         nGpuLayers: config?.nGpuLayers || 0,
       });
