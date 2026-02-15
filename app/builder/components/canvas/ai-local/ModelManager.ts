@@ -49,7 +49,9 @@ class ModelManager {
   async loadLlamaModel(modelPath: string, config?: { nCtx?: number; nGpuLayers?: number }): Promise<void> {
     try {
       const { LLama } = await import('@llama-node/llama-cpp');
-      this.llamaInstance = await LLama.load({
+      this.llamaInstance = await LLama.load(
+      modelPath,
+      {
         modelPath,
         nCtx: config?.nCtx || 2048,
         nGpuLayers: config?.nGpuLayers || 0,
