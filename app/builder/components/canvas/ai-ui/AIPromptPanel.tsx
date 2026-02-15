@@ -11,15 +11,12 @@ export const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerate }) => {
 
   const handleGenerate = async () => {
     if (!prompt.trim() || !currentModel) return;
-    setIsGenerating(true);
     try {
       const result = await generate(prompt);
       onGenerate?.(result.text);
       setPrompt('');
     } catch (err) {
       console.error('Generation failed:', err);
-    } finally {
-      setIsGenerating(false);
     }
   };
 
