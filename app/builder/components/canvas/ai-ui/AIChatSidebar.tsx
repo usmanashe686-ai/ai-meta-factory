@@ -11,7 +11,6 @@ interface Message {
 export const AIChatSidebar: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const { currentModel, generate, isLoading, error } = useLocalAIStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -34,7 +33,7 @@ export const AIChatSidebar: React.FC = () => {
     };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
-    setIsLoading(true);
+//     setIsLoading(true);
 
     try {
       const result = await generate(input);
@@ -48,7 +47,7 @@ export const AIChatSidebar: React.FC = () => {
     } catch (error) {
       console.error('Chat generation failed:', error);
     } finally {
-      setIsLoading(false);
+//       setIsLoading(false);
     }
   };
 
