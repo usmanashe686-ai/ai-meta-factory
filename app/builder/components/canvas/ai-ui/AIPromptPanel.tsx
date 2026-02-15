@@ -13,7 +13,9 @@ export const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerate }) => {
     if (!prompt.trim() || !currentModel) return;
     try {
       const result = await generate(prompt);
-      onGenerate?.(result.text);
+      // Handle both string and object responses
+      const output = typeof result === 'string' ? result : result?.text || '';
+      onGenerate?.(output);
       setPrompt('');
     } catch (err) {
       console.error('Generation failed:', err);
