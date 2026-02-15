@@ -14,9 +14,9 @@ export const ProductManagerTab: React.FC = () => {
     setLoading(true);
     try {
       // Use AI to analyze if available, else fallback to static analyzer
-      if (generateWithCurrentModel) {
+      if (generate) {
         const prompt = `Analyze this project idea and provide a feasibility score (0-100), complexity, estimated time, tech stack, core features, and challenges. Idea: ${idea}`;
-        const result = await generateWithCurrentModel(prompt);
+        const result = await generate(prompt);
         // Parse result (simplified - in reality you'd need structured output)
         console.log('AI analysis:', result.text);
       }
