@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { IdeaAnalyzer, IdeaAnalysis } from './IdeaAnalyzer';
-import { useLocalAIStore } from '../../state/local-ai-store';
+import { useLocalAIStore } from '../state/local-ai-store';
 
 export const ProductManagerTab: React.FC = () => {
   const [idea, setIdea] = useState('');
