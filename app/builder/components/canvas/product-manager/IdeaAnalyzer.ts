@@ -98,7 +98,7 @@ JSON:`;
         return text
           .split('\n')
           .filter((line: string) => line.trim().match(/^\d+\./))
-          .map(line => line.replace(/^\d+\.\s*/, ''));
+          .map((line: string) => line.replace(/^\d+\.\s*/, ''));
       }
     } catch (error) {
       console.error('Roadmap generation failed:', error);
