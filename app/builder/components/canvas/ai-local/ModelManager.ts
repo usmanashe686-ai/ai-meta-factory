@@ -1,9 +1,7 @@
 import { env } from '@xenova/transformers';
 
-// Configure local model path (optional)
 env.localModelPath = '/models/';
 
-// Types for model configuration
 export interface ModelConfig {
   type: 'transformers' | 'llamacpp';
   modelId: string;
@@ -34,7 +32,6 @@ class ModelManager {
   async loadTransformersModel(modelId: string, task = 'text-generation'): Promise<void> {
     try {
       const { pipeline } = await import('@xenova/transformers');
-      // Cast task to any to avoid PipelineType error
       this.transformersPipeline = await pipeline(task as any, modelId, {
         quantized: true,
       });
@@ -49,8 +46,8 @@ class ModelManager {
   async loadLlamaModel(modelPath: string, config?: { nCtx?: number; nGpuLayers?: number }): Promise<void> {
     try {
       const { LLama } = await import('@llama-node/llama-cpp');
-      this.llamaInstance = await LLama.load(
-      {
+      // API: load(modelPath, options) – see @llama-node/llama-cpp documentation
+      this.llamaInstance = await LLama.load(modelPath, {
         nCtx: config?.nCtx || 2048,
         nGpuLayers: config?.nGpuLayers || 0,
       });
