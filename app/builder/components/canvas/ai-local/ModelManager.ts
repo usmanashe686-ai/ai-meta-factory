@@ -1,4 +1,4 @@
-import { Pipeline, env } from '@xenova/transformers';
+import { env } from '@xenova/transformers';
 
 // Configure local model path (optional)
 env.localModelPath = '/models/';
@@ -19,8 +19,8 @@ export interface GenerationResult {
 }
 
 class ModelManager {
-  private transformersPipeline: Pipeline | null = null;
-  private llamaInstance: any = null; // will hold llama-node instance
+  private transformersPipeline: any = null; // using any to avoid complex type issues
+  private llamaInstance: any = null;
   private currentConfig: ModelConfig | null = null;
 
   private static instance: ModelManager;
@@ -31,14 +31,11 @@ class ModelManager {
     return ModelManager.instance;
   }
 
-  /**
-   * Load a Transformers.js model (e.g., 'Xenova/phi-2', 'Xenova/codegen-350M-mono')
-   */
   async loadTransformersModel(modelId: string, task = 'text-generation'): Promise<void> {
     try {
       const { pipeline } = await import('@xenova/transformers');
       this.transformersPipeline = await pipeline(task, modelId, {
-        quantized: true, // use quantized version for smaller size
+        quantized: true,
       });
       this.currentConfig = { type: 'transformers', modelId };
       console.log(`Transformers model ${modelId} loaded`);
@@ -48,9 +45,6 @@ class ModelManager {
     }
   }
 
-  /**
-   * Load a llama.cpp model via @llama-node/llama-cpp
-   */
   async loadLlamaModel(modelPath: string, config?: { nCtx?: number; nGpuLayers?: number }): Promise<void> {
     try {
       const { LlamaCpp } = await import('@llama-node/llama-cpp');
@@ -67,9 +61,6 @@ class ModelManager {
     }
   }
 
-  /**
-   * Generate text using the currently loaded model
-   */
   async generate(prompt: string, options?: Partial<ModelConfig>): Promise<GenerationResult> {
     const config = { ...this.currentConfig, ...options };
     if (!config) throw new Error('No model loaded');
@@ -103,9 +94,6 @@ class ModelManager {
     }
   }
 
-  /**
-   * Unload current model to free memory
-   */
   unloadModel(): void {
     this.transformersPipeline = null;
     this.llamaInstance = null;
