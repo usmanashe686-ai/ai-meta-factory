@@ -15,7 +15,8 @@ export interface ModelInfo {
   downloadUrl: string;
   type: 'llamacpp' | 'transformers';
   tags: string[];
-  default?: boolean;
+  downloaded: boolean; // added to track download status
+  default?: boolean;   // optional flag for default model
 }
 
 export interface DownloadProgress {
@@ -52,8 +53,8 @@ export class ModelDownloader {
       console.warn('Backend models unavailable, using fallback list', error);
     }
 
-    // Fallback static list (you can extend this)
-    return [
+    // Fallback static list with explicit typing
+    const fallbackModels: ModelInfo[] = [
       {
         id: 'tinyllama-1.1b',
         name: 'TinyLlama 1.1B',
@@ -64,6 +65,7 @@ export class ModelDownloader {
         type: 'llamacpp',
         tags: ['llama', 'small', 'fast'],
         default: true,
+        downloaded: false, // will be updated below
       },
       {
         id: 'qwen2-0.5b',
@@ -74,6 +76,7 @@ export class ModelDownloader {
         downloadUrl: 'https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0.5b-instruct-q4_k_m.gguf',
         type: 'llamacpp',
         tags: ['qwen', 'small'],
+        downloaded: false,
       },
       {
         id: 'codellama-7b',
@@ -84,8 +87,16 @@ export class ModelDownloader {
         downloadUrl: 'https://huggingface.co/TheBloke/CodeLlama-7B-GGUF/resolve/main/codellama-7b.Q4_K_M.gguf',
         type: 'llamacpp',
         tags: ['code', 'llama'],
+        downloaded: false,
       },
-    ].map(m => ({ ...m, downloaded: false })); // initially not downloaded
+    ];
+
+    // Add downloaded status from storage
+    const downloadedModels = await this.getDownloadedModels();
+    return fallbackModels.map(model => ({
+      ...model,
+      downloaded: downloadedModels.includes(model.id),
+    }));
   }
 
   /**
@@ -166,7 +177,7 @@ export class ModelDownloader {
       // Store in IndexedDB (key = modelId, value = ArrayBuffer)
       await modelStore.setItem(modelId, allChunks.buffer);
 
-      // Save metadata: path is the key
+      // Save metadata
       await modelStore.setItem(`${modelId}_meta`, {
         id: modelId,
         size: loaded,
