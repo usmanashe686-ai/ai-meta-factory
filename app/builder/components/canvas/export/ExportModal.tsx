@@ -14,31 +14,42 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
   const [isExporting, setIsExporting] = useState(false);
   const [repoName, setRepoName] = useState('');
   const [githubToken, setGithubToken] = useState('');
-  const { project } = useProjectStore();
+
+  // Get files and project name from store
+  const { files, projectName } = useProjectStore();
 
   if (!isOpen) return null;
 
   const handleExport = async () => {
-    if (!project) return;
+    if (!files || files.length === 0) return;
 
     setIsExporting(true);
     try {
-      // Convert project files to ProjectFile array
-      const files: ProjectFile[] = Object.entries(project.files || {}).map(([path, content]) => ({
-        path,
-        content,
-      }));
+      // Convert files (FileNode[]) to ProjectFile[] format
+      const projectFiles: ProjectFile[] = [];
+      const collectFiles = (nodes: any[]) => {
+        for (const node of nodes) {
+          if (node.type === 'file' && node.content !== undefined) {
+            projectFiles.push({
+              path: node.path,
+              content: node.content,
+            });
+          }
+          if (node.children) {
+            collectFiles(node.children);
+          }
+        }
+      };
+      collectFiles(files);
 
       switch (format) {
         case 'zip':
-          await UniversalExporter.exportProject(files, `${project.name || 'project'}.zip`);
+          await UniversalExporter.exportProject(projectFiles, `${projectName || 'project'}.zip`);
           break;
         case 'apk':
-          // This would trigger APK build via backend
           alert('APK export requires backend build service. Coming soon!');
           break;
         case 'github':
-          // Placeholder
           alert('GitHub export not implemented yet.');
           break;
         case 'vercel':
