@@ -7,7 +7,7 @@ export const ProductManagerTab: React.FC = () => {
   const [analysis, setAnalysis] = useState<IdeaAnalysis | null>(null);
   const [roadmap, setRoadmap] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const { generateWithCurrentModel } = useLocalAIStore();
+  const { generate, isLoading: storeLoading, error } = useLocalAIStore();
 
   const handleAnalyze = async () => {
     if (!idea.trim()) return;
