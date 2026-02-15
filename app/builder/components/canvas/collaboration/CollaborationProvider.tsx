@@ -119,7 +119,7 @@ export const CollaborationProvider: React.FC<CollaborationProviderProps> = ({
   }, [serverUrl]);
 
   const joinProject = useCallback((projectId: string, user: Omit<User, 'id'>) => {
-    if (!socket) return;
+    if (!socket || !socket.id) return;
     const fullUser = { ...user, id: socket.id };
     setCurrentUser(fullUser);
     socket.emit('join-project', { projectId, user: fullUser });
@@ -135,12 +135,12 @@ export const CollaborationProvider: React.FC<CollaborationProviderProps> = ({
   }, [socket, currentUser]);
 
   const updateCursor = useCallback((cursor: { line: number; column: number; file: string }) => {
-    if (!socket) return;
+    if (!socket || !socket.id) return;
     socket.emit('cursor-update', cursor);
   }, [socket]);
 
   const sendCodeChange = useCallback((file: string, content: string) => {
-    if (!socket) return;
+    if (!socket || !socket.id) return;
     socket.emit('code-change', { file, content });
   }, [socket]);
 
