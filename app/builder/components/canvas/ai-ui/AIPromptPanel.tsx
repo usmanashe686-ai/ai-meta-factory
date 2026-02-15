@@ -13,8 +13,10 @@ export const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerate }) => {
     if (!prompt.trim() || !currentModel) return;
     try {
       const result = await generate(prompt);
-      // Handle both string and object responses
-      const output = typeof result === 'string' ? result : result?.text || '';
+      // Handle both string and object responses – cast to any to bypass union type issues
+      const output = typeof result === 'string' 
+        ? result 
+        : (result as any)?.text || '';
       onGenerate?.(output);
       setPrompt('');
     } catch (err) {
