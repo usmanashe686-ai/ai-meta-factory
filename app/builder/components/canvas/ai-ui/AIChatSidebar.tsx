@@ -40,7 +40,7 @@ export const AIChatSidebar: React.FC = () => {
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: result.text,
+        content: result,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, assistantMessage]);
