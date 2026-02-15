@@ -7,14 +7,13 @@ interface AIPromptPanelProps {
 
 export const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerate }) => {
   const [prompt, setPrompt] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const { currentModel, generateWithCurrentModel, error } = useLocalAIStore();
+  const { currentModel, generate, isLoading: storeLoading, error } = useLocalAIStore();
 
   const handleGenerate = async () => {
     if (!prompt.trim() || !currentModel) return;
     setIsGenerating(true);
     try {
-      const result = await generateWithCurrentModel(prompt);
+      const result = await generate(prompt);
       onGenerate?.(result.text);
       setPrompt('');
     } catch (err) {
@@ -41,10 +40,10 @@ export const AIPromptPanel: React.FC<AIPromptPanelProps> = ({ onGenerate }) => {
         </span>
         <button
           onClick={handleGenerate}
-          disabled={!prompt.trim() || !currentModel || isGenerating}
+          disabled={!prompt.trim() || !currentModel || storeLoading}
           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
         >
-          {isGenerating ? 'Generating...' : 'Generate'}
+          {storeLoading ? 'Generating...' : 'Generate'}
         </button>
       </div>
     </div>
