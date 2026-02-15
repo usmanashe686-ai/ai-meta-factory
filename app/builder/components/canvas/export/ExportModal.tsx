@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UniversalExporter, ProjectFile } from './UniversalExporter';
-import { useProjectStore } from '../../state/project-store';
+import { useProjectStore } from '../state/project-store';
 
 interface ExportModalProps {
   isOpen: boolean;
