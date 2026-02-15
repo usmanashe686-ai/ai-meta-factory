@@ -69,6 +69,11 @@ class ModelManager {
   async generate(prompt: string, options?: Partial<ModelConfig>): Promise<GenerationResult> {
     const config = { ...this.currentConfig, ...options };
     if (!config) throw new Error('No model loaded');
+    
+    // Ensure modelId exists
+    if (!config.modelId) {
+      throw new Error('Model ID is missing from configuration. Ensure a model is loaded.');
+    }
 
     if (config.type === 'transformers') {
       if (!this.transformersPipeline) throw new Error('Transformers pipeline not loaded');
