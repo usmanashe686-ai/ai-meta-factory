@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useLocalAIStore } from '../../state/local-ai-store';
+import { useLocalAIStore } from '../state/local-ai-store';
 
 interface Message {
   id: string;
