@@ -97,7 +97,7 @@ JSON:`;
         // Fallback: split by lines that look like steps
         return text
           .split('\n')
-          .filter(line => line.trim().match(/^\d+\./))
+          .filter((line: string) => line.trim().match(/^\d+\./))
           .map(line => line.replace(/^\d+\.\s*/, ''));
       }
     } catch (error) {
