@@ -18,7 +18,7 @@ export const ProductManagerTab: React.FC = () => {
         const prompt = `Analyze this project idea and provide a feasibility score (0-100), complexity, estimated time, tech stack, core features, and challenges. Idea: ${idea}`;
         const result = await generate(prompt);
         // Parse result (simplified - in reality you'd need structured output)
-        console.log('AI analysis:', result.text);
+        console.log('AI analysis:', result);
       }
       // Still use static analysis for now
       const result = await IdeaAnalyzer.analyze(idea);
