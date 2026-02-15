@@ -45,7 +45,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const models = await downloader.fetchAvailableModels();
-      set({ availableModels: models, isLoading: false });
+      set({ availableModels: models.map(m => ({ ...m, active: false })), isLoading: false });
     } catch (error) {
       set({ error: (error as Error).message, isLoading: false });
     }
