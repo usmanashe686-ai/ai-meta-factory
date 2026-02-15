@@ -19,7 +19,7 @@ export interface GenerationResult {
 }
 
 class ModelManager {
-  private transformersPipeline: any = null; // using any to avoid complex type issues
+  private transformersPipeline: any = null;
   private llamaInstance: any = null;
   private currentConfig: ModelConfig | null = null;
 
@@ -34,7 +34,8 @@ class ModelManager {
   async loadTransformersModel(modelId: string, task = 'text-generation'): Promise<void> {
     try {
       const { pipeline } = await import('@xenova/transformers');
-      this.transformersPipeline = await pipeline(task, modelId, {
+      // Cast task to any to avoid PipelineType error
+      this.transformersPipeline = await pipeline(task as any, modelId, {
         quantized: true,
       });
       this.currentConfig = { type: 'transformers', modelId };
