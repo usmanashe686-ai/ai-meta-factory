@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLocalAIStore } from '../../state/local-ai-store';
+import { useLocalAIStore } from '../state/local-ai-store';
 
 interface AIPromptPanelProps {
   onGenerate?: (text: string) => void;
