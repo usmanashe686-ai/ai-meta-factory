@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Collaboration Test</title>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #111; color: #eee; }
+        input, button { padding: 8px; margin: 5px; }
+        #log { margin-top: 20px; border-top: 1px solid #333; padding-top: 10px; }
+    </style>
+</head>
+<body>
+    <h2>Manual Collaboration Test</h2>
+    <div>
+        <label>Name: <input id="name" value="Tester" /></label>
+        <button onclick="connect()">Connect & Join</button>
+        <button onclick="disconnect()">Disconnect</button>
+    </div>
+    <div style="margin-top:20px">
+        <input id="message" placeholder="Chat message" />
+        <button onclick="sendMessage()">Send</button>
+    </div>
+    <div>
+        <label>Cursor: line <input id="line" type="number" value="1" /> col <input id="col" type="number" value="1" /></label>
+        <button onclick="sendCursor()">Update Cursor</button>
+    </div>
+    <div>
+        <label>Code change:</label>
+        <input id="file" value="index.js" />
+        <textarea id="code" rows="3" cols="50">console.log('hi');</textarea>
+        <button onclick="sendCode()">Send Code Change</button>
+    </div>
+    <div id="log"></div>
+
+    <script>
+        let socket;
+        function log(msg) {
+            const div = document.createElement('div');
+            div.textContent = msg;
+            document.getElementById('log').appendChild(div);
+        }
+
+        function connect() {
+            const name = document.getElementById('name').value;
+            socket = io('http://localhost:3004');
+            socket.on('connect', () => log(`Connected as ${name} (${socket.id})`));
+            socket.on('user-list', users => log('Users: ' + users.map(u => u.name).join(', ')));
+            socket.on('user-joined', user => log(`${user.name} joined`));
+            socket.on('user-left', userId => log(`User left: ${userId}`));
+            socket.on('new-message', msg => log(`[${msg.userName}] ${msg.content}`));
+            socket.on('cursor-updated', ({userId, cursor}) => log(`Cursor from ${userId}: line ${cursor.line}, col ${cursor.column}`));
+            socket.on('code-changed', ({file, userId}) => log(`Code change in ${file} from ${userId}`));
+            
+            socket.emit('join-project', {
+                projectId: 'test-manual',
+                user: { name }
+            });
+        }
+
+        function disconnect() {
+            if (socket) socket.disconnect();
+        }
+
+        function sendMessage() {
+            if (!socket) return;
+            const msg = document.getElementById('message').value;
+            socket.emit('send-message', {
+                projectId: 'test-manual',
+                userId: socket.id,
+                userName: document.getElementById('name').value,
+                content: msg
+            });
+        }
+
+        function sendCursor() {
+            if (!socket) return;
+            socket.emit('cursor-update', {
+                line: parseInt(document.getElementById('line').value),
+                column: parseInt(document.getElementById('col').value),
+                file: 'test.js'
+            });
+        }
+
+        function sendCode() {
+            if (!socket) return;
+            socket.emit('code-change', {
+                file: document.getElementById('file').value,
+                content: document.getElementById('code').value
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+import localforage from 'localforage';
+
+// Initialize localforage for model storage metadata
+const modelStore = localforage.createInstance({
+  name: 'ai-models',
+  storeName: 'model_metadata',
+});
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+  description: string;
+  size: string;       // human readable, e.g., "590 MB"
+  bytes?: number;     // exact size in bytes
+  downloadUrl: string;
+  type: 'llamacpp' | 'transformers';
+  tags: string[];
+  default?: boolean;
+}
+
+export interface DownloadProgress {
+  modelId: string;
+  loaded: number;     // bytes loaded
+  total?: number;     // total bytes (if known)
+  progress: number;   // 0-1
+  status: 'pending' | 'downloading' | 'completed' | 'error' | 'cancelled';
+  filePath?: string;  // local path where saved (in IndexedDB or filesystem)
+  error?: string;
+}
+
+export class ModelDownloader {
+  private abortControllers: Map<string, AbortController> = new Map();
+
+  /**
+   * Fetch list of available models from backend API.
+   * Falls back to local static list if API unavailable.
+   */
+  async fetchAvailableModels(): Promise<ModelInfo[]> {
+    try {
+      // Try to get from backend
+      const response = await fetch('/api/models');
+      if (response.ok) {
+        const data = await response.json();
+        // Merge with downloaded status from localforage
+        const downloadedModels = await this.getDownloadedModels();
+        return data.map((model: ModelInfo) => ({
+          ...model,
+          downloaded: downloadedModels.includes(model.id),
+        }));
+      }
+    } catch (error) {
+      console.warn('Backend models unavailable, using fallback list', error);
+    }
+
+    // Fallback static list (you can extend this)
+    return [
+      {
+        id: 'tinyllama-1.1b',
+        name: 'TinyLlama 1.1B',
+        description: 'Small and fast model for general tasks',
+        size: '590 MB',
+        bytes: 590 * 1024 * 1024,
+        downloadUrl: 'https://huggingface.co/TheBloke/TinyLlama-1.1B-GGUF/resolve/main/tinyllama-1.1b.Q4_K_M.gguf',
+        type: 'llamacpp',
+        tags: ['llama', 'small', 'fast'],
+        default: true,
+      },
+      {
+        id: 'qwen2-0.5b',
+        name: 'Qwen2 0.5B',
+        description: 'Lightweight model by Alibaba',
+        size: '350 MB',
+        bytes: 350 * 1024 * 1024,
+        downloadUrl: 'https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0.5b-instruct-q4_k_m.gguf',
+        type: 'llamacpp',
+        tags: ['qwen', 'small'],
+      },
+      {
+        id: 'codellama-7b',
+        name: 'CodeLlama 7B',
+        description: 'Specialized for code generation',
+        size: '4.0 GB',
+        bytes: 4 * 1024 * 1024 * 1024,
+        downloadUrl: 'https://huggingface.co/TheBloke/CodeLlama-7B-GGUF/resolve/main/codellama-7b.Q4_K_M.gguf',
+        type: 'llamacpp',
+        tags: ['code', 'llama'],
+      },
+    ].map(m => ({ ...m, downloaded: false })); // initially not downloaded
+  }
+
+  /**
+   * Download a model by ID.
+   * @param modelId ID of the model to download
+   * @param onProgress Callback for progress updates
+   * @returns Path where model is stored (local file path or IndexedDB key)
+   */
+  async downloadModel(
+    modelId: string,
+    onProgress?: (progress: DownloadProgress) => void
+  ): Promise<string> {
+    // Fetch model info
+    const models = await this.fetchAvailableModels();
+    const model = models.find(m => m.id === modelId);
+    if (!model) throw new Error(`Model ${modelId} not found`);
+
+    // Check if already downloaded
+    const downloaded = await modelStore.getItem<string>(modelId);
+    if (downloaded) {
+      // Already downloaded, return stored path
+      return downloaded;
+    }
+
+    // Create abort controller for cancellation
+    const controller = new AbortController();
+    this.abortControllers.set(modelId, controller);
+
+    try {
+      const response = await fetch(model.downloadUrl, {
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+      const contentLength = response.headers.get('content-length');
+      const total = contentLength ? parseInt(contentLength, 10) : model.bytes;
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Response body is not readable');
+
+      // We'll store the file in IndexedDB using localforage (or use File System Access API if available)
+      // For simplicity, we'll store as ArrayBuffer in IndexedDB.
+      const chunks: Uint8Array[] = [];
+      let loaded = 0;
+
+      // Progress update helper
+      const updateProgress = (loadedBytes: number, done: boolean, error?: string) => {
+        const progress: DownloadProgress = {
+          modelId,
+          loaded: loadedBytes,
+          total,
+          progress: total ? loadedBytes / total : 0,
+          status: error ? 'error' : done ? 'completed' : 'downloading',
+          error,
+        };
+        onProgress?.(progress);
+      };
+
+      updateProgress(0, false);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        chunks.push(value);
+        loaded += value.length;
+        updateProgress(loaded, false);
+      }
+
+      // Combine chunks into a single ArrayBuffer
+      const allChunks = new Uint8Array(loaded);
+      let offset = 0;
+      for (const chunk of chunks) {
+        allChunks.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      // Store in IndexedDB (key = modelId, value = ArrayBuffer)
+      await modelStore.setItem(modelId, allChunks.buffer);
+
+      // Save metadata: path is the key
+      await modelStore.setItem(`${modelId}_meta`, {
+        id: modelId,
+        size: loaded,
+        downloadedAt: new Date().toISOString(),
+      });
+
+      updateProgress(loaded, true);
+      this.abortControllers.delete(modelId);
+      return modelId; // the key serves as "path"
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        onProgress?.({
+          modelId,
+          loaded: 0,
+          progress: 0,
+          status: 'cancelled',
+        });
+      } else {
+        onProgress?.({
+          modelId,
+          loaded: 0,
+          progress: 0,
+          status: 'error',
+          error: error.message,
+        });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Cancel an ongoing download.
+   */
+  async cancelDownload(modelId: string): Promise<void> {
+    const controller = this.abortControllers.get(modelId);
+    if (controller) {
+      controller.abort();
+      this.abortControllers.delete(modelId);
+    }
+  }
+
+  /**
+   * Get list of downloaded model IDs.
+   */
+  async getDownloadedModels(): Promise<string[]> {
+    const keys = await modelStore.keys();
+    // Filter out metadata keys (those ending with _meta)
+    return keys.filter(key => !key.endsWith('_meta'));
+  }
+
+  /**
+   * Get the ArrayBuffer for a downloaded model.
+   */
+  async getModelBuffer(modelId: string): Promise<ArrayBuffer | null> {
+    return await modelStore.getItem<ArrayBuffer>(modelId);
+  }
+
+  /**
+   * Delete a downloaded model from storage.
+   */
+  async deleteModel(modelId: string): Promise<void> {
+    await modelStore.removeItem(modelId);
+    await modelStore.removeItem(`${modelId}_meta`);
+  }
+}

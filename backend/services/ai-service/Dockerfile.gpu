@@ -1,0 +1,47 @@
+# Use NVIDIA CUDA base image
+FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC \
+    CUDA_HOME=/usr/local/cuda \
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    python3-dev \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create symbolic link for python
+RUN ln -s /usr/bin/python3.10 /usr/bin/python
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir --upgrade pip && \
+    pip3 install --no-cache-dir -r requirements.txt
+
+# For llama-cpp-python with CUDA support, we need to set the appropriate env vars and rebuild
+# We'll install it separately with CUDA
+ENV CMAKE_ARGS="-DLLAMA_CUBLAS=on" \
+    FORCE_CMAKE=1
+
+RUN pip3 install --no-cache-dir --force-reinstall --no-deps llama-cpp-python
+
+# Copy the rest of the application
+COPY . .
+
+# Expose the port
+EXPOSE 8000
+
+# Run the application with uvicorn
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

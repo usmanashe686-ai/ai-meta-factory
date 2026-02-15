@@ -1,6 +1,17 @@
 import { create } from 'zustand';
 import { FileNode } from '../types/project.types';
 import apiClient from '../utils/apiClient';
+import { v4 as uuidv4 } from 'uuid';
+
+// Template interface (can be moved to types later)
+export interface Template {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  files: Record<string, string>; // flat file map
+  stack?: string[];
+}
 
 // Helper functions (unchanged)
 const findNode = (nodes: FileNode[], id: string): FileNode | null => {
@@ -53,6 +64,66 @@ const removeNode = (nodes: FileNode[], id: string): FileNode[] => {
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
+// Convert flat file map to tree structure
+const flatFilesToTree = (files: Record<string, string>): FileNode[] => {
+  const root: FileNode[] = [];
+  const pathMap: Record<string, FileNode> = {};
+
+  // Sort paths to ensure folders are created before their contents
+  const sortedPaths = Object.keys(files).sort();
+
+  for (const path of sortedPaths) {
+    const parts = path.split('/');
+    const fileName = parts.pop()!;
+    const folderPath = parts.join('/');
+
+    // Create file node
+    const fileNode: FileNode = {
+      id: generateId(),
+      name: fileName,
+      type: 'file',
+      path: path,
+      content: files[path],
+    };
+    pathMap[path] = fileNode;
+
+    // Attach to parent folder
+    if (folderPath) {
+      if (!pathMap[folderPath]) {
+        // Create folder node if it doesn't exist
+        const folderNode: FileNode = {
+          id: generateId(),
+          name: parts[parts.length - 1] || 'root',
+          type: 'folder',
+          path: folderPath,
+          children: [],
+        };
+        pathMap[folderPath] = folderNode;
+        // Find parent of folder recursively
+        const parentFolderPath = parts.slice(0, -1).join('/');
+        if (parentFolderPath) {
+          const parentFolder = pathMap[parentFolderPath];
+          if (parentFolder && parentFolder.children) {
+            parentFolder.children.push(folderNode);
+          } else {
+            // Should not happen if paths are sorted
+            root.push(folderNode);
+          }
+        } else {
+          root.push(folderNode);
+        }
+      }
+      const folder = pathMap[folderPath];
+      if (folder && folder.children) {
+        folder.children.push(fileNode);
+      }
+    } else {
+      root.push(fileNode);
+    }
+  }
+  return root;
+};
+
 interface ProjectState {
   // Existing tree‑based state
   projectId: string | null;
@@ -67,7 +138,7 @@ interface ProjectState {
   moveFile: (sourceId: string, targetId: string) => void;
   openFiles: FileNode[];
   activeFileId: string | null;
-  setActiveFile: (fileId: string | null) => void;   // original by id
+  setActiveFile: (fileId: string | null) => void;
   closeFile: (fileId: string) => void;
   consoleOutput: Array<{ type: string; message: string; timestamp: number }>;
   addToConsole: (entry: { type: string; message: string }) => void;
@@ -85,14 +156,16 @@ interface ProjectState {
   exportProject: () => Promise<void>;
 
   // New flat API expected by EnhancedFileExplorerDnDContent
-  // (computed from the tree)
   activeFile: string | null;                 // path of active file
-  setActiveFileByPath: (path: string) => void; // sets activeFileId from path
+  setActiveFileByPath: (path: string) => void;
   createFile: (path: string, content: string, isFolder: boolean) => void;
   removeFile: (path: string) => void;
   renameFile: (oldPath: string, newPath: string) => void;
-  copyFile: (sourcePath: string, destPath?: string) => void; // if destPath omitted, generate
+  copyFile: (sourcePath: string, destPath?: string) => void;
   searchFiles: (query: string) => Array<{ path: string; name: string }>;
+
+  // NEW: Template methods
+  createProjectFromTemplate: (template: Template) => void;
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
@@ -101,6 +174,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setProjectId: (id) => set({ projectId: id }),
   projectName: 'Untitled Project',
   setProjectName: (name) => set({ projectName: name }),
+
   files: [],
   setFiles: (files) => set({ files }),
   addFile: (parentPath, file) => set((state) => {
@@ -136,6 +210,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
     return state;
   }),
+
   openFiles: [],
   activeFileId: null,
   setActiveFile: (fileId) => set((state) => {
@@ -153,6 +228,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       : state.activeFileId;
     return { openFiles: newOpenFiles, activeFileId: newActiveId };
   }),
+
   consoleOutput: [],
   addToConsole: (entry) => set((state) => ({
     consoleOutput: [...state.consoleOutput, { ...entry, timestamp: Date.now() }]
@@ -164,8 +240,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   })),
   isConsoleRunning: false,
   setConsoleRunning: (running) => set({ isConsoleRunning: running }),
+
   stack: { frontend: 'react', backend: 'node', database: 'none', gitProvider: 'github' },
   currentProject: {},
+
   saveCurrentFile: async () => {
     const { activeFileId, files, projectId } = get();
     if (!activeFileId || !projectId) return;
@@ -179,6 +257,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       console.error('Save failed:', error);
     }
   },
+
   formatCurrentFile: async () => {
     const { activeFileId, files, updateFileContent } = get();
     if (!activeFileId) return;
@@ -187,6 +266,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const formatted = file.content?.trim() || '';
     updateFileContent(file.path, formatted);
   },
+
   runPreview: () => console.log('Preview requested'),
   saveProject: async () => console.log('saveProject stub'),
   exportProject: async () => console.log('exportProject stub'),
@@ -276,10 +356,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const newFiles = updateNode(files, node.id, () => updatedNode);
     set({ files: newFiles });
 
-    // If the renamed file was active, update activeFileId (path changed, but id stays same)
-    if (get().activeFileId === node.id) {
-      // activeFileId remains correct; no need to change
-    }
+    // If the renamed file was active, activeFileId remains correct (id unchanged)
   },
 
   copyFile: (sourcePath: string, destPath?: string) => {
@@ -349,5 +426,25 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     };
     collect(files);
     return results;
+  },
+
+  // NEW: Create project from template
+  createProjectFromTemplate: (template: Template) => {
+    // Generate a new project ID
+    const newProjectId = uuidv4();
+    const projectName = template.name + ' - ' + new Date().toLocaleDateString();
+
+    // Convert flat files to tree
+    const fileTree = flatFilesToTree(template.files);
+
+    set({
+      projectId: newProjectId,
+      projectName: projectName,
+      files: fileTree,
+      openFiles: [],      // start with no open files
+      activeFileId: null, // no active file initially
+      consoleOutput: [],
+      consoleHistory: [],
+    });
   },
 }));
