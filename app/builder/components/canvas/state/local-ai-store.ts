@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ModelManager } from '../ai-local/ModelManager';
+import ModelManager from '../ai-local/ModelManager';
 import { ModelDownloader, ModelInfo, DownloadProgress } from '../ai-local/ModelDownloader';
 
 // Types for AI model state
