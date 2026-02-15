@@ -5,7 +5,7 @@ env.localModelPath = '/models/';
 
 // Types for model configuration
 export interface ModelConfig {
-  type: 'transformers'; // only transformers supported for now
+  type: 'transformers' | 'llamacpp';
   modelId: string;
   quantized?: boolean;
   maxTokens?: number;
@@ -20,6 +20,7 @@ export interface GenerationResult {
 
 class ModelManager {
   private transformersPipeline: any = null;
+  private llamaInstance: any = null;
   private currentConfig: ModelConfig | null = null;
 
   private static instance: ModelManager;
@@ -33,6 +34,7 @@ class ModelManager {
   async loadTransformersModel(modelId: string, task = 'text-generation'): Promise<void> {
     try {
       const { pipeline } = await import('@xenova/transformers');
+      // Cast task to any to avoid PipelineType error
       this.transformersPipeline = await pipeline(task as any, modelId, {
         quantized: true,
       });
@@ -44,26 +46,62 @@ class ModelManager {
     }
   }
 
+  async loadLlamaModel(modelPath: string, options?: { nCtx?: number; nGpuLayers?: number }): Promise<void> {
+    try {
+      const { LLama } = await import('@llama-node/llama-cpp');
+      // Cast LLama to any to bypass faulty type definitions
+      const LLamaAny = LLama as any;
+      this.llamaInstance = await LLamaAny.load(
+        modelPath,
+        {
+          nCtx: options?.nCtx || 2048,
+          nGpuLayers: options?.nGpuLayers || 0,
+        }
+      );
+      this.currentConfig = { type: 'llamacpp', modelId: modelPath };
+      console.log(`llama.cpp model ${modelPath} loaded`);
+    } catch (error) {
+      console.error('Failed to load llama.cpp model:', error);
+      throw error;
+    }
+  }
+
   async generate(prompt: string, options?: Partial<ModelConfig>): Promise<GenerationResult> {
     const config = { ...this.currentConfig, ...options };
     if (!config) throw new Error('No model loaded');
-    if (config.type !== 'transformers') throw new Error('Only Transformers models are supported currently');
 
-    if (!this.transformersPipeline) throw new Error('Transformers pipeline not loaded');
-    const result = await this.transformersPipeline(prompt, {
-      max_new_tokens: options?.maxTokens || 200,
-      temperature: options?.temperature || 0.7,
-      do_sample: true,
-    });
-    const generatedText = Array.isArray(result) ? result[0].generated_text : result.generated_text;
-    return {
-      text: generatedText.replace(prompt, '').trim(),
-      model: config.modelId,
-    };
+    if (config.type === 'transformers') {
+      if (!this.transformersPipeline) throw new Error('Transformers pipeline not loaded');
+      const result = await this.transformersPipeline(prompt, {
+        max_new_tokens: options?.maxTokens || 200,
+        temperature: options?.temperature || 0.7,
+        do_sample: true,
+      });
+      const generatedText = Array.isArray(result) ? result[0].generated_text : result.generated_text;
+      return {
+        text: generatedText.replace(prompt, '').trim(),
+        model: config.modelId,
+      };
+    } else if (config.type === 'llamacpp') {
+      if (!this.llamaInstance) throw new Error('llama.cpp instance not loaded');
+      const result = await this.llamaInstance.generate(prompt, {
+        maxTokens: options?.maxTokens || 200,
+        temperature: options?.temperature || 0.7,
+        topP: 0.95,
+      });
+      return {
+        text: result.text,
+        model: config.modelId,
+        tokens: result.tokens,
+      };
+    } else {
+      throw new Error('Unsupported model type');
+    }
   }
 
   unloadModel(): void {
     this.transformersPipeline = null;
+    this.llamaInstance = null;
     this.currentConfig = null;
     console.log('Model unloaded');
   }
