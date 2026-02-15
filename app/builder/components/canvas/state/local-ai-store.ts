@@ -2,32 +2,26 @@ import { create } from 'zustand';
 import ModelManager from '../ai-local/ModelManager';
 import { ModelDownloader, ModelInfo, DownloadProgress } from '../ai-local/ModelDownloader';
 
-// Types for AI model state
 export interface AIModel {
   id: string;
   name: string;
-  size: string; // human-readable size
+  size: string;
   bytes?: number;
   description?: string;
   downloaded: boolean;
-  path?: string; // local path after download
+  path?: string;
   active: boolean;
   type: 'llamacpp' | 'transformers';
   tags: string[];
 }
 
 export interface LocalAIState {
-  // Available models from backend
   availableModels: AIModel[];
-  // Currently selected/active model
   currentModel: AIModel | null;
-  // Download progress for each model (by id)
   downloadProgress: Record<string, DownloadProgress>;
-  // Loading states
   isLoading: boolean;
   error: string | null;
 
-  // Actions
   fetchAvailableModels: () => Promise<void>;
   downloadModel: (modelId: string) => Promise<void>;
   cancelDownload: (modelId: string) => Promise<void>;
@@ -35,9 +29,9 @@ export interface LocalAIState {
   unloadModel: () => Promise<void>;
   setCurrentModel: (model: AIModel | null) => void;
   clearError: () => void;
+  generate: (prompt: string, options?: any) => Promise<string>;
 }
 
-// Initialize downloader instance
 const downloader = new ModelDownloader();
 
 export const useLocalAIStore = create<LocalAIState>((set, get) => ({
@@ -63,7 +57,6 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
       const model = get().availableModels.find(m => m.id === modelId);
       if (!model) throw new Error('Model not found');
 
-      // Subscribe to progress updates
       const progressCallback = (progress: DownloadProgress) => {
         set(state => ({
           downloadProgress: {
@@ -71,7 +64,6 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
             [modelId]: progress,
           },
         }));
-        // When done, update model's downloaded flag
         if (progress.status === 'completed') {
           set(state => ({
             availableModels: state.availableModels.map(m =>
@@ -87,7 +79,6 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
       };
 
       const filePath = await downloader.downloadModel(modelId, progressCallback);
-      // Final update if not already marked by progress
       set(state => ({
         availableModels: state.availableModels.map(m =>
           m.id === modelId ? { ...m, downloaded: true, path: filePath } : m
@@ -120,10 +111,8 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
       if (!model) throw new Error('Model not found');
       if (!model.downloaded || !model.path) throw new Error('Model not downloaded');
 
-      // Unload current model first
       await ModelManager.unloadModel();
 
-      // Load new model based on type
       if (model.type === 'llamacpp') {
         await ModelManager.loadLlamaModel(model.path);
       } else {
@@ -163,4 +152,16 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+
+  generate: async (prompt: string, options?: any) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await ModelManager.generate(prompt, options);
+      set({ isLoading: false });
+      return result.text;
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
+      throw error;
+    }
+  },
 }));

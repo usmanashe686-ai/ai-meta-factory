@@ -12,7 +12,7 @@ export const AIChatSidebar: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { currentModel, generateWithCurrentModel } = useLocalAIStore();
+  const { currentModel, generate, isLoading, error } = useLocalAIStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -37,7 +37,7 @@ export const AIChatSidebar: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const result = await generateWithCurrentModel(input);
+      const result = await generate(input);
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
