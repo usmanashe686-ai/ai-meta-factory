@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Sparkles, Copy, Check, Trash2 } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
+import { usePlatformStore } from '../state/platform-store';
 
 interface Message {
   id: string;
@@ -23,34 +24,34 @@ export const AIChatSidebar: React.FC = () => {
   const [input, setInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const projectFiles = useProjectStore((state) => state.files);
-  const stack = useProjectStore((state) => state.stack);
-  
+  const { platform, stack } = usePlatformStore();
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
-  
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isGenerating) return;
-    
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: input,
       timestamp: new Date(),
     };
-    
+
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsGenerating(true);
-    
+
     setTimeout(() => {
       const aiResponse = generateAIResponse(input);
       const aiMessage: Message = {
@@ -59,32 +60,32 @@ export const AIChatSidebar: React.FC = () => {
         content: aiResponse,
         timestamp: new Date(),
       };
-      
+
       setMessages((prev) => [...prev, aiMessage]);
       setIsGenerating(false);
     }, 1500);
   };
-  
+
   const generateAIResponse = (prompt: string): string => {
     const responses = [
       `I'll help you with "${prompt}". Here's a suggested implementation:\n\n\`\`\`tsx\n// Generated component based on your request\nexport default function GeneratedComponent() {\n  return (\n    <div className="p-4">\n      <h1>Your Component</h1>\n    </div>\n  );\n}\n\`\`\``,
-      
-      `Based on your project (${stack.frontend}), I recommend:\n1. Create a structured component\n2. Add TypeScript interfaces\n3. Implement proper error handling\n\nWould you like me to generate the code?`,
-      
+
+      `Based on your project (${stack || platform}), I recommend:\n1. Create a structured component\n2. Add TypeScript interfaces\n3. Implement proper error handling\n\nWould you like me to generate the code?`,
+
       `I analyzed your project structure. Here are some improvements:\n• Add proper error boundaries\n• Implement loading states\n• Add accessibility features\n\nI can implement these for you.`,
-      
+
       `Great idea! Here's how we can implement that:\n\`\`\`tsx\n// Smart implementation with best practices\ninterface Props {\n  // Your props here\n}\n\`\`\``,
     ];
-    
+
     return responses[Math.floor(Math.random() * responses.length)];
   };
-  
+
   const handleCopy = (content: string, id: string) => {
     navigator.clipboard.writeText(content);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
-  
+
   const handleClearChat = () => {
     setMessages([
       {
@@ -95,7 +96,7 @@ export const AIChatSidebar: React.FC = () => {
       },
     ]);
   };
-  
+
   const quickPrompts = [
     'Create a navbar component',
     'Add authentication',
@@ -104,7 +105,7 @@ export const AIChatSidebar: React.FC = () => {
     'Optimize performance',
     'Add dark mode',
   ];
-  
+
   return (
     <div className="h-full flex flex-col bg-gray-900 border-l border-gray-700">
       <div className="p-4 border-b border-gray-700">
@@ -127,7 +128,7 @@ export const AIChatSidebar: React.FC = () => {
           </button>
         </div>
       </div>
-      
+
       <div className="p-3 border-b border-gray-700">
         <div className="flex flex-wrap gap-2">
           {quickPrompts.map((prompt) => (
@@ -141,7 +142,7 @@ export const AIChatSidebar: React.FC = () => {
           ))}
         </div>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
           <div
@@ -181,15 +182,15 @@ export const AIChatSidebar: React.FC = () => {
                 {message.content}
               </div>
               <div className="text-xs opacity-50 mt-2 text-right">
-                {message.timestamp.toLocaleTimeString([], { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
+                {message.timestamp.toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit'
                 })}
               </div>
             </div>
           </div>
         ))}
-        
+
         {isGenerating && (
           <div className="flex justify-start">
             <div className="max-w-[85%] rounded-lg p-3 bg-gray-800">
@@ -205,10 +206,10 @@ export const AIChatSidebar: React.FC = () => {
             </div>
           </div>
         )}
-        
+
         <div ref={messagesEndRef} />
       </div>
-      
+
       <div className="p-4 border-t border-gray-700">
         <form onSubmit={handleSubmit} className="space-y-2">
           <div className="relative">
@@ -237,7 +238,7 @@ export const AIChatSidebar: React.FC = () => {
               <Send size={16} />
             </button>
           </div>
-          
+
           <div className="flex items-center justify-between text-xs text-gray-400">
             <div className="flex items-center space-x-1">
               <Sparkles size={12} />
