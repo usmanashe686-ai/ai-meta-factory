@@ -88,10 +88,10 @@ function FileTreeNode({ node, level, onSelect, onRename, onDelete, onNewFile, on
 }
 
 export function FileExplorer() {
-  const { files, setActiveFile, removeFile, renameFile, createFile } = useProjectStore();
+  const { files, setActiveFile, deleteFile, renameFile, createFile } = useProjectStore();
 
   const handleSelect = (node: FileNode) => {
-    setActiveFile(node.id); // still uses ID for editor
+    setActiveFile(node.id);
   };
 
   const handleRename = (node: FileNode) => {
@@ -104,7 +104,7 @@ export function FileExplorer() {
 
   const handleDelete = (node: FileNode) => {
     if (confirm(`Delete ${node.name}?`)) {
-      removeFile(node.path);
+      deleteFile(node.path);
     }
   };
 
