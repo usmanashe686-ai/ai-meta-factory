@@ -7,11 +7,15 @@ import { CodeEditor } from '../editor/CodeEditor';
 import { AIAssistant } from '../ai/AIAssistant';
 import { PreviewEngine } from '../preview/PreviewEngine';
 import { useProjectStore } from '../state/project-store';
+import { usePlatformStore } from '../state/platform-store';
 
 export function CanvasLayout() {
   const [fullScreen, setFullScreen] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
-  const { projectName, stack } = useProjectStore();
+  const { project } = useProjectStore();
+  const { platform, stack } = usePlatformStore();
+
+  const projectName = project?.name || 'Untitled';
 
   return (
     <div className={`${fullScreen ? 'fixed inset-0' : 'h-screen'} flex flex-col bg-gray-950`}>
@@ -23,11 +27,8 @@ export function CanvasLayout() {
               {projectName}
             </h1>
             <div className="flex items-center gap-2 text-xs">
-              <span className="px-2 py-1 bg-blue-500/20 rounded">{stack.frontend}</span>
-              {stack.backend !== 'none' && (
-                <span className="px-2 py-1 bg-green-500/20 rounded">{stack.backend}</span>
-              )}
-              <span className="px-2 py-1 bg-yellow-500/20 rounded">{stack.database}</span>
+              <span className="px-2 py-1 bg-blue-500/20 rounded">{platform}</span>
+              <span className="px-2 py-1 bg-green-500/20 rounded">{stack}</span>
             </div>
           </div>
 
