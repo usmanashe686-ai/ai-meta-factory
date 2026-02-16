@@ -13,21 +13,31 @@ export interface Project {
   files: ProjectFile[];
 }
 
+export interface ConsoleEntry {
+  type: 'command' | 'ai' | 'error' | 'info';
+  message: string;
+  timestamp?: Date;
+}
+
 interface ProjectState {
   project: Project | null;
   files: ProjectFile[];
   isSaving: boolean;
+  console: ConsoleEntry[];
   createProjectFromTemplate: (template: Template) => Promise<string>;
   saveProject: () => Promise<void>;
   createFile: (path: string, content: string, isFolder?: boolean) => void;
   updateFile: (path: string, content: string) => void;
   deleteFile: (path: string) => void;
+  addToConsole: (entry: Omit<ConsoleEntry, 'timestamp'>) => void;
+  clearConsole: () => void;
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
   project: null,
   files: [],
   isSaving: false,
+  console: [],
   createProjectFromTemplate: async (template) => {
     const projectId = 'proj-' + Date.now();
     const files: ProjectFile[] = Object.entries(template.files).map(([path, content]) => ({
@@ -63,5 +73,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   deleteFile: (path) => {
     const { files } = get();
     set({ files: files.filter(f => f.path !== path) });
+  },
+  addToConsole: (entry) => {
+    const { console } = get();
+    set({
+      console: [...console, { ...entry, timestamp: new Date() }]
+    });
+  },
+  clearConsole: () => {
+    set({ console: [] });
   },
 }));
