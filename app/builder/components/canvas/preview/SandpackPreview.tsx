@@ -6,12 +6,13 @@ import { useMemo } from 'react';
 import '@codesandbox/sandpack-react/dist/index.css';
 
 export function SandpackPreview() {
-  const { files, activeFile } = useProjectStore(); // activeFile is a string (path) or null
+  const { files, activeFileId } = useProjectStore(); // activeFileId is a string (path) or null
 
   const sandpackFiles = useMemo(() => {
-    return files.reduce((acc, file) => {
+    // Filter out folders and only include file nodes with content
+    const fileNodes = files.filter(f => f.type === 'file' && f.content !== undefined);
+    return fileNodes.reduce((acc, file) => {
       const path = file.path.startsWith('/') ? file.path : `/${file.path}`;
-      // Provide fallback empty string if content is undefined
       acc[path] = { code: file.content ?? '' };
       return acc;
     }, {} as Record<string, { code: string }>);
@@ -36,7 +37,7 @@ export function SandpackPreview() {
           showNavigator: true,
           showTabs: true,
           editorHeight: '100%',
-          activeFile: activeFile ?? undefined,
+          activeFile: activeFileId && sandpackFiles[activeFileId] ? activeFileId : undefined,
           wrapContent: true,
           autorun: true,
           externalResources: [],
