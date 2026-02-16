@@ -19,17 +19,21 @@ interface ProjectState {
   saveProject: () => Promise<void>;
   createFile: (path: string, content: string, isFolder?: boolean) => void;
   updateFileContent: (fileId: string, content: string) => void;
-  deleteFile: (fileId: string) => void;
-  openFile: (fileId: string) => void; // Add to openFiles if not already, and set as active
-  closeFile: (fileId: string) => void; // Remove from openFiles
+  deleteFile: (fileId: string) => void; // used as removeFile in component
+  openFile: (fileId: string) => void;
+  closeFile: (fileId: string) => void;
   setActiveFileId: (id: string | null) => void;
-  setActiveFile: (id: string | null) => void; // Alias for setActiveFileId
+  setActiveFile: (id: string | null) => void; // alias for setActiveFileId
   addToConsole: (entry: Omit<ConsoleEntry, 'timestamp'>) => void;
   clearConsole: () => void;
   // Editor toolbar methods
   saveCurrentFile: () => Promise<void>;
   formatCurrentFile: () => Promise<void>;
   runPreview: () => Promise<void>;
+  // File operations for explorer
+  renameFile: (oldPath: string, newPath: string) => void;
+  copyFile: (path: string) => void;
+  searchFiles: (query: string) => Array<{ path: string; name: string }>;
 }
 
 // Helper to find a node by ID recursively
@@ -65,6 +69,19 @@ const deleteNode = (nodes: FileNode[], id: string): FileNode[] => {
       node.children = deleteNode(node.children, id);
     }
     return true;
+  });
+};
+
+// Helper to rename a node
+const renameNode = (nodes: FileNode[], oldId: string, newId: string, newName: string): FileNode[] => {
+  return nodes.map(node => {
+    if (node.id === oldId) {
+      return { ...node, id: newId, name: newName, path: newId };
+    }
+    if (node.children) {
+      return { ...node, children: renameNode(node.children, oldId, newId, newName) };
+    }
+    return node;
   });
 };
 
@@ -119,14 +136,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
   openFile: (fileId) => {
     const { openFiles, activeFileId, files } = get();
-    // Check if file exists
     const file = findNodeById(files, fileId);
-    if (!file || file.type === 'folder') return; // Only open files, not folders
+    if (!file || file.type === 'folder') return;
 
     if (!openFiles.includes(fileId)) {
       set({ openFiles: [...openFiles, fileId] });
     }
-    // Set as active even if already open
     if (activeFileId !== fileId) {
       set({ activeFileId: fileId });
     }
@@ -136,13 +151,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const newOpenFiles = openFiles.filter(id => id !== fileId);
     let newActive = activeFileId;
     if (activeFileId === fileId) {
-      // If closing active tab, set active to another open tab or null
       newActive = newOpenFiles.length > 0 ? newOpenFiles[newOpenFiles.length - 1] : null;
     }
     set({ openFiles: newOpenFiles, activeFileId: newActive });
   },
   setActiveFileId: (id) => set({ activeFileId: id }),
-  setActiveFile: (id) => set({ activeFileId: id }), // alias
+  setActiveFile: (id) => set({ activeFileId: id }),
   addToConsole: (entry) => {
     const { console } = get();
     set({
@@ -154,15 +168,45 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
   saveCurrentFile: async () => {
     console.log('saveCurrentFile called');
-    // Could save the active file content to persistent storage
-    // For now, just log
   },
   formatCurrentFile: async () => {
     console.log('formatCurrentFile called');
-    // Could trigger formatting via prettier or AI
   },
   runPreview: async () => {
     console.log('runPreview called');
-    // Could trigger preview update
+  },
+  renameFile: (oldPath, newPath) => {
+    const { files } = get();
+    const newName = newPath.split('/').pop() || newPath;
+    set({ files: renameNode(files, oldPath, newPath, newName) });
+  },
+  copyFile: (path) => {
+    const { files } = get();
+    const node = findNodeById(files, path);
+    if (node && node.type === 'file') {
+      const base = path.replace(/\.[^/.]+$/, '');
+      const ext = path.includes('.') ? path.substring(path.lastIndexOf('.')) : '';
+      let newPath = base + '-copy' + ext;
+      let counter = 1;
+      while (findNodeById(files, newPath)) {
+        newPath = base + '-copy' + (++counter) + ext;
+      }
+      const newFile: FileNode = { ...node, id: newPath, name: newPath.split('/').pop() || newPath, path: newPath };
+      set({ files: [...files, newFile] });
+    }
+  },
+  searchFiles: (query) => {
+    const { files } = get();
+    const results: { path: string; name: string }[] = [];
+    const search = (nodes: FileNode[]) => {
+      for (const node of nodes) {
+        if (node.type === 'file' && node.name.toLowerCase().includes(query.toLowerCase())) {
+          results.push({ path: node.id, name: node.name });
+        }
+        if (node.children) search(node.children);
+      }
+    };
+    search(files);
+    return results;
   },
 }));

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   FileText, Folder, FolderOpen, ChevronRight, ChevronDown,
-  Plus, Trash2, FileCode, FileJson, FileImage, Search, 
+  Plus, Trash2, FileCode, FileJson, FileImage, Search,
   MoreVertical, Edit2, Copy, FolderPlus, X, Check,
   Type, File, FileType
 } from 'lucide-react';
@@ -17,17 +17,17 @@ interface FileItem {
 }
 
 export function EnhancedFileExplorerDnDContent() {
-  const { 
-    files, 
-    activeFile, 
-    setActiveFile, 
-    createFile, 
-    removeFile, 
+  const {
+    files,
+    activeFileId,
+    setActiveFile,
+    createFile,
+    deleteFile, // rename from removeFile
     renameFile,
     copyFile,
     searchFiles
   } = useProjectStore();
-  
+
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['src', 'public', 'app']));
   const [searchQuery, setSearchQuery] = useState('');
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
@@ -37,19 +37,17 @@ export function EnhancedFileExplorerDnDContent() {
 
   const buildFileTree = (): FileItem[] => {
     const items: FileItem[] = [];
-    
-    Object.keys(files)
-      .filter(path => !path.includes('.folder-marker'))
-      .forEach(path => {
-        const isFolder = path.endsWith('/');
-        items.push({
-          id: path,
-          path: path,
-          name: path.split('/').pop() || path,
-          type: isFolder ? 'folder' : 'file'
-        });
+
+    // Since files is an array of FileNode, we can map directly
+    files.forEach(node => {
+      items.push({
+        id: node.id,
+        path: node.path,
+        name: node.name,
+        type: node.type
       });
-    
+    });
+
     return items.sort((a, b) => {
       if (a.type === 'folder' && b.type !== 'folder') return -1;
       if (a.type !== 'folder' && b.type === 'folder') return 1;
@@ -66,7 +64,7 @@ export function EnhancedFileExplorerDnDContent() {
     </div>
   );
 }`;
-    
+
     createFile(defaultPath, defaultContent, false);
   };
 
@@ -75,7 +73,7 @@ export function EnhancedFileExplorerDnDContent() {
     if (folderName) {
       const folderPath = `src/${folderName}/.folder-marker`;
       createFile(folderPath, '', false);
-      
+
       const newExpanded = new Set(expandedFolders);
       newExpanded.add(`src/${folderName}`);
       setExpandedFolders(newExpanded);
@@ -84,7 +82,7 @@ export function EnhancedFileExplorerDnDContent() {
 
   const handleDelete = (path: string, type: 'file' | 'folder') => {
     if (confirm(`Are you sure you want to delete this ${type}?`)) {
-      removeFile(path);
+      deleteFile(path);
     }
   };
 
@@ -95,7 +93,8 @@ export function EnhancedFileExplorerDnDContent() {
 
   const handleRenameSubmit = () => {
     if (renamingPath && renamingName) {
-      renameFile(renamingPath, renamingPath.replace(/[^\/]+$/, renamingName));
+      const newPath = renamingPath.replace(/[^\/]+$/, renamingName);
+      renameFile(renamingPath, newPath);
     }
     setRenamingPath(null);
     setRenamingName('');
@@ -113,7 +112,7 @@ export function EnhancedFileExplorerDnDContent() {
   const handleContextMenu = (e: React.MouseEvent, path: string, type: 'file' | 'folder') => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
@@ -133,7 +132,7 @@ export function EnhancedFileExplorerDnDContent() {
 
   const getFileIcon = (fileName: string) => {
     const extension = fileName.split('.').pop()?.toLowerCase();
-    
+
     switch (extension) {
       case 'ts': case 'tsx': case 'js': case 'jsx':
         return <FileCode className="w-4 h-4 text-blue-400" />;
@@ -191,7 +190,7 @@ export function EnhancedFileExplorerDnDContent() {
             </button>
           </div>
         </div>
-        
+
         <div className="relative">
           <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-500" />
           <input
@@ -203,7 +202,7 @@ export function EnhancedFileExplorerDnDContent() {
           />
         </div>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto p-2">
         {searchQuery ? (
           <div className="space-y-1">
@@ -230,24 +229,26 @@ export function EnhancedFileExplorerDnDContent() {
           fileItems.map((item) => (
             <div
               key={item.id}
-              className="flex items-center py-1 px-2 hover:bg-gray-800/50 cursor-pointer"
+              className="flex items-center py-1 px-2 hover:bg-gray-800/50 cursor-pointer group"
               onContextMenu={(e) => handleContextMenu(e, item.path, item.type)}
               onClick={() => {
                 if (item.type === 'folder') {
                   handleToggleFolder(item.path);
                 } else {
-                  setActiveFile(item.path);
+                  setActiveFile(item.id);
                 }
               }}
             >
               <div className="flex items-center w-4 mr-1">
                 {item.type === 'folder' && (
-                  expandedFolders.has(item.path) ? 
-                    <ChevronDown className="w-3 h-3" /> : 
+                  expandedFolders.has(item.path) ? (
+                    <ChevronDown className="w-3 h-3" />
+                  ) : (
                     <ChevronRight className="w-3 h-3" />
+                  )
                 )}
               </div>
-              
+
               <div className="mr-2">
                 {item.type === 'folder' ? (
                   expandedFolders.has(item.path) ? (
@@ -259,7 +260,7 @@ export function EnhancedFileExplorerDnDContent() {
                   getFileIcon(item.name)
                 )}
               </div>
-              
+
               {renamingPath === item.path ? (
                 <div className="flex items-center flex-1">
                   <input
@@ -285,7 +286,7 @@ export function EnhancedFileExplorerDnDContent() {
               ) : (
                 <span className="text-sm truncate flex-1">{item.name}</span>
               )}
-              
+
               {renamingPath !== item.path && (
                 <div className="flex items-center opacity-0 group-hover:opacity-100">
                   <button
@@ -326,7 +327,7 @@ export function EnhancedFileExplorerDnDContent() {
           ))
         )}
       </div>
-      
+
       {contextMenu && (
         <div
           className="fixed z-50 bg-gray-800 border border-gray-700 rounded shadow-lg py-1 min-w-[160px]"
