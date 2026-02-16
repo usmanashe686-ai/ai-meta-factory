@@ -46,7 +46,7 @@ export function ConsolePanel() {
         });
       } else if (lowerInput.includes('build') || lowerInput.includes('start')) {
         addToConsole({
-          type: 'success',
+          type: 'info',
           message: 'Build completed successfully!',
         });
       } else if (lowerInput.includes('ai')) {
@@ -74,7 +74,7 @@ export function ConsolePanel() {
     const text = consoleEntries.map(entry => `[${entry.type.toUpperCase()}] ${entry.message}`).join('\n');
     navigator.clipboard.writeText(text);
     addToConsole({
-      type: 'success',
+      type: 'info',
       message: 'Console output copied to clipboard!',
     });
   };
