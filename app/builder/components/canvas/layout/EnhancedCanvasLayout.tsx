@@ -10,12 +10,11 @@ import { useProjectStore } from '../state/project-store';
 import { usePlatformStore } from '../state/platform-store';
 
 export function EnhancedCanvasLayout() {
-  const { currentProject } = useProjectStore();
-  // @ts-ignore
-  const { selectedPlatform = 'web' } = usePlatformStore();
+  const { project } = useProjectStore();
+  const { platform } = usePlatformStore();
   const [activeFile, setActiveFile] = useState('/index.tsx');
 
-  if (!currentProject) {
+  if (!project) {
     return (
       <div className="flex h-full items-center justify-center bg-gray-900 text-white">
         <p className="text-xl">Select or create a project to start building</p>
