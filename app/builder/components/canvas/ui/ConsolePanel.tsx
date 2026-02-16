@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { Terminal, X, Copy, Trash2, Play, AlertCircle, CheckCircle, Bot, Command, Filter } from 'lucide-react';
+import { Terminal, Copy, Trash2, Play, AlertCircle, CheckCircle, Bot, Command } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 
 export function ConsolePanel() {
   const { console: consoleEntries, addToConsole, clearConsole } = useProjectStore();
   const [input, setInput] = useState('');
-  const [filter, setFilter] = useState<'all' | 'error' | 'success' | 'ai' | 'command'>('all');
+  const [filter, setFilter] = useState<'all' | 'error' | 'info' | 'ai' | 'command'>('all');
   const [isRunning, setIsRunning] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const consoleEndRef = useRef<HTMLDivElement>(null);
@@ -25,10 +25,8 @@ export function ConsolePanel() {
     e.preventDefault();
     if (!input.trim()) return;
 
-    // Add to command history
     setCommandHistory(prev => [...prev, input]);
 
-    // Add command to console
     addToConsole({
       type: 'command',
       message: `> ${input}`,
@@ -36,7 +34,6 @@ export function ConsolePanel() {
 
     setIsRunning(true);
 
-    // Simulate command execution
     setTimeout(() => {
       const lowerInput = input.toLowerCase();
       if (lowerInput.includes('error')) {
@@ -56,7 +53,7 @@ export function ConsolePanel() {
         });
       } else {
         addToConsole({
-          type: 'log',
+          type: 'info',
           message: `Executed: ${input}`,
         });
       }
@@ -90,7 +87,7 @@ export function ConsolePanel() {
     switch (type) {
       case 'error':
         return <AlertCircle className="w-3 h-3 text-red-400" />;
-      case 'success':
+      case 'info':
         return <CheckCircle className="w-3 h-3 text-green-400" />;
       case 'ai':
         return <Bot className="w-3 h-3 text-purple-400" />;
@@ -105,7 +102,7 @@ export function ConsolePanel() {
     switch (type) {
       case 'error':
         return 'text-red-400';
-      case 'success':
+      case 'info':
         return 'text-green-400';
       case 'ai':
         return 'text-purple-400';
@@ -161,11 +158,11 @@ export function ConsolePanel() {
               <span>({consoleEntries.filter(e => e.type === 'error').length})</span>
             </button>
             <button
-              onClick={() => setFilter('success')}
-              className={`px-3 py-1 text-xs flex items-center gap-1 ${filter === 'success' ? 'bg-green-500/20' : 'hover:bg-gray-800'}`}
+              onClick={() => setFilter('info')}
+              className={`px-3 py-1 text-xs flex items-center gap-1 ${filter === 'info' ? 'bg-green-500/20' : 'hover:bg-gray-800'}`}
             >
               <CheckCircle className="w-3 h-3" />
-              <span>({consoleEntries.filter(e => e.type === 'success').length})</span>
+              <span>({consoleEntries.filter(e => e.type === 'info').length})</span>
             </button>
             <button
               onClick={() => setFilter('ai')}
