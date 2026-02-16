@@ -4,7 +4,7 @@ import { X } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 
 export function FileTabs() {
-  const { openFiles, activeFileId, setActiveFile, closeFile } = useProjectStore();
+  const { openFiles, activeFileId, setActiveFile, closeFile, files } = useProjectStore();
 
   if (openFiles.length === 0) {
     return null;
@@ -12,7 +12,9 @@ export function FileTabs() {
 
   return (
     <div className="flex items-center border-b border-gray-800 bg-gray-900/50 overflow-x-auto">
-      {openFiles.map((file) => {
+      {openFiles.map((fileId) => {
+        const file = files.find(f => f.id === fileId);
+        if (!file) return null; // file might be deleted or not found
         const fileName = file.name;
         const isActive = activeFileId === file.id;
 
