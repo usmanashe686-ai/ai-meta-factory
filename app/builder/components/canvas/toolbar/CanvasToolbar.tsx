@@ -107,9 +107,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
         </div>
       </div>
 
-      {showExportModal && (
-        <ExportModal onClose={() => setShowExportModal(false)} />
-      )}
+      <ExportModal isOpen={showExportModal} onClose={() => setShowExportModal(false)} />
     </>
   );
 };
