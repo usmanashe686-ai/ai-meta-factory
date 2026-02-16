@@ -1,10 +1,14 @@
 import React from 'react';
 import { usePlatformStore } from '../state/platform-store';
 
-const stacks = {
+// Define stack options for each platform
+const stacks: Record<string, string[]> = {
   web: ['React', 'Vue', 'Svelte', 'Vanilla JS'],
   mobile: ['React Native', 'Flutter', 'Ionic'],
   desktop: ['Electron', 'Tauri', 'NW.js'],
+  game: ['Phaser', 'Unity', 'Godot'],
+  api: ['Node.js', 'Python', 'Go', 'Rust'],
+  iot: ['Arduino', 'Raspberry Pi', 'ESP32'],
 };
 
 export const StackSelector: React.FC = () => {
