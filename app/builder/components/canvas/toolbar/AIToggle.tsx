@@ -1,5 +1,5 @@
 import React from 'react';
-import { useUIStore } from '../../state/ui-store';
+import { useUIStore } from '../state/ui-store';
 
 export const AIToggle: React.FC = () => {
   const { isAIPanelOpen, toggleAIPanel } = useUIStore();
@@ -21,4 +21,3 @@ export const AIToggle: React.FC = () => {
     </button>
   );
 };
-// Toggle for AI panel
