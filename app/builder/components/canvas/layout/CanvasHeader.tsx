@@ -5,7 +5,14 @@ import { useProjectStore } from '../state/project-store';
 import { Save, Download, Share2, Settings, Menu } from 'lucide-react';
 
 const CanvasHeader: React.FC = () => {
-  const { projectName, saveProject, exportProject } = useProjectStore();
+  const { project, saveProject } = useProjectStore();
+  const projectName = project?.name;
+
+  const exportProject = () => {
+    // Placeholder for export functionality
+    console.log('Export clicked - to be implemented');
+    // Could open export modal or trigger export flow
+  };
 
   return (
     <header className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-800 text-gray-200">
