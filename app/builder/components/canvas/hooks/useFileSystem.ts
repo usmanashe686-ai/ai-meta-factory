@@ -18,10 +18,10 @@ const findNodeByPath = (nodes: FileNode[], path: string): FileNode | null => {
 export function useFileSystem() {
   const {
     files,
-    activeFile: activeFilePath,
+    activeFileId,
     createFile,
     updateFileContent,
-    removeFile,
+    deleteFile,
     renameFile,
     copyFile,
     setActiveFile,
@@ -44,8 +44,8 @@ export function useFileSystem() {
     updateFileContent(path, content);
   };
 
-  const deleteFile = (path: string) => {
-    removeFile(path);
+  const deleteFileHandler = (path: string) => {
+    deleteFile(path);
   };
 
   const moveFile = (oldPath: string, newPath: string) => {
@@ -57,8 +57,8 @@ export function useFileSystem() {
   };
 
   const getActiveFile = (): FileNode | null => {
-    if (!activeFilePath) return null;
-    return getFile(activeFilePath) || null;
+    if (!activeFileId) return null;
+    return getFile(activeFileId) || null;
   };
 
   const getFileExtension = (path: string): string => {
@@ -77,12 +77,12 @@ export function useFileSystem() {
 
   return {
     files,
-    activeFile: activeFilePath,
+    activeFile: activeFileId,
     getFile,
     fileExists,
     createNewFile,
     updateFileContent: updateFileContentHandler,
-    deleteFile,
+    deleteFile: deleteFileHandler,
     moveFile,
     duplicateFile,
     getActiveFile,
