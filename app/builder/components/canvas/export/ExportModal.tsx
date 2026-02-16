@@ -15,10 +15,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
   const [repoName, setRepoName] = useState('');
   const [githubToken, setGithubToken] = useState('');
 
-  // Get files and project name from store
-  const { files, projectName } = useProjectStore();
+  // Get files and project from store
+  const files = useProjectStore((state) => state.files);
+  const project = useProjectStore((state) => state.project);
 
   if (!isOpen) return null;
+
+  const projectName = project?.name || 'project';
 
   const handleExport = async () => {
     if (!files || files.length === 0) return;
@@ -44,7 +47,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
 
       switch (format) {
         case 'zip':
-          await UniversalExporter.exportProject(projectFiles, `${projectName || 'project'}.zip`);
+          await UniversalExporter.exportProject(projectFiles, `${projectName}.zip`);
           break;
         case 'apk':
           alert('APK export requires backend build service. Coming soon!');
