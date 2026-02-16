@@ -17,7 +17,9 @@ export function FileCreator({ parentPath, onClose, onCreated }: FileCreatorProps
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const projectId = useProjectStore(state => state.projectId); // you'll need to add projectId to the store
+  const project = useProjectStore(state => state.project);
+  const createFile = useProjectStore(state => state.createFile);
+  const projectId = project?.id;
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -37,55 +39,36 @@ export function FileCreator({ parentPath, onClose, onCreated }: FileCreatorProps
     try {
       const fullPath = parentPath ? `${parentPath}/${name}` : name;
 
-      if (type === 'folder') {
-        // Create folder using the folders endpoint
-        const response = await fetch(`/api/projects/${projectId}/folders/${encodeURIComponent(fullPath)}`, {
+      // If we have a projectId, try to create via API
+      if (projectId) {
+        const endpoint = type === 'folder'
+          ? `/api/projects/${projectId}/folders/${encodeURIComponent(fullPath)}`
+          : `/api/projects/${projectId}/files/${encodeURIComponent(fullPath)}`;
+        const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          ...(type === 'file' && { body: JSON.stringify({ content: '' }) }),
         });
 
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.error || 'Failed to create folder');
+          throw new Error(data.error || `Failed to create ${type}`);
         }
-
-        // Create a local node for the store (optional)
-        const newNode: FileNode = {
-          id: fullPath,
-          name,
-          type: 'folder',
-          path: fullPath,
-          children: [],
-        };
-
-        // Update the store (you'll need an addFile action)
-        useProjectStore.getState().addFile(parentPath, newNode);
-        onCreated?.(newNode);
-      } else {
-        // Create file (empty content)
-        const response = await fetch(`/api/projects/${projectId}/files/${encodeURIComponent(fullPath)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: '' }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Failed to create file');
-        }
-
-        const newNode: FileNode = {
-          id: fullPath,
-          name,
-          type: 'file',
-          path: fullPath,
-          content: '',
-        };
-
-        useProjectStore.getState().addFile(parentPath, newNode);
-        onCreated?.(newNode);
       }
 
+      // Update local store
+      createFile(fullPath, '', type === 'folder');
+
+      // Create a local node for the callback
+      const newNode: FileNode = {
+        id: fullPath,
+        name,
+        type,
+        path: fullPath,
+        ...(type === 'folder' ? { children: [] } : { content: '' }),
+      };
+
+      onCreated?.(newNode);
       onClose();
     } catch (err: any) {
       setError(err.message);
