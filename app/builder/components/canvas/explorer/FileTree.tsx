@@ -10,23 +10,23 @@ interface FileTreeProps {
   onContextMenu: (e: React.MouseEvent, path?: string) => void;
 }
 
-export const FileTree: React.FC<FileTreeProps> = ({ 
-  tree, 
-  depth = 0, 
-  onContextMenu 
+export const FileTree: React.FC<FileTreeProps> = ({
+  tree,
+  depth = 0,
+  onContextMenu
 }) => {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const activeFile = useProjectStore((state) => state.activeFile);
+  const activeFileId = useProjectStore((state) => state.activeFileId);
   const setActiveFile = useProjectStore((state) => state.setActiveFile);
-  
+
   const toggleExpand = (key: string) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   };
-  
+
   const handleFileClick = (path: string) => {
     setActiveFile(path);
   };
-  
+
   const getFileIcon = (fileName: string) => {
     const ext = fileName.split('.').pop();
     switch (ext) {
@@ -47,18 +47,18 @@ export const FileTree: React.FC<FileTreeProps> = ({
         return <File size={14} className="text-gray-400" />;
     }
   };
-  
+
   return (
     <div className="select-none">
       {Object.entries(tree).map(([key, value]) => {
         const isFolder = value.type === 'folder';
         const isExpanded = expanded[key];
-        
+
         return (
           <div key={key}>
             <div
               className={`flex items-center px-2 py-1 rounded cursor-pointer ${
-                activeFile === value.path ? 'bg-blue-900/30 text-blue-300' : 'hover:bg-gray-800'
+                activeFileId === value.path ? 'bg-blue-900/30 text-blue-300' : 'hover:bg-gray-800'
               }`}
               style={{ paddingLeft: `${depth * 16 + 8}px` }}
               onClick={() => {
@@ -84,16 +84,15 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   {getFileIcon(key)}
                 </div>
               )}
-              
               <span className={`text-sm ${isFolder ? 'font-medium' : ''}`}>
                 {key}
               </span>
-              
+
               {key === '.keep' && (
                 <span className="ml-2 text-xs px-1 bg-gray-700 rounded">dir</span>
               )}
             </div>
-            
+
             {isFolder && isExpanded && value.children && (
               <FileTree
                 tree={value.children}
