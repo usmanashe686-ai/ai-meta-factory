@@ -1,5 +1,5 @@
 import React from 'react';
-import { useUIStore } from '../../state/ui-store';
+import { useUIStore } from '../state/ui-store';
 
 export const ThemeToggle: React.FC = () => {
   const { theme, toggleTheme } = useUIStore();
