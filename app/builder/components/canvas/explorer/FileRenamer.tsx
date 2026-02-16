@@ -2,41 +2,38 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useProjectStore } from '../state/project-store';
-import { FileNode } from '../types/project.types';
+import { X, Check } from 'lucide-react';
 
 interface FileRenamerProps {
-  node: FileNode;
-  onComplete: () => void;
-  onCancel: () => void;
+  path: string;
+  currentName: string;
+  onClose: () => void;
+  onRenamed?: (newPath: string) => void;
 }
 
-export function FileRenamer({ node, onComplete, onCancel }: FileRenamerProps) {
-  const [newName, setNewName] = useState(node.name);
+export function FileRenamer({ path, currentName, onClose, onRenamed }: FileRenamerProps) {
+  const [name, setName] = useState(currentName);
   const [isRenaming, setIsRenaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const projectId = useProjectStore(state => state.projectId);
+  const project = useProjectStore(state => state.project);
+  const renameFile = useProjectStore(state => state.renameFile);
 
   useEffect(() => {
     inputRef.current?.focus();
     inputRef.current?.select();
   }, []);
 
-  const handleRename = async () => {
-    const trimmed = newName.trim();
-    if (!trimmed) {
-      setError('Name cannot be empty');
+  const handleSubmit = async () => {
+    if (!name.trim() || name === currentName) {
+      onClose();
       return;
     }
 
-    if (trimmed.includes('/') || trimmed.includes('\\')) {
+    // Basic validation
+    if (name.includes('/') || name.includes('\\')) {
       setError('Name cannot contain slashes');
-      return;
-    }
-
-    if (trimmed === node.name) {
-      onCancel();
       return;
     }
 
@@ -44,36 +41,25 @@ export function FileRenamer({ node, onComplete, onCancel }: FileRenamerProps) {
     setError(null);
 
     try {
-      // Construct new path: replace the last part of the path with the new name
-      const pathParts = node.path.split('/');
-      pathParts[pathParts.length - 1] = trimmed;
-      const newPath = pathParts.join('/');
+      const newPath = path.split('/').slice(0, -1).concat(name).join('/');
 
-      const response = await fetch(`/api/projects/${projectId}/files/move`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          source: node.path,
-          destination: newPath,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to rename');
+      // Try API call if project exists
+      if (project?.id) {
+        const response = await fetch(`/api/projects/${project.id}/rename`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldPath: path, newPath }),
+        });
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to rename');
+        }
       }
 
-      // Update the store: we need to replace the node with updated path.
-      // For now, we can just remove and re-add, but a proper move action is better.
-      // We'll use the moveFile action we already have (it should handle this).
-      useProjectStore.getState().moveFile(node.id, node.id); // This won't work – we need a rename function.
-      // Instead, let's call the moveFile with a special target? Actually we need a dedicated rename.
-      // We'll temporarily just refresh the whole project from the backend.
-      // For simplicity, we can trigger a reload of files.
-      // But to keep things clean, let's add a renameFile action later.
-
-      // For now, we'll just close and rely on the parent to refresh.
-      onComplete();
+      // Update local store
+      renameFile(path, newPath);
+      onRenamed?.(newPath);
+      onClose();
     } catch (err: any) {
       setError(err.message);
       setIsRenaming(false);
@@ -81,22 +67,35 @@ export function FileRenamer({ node, onComplete, onCancel }: FileRenamerProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleRename();
-    if (e.key === 'Escape') onCancel();
+    if (e.key === 'Enter') handleSubmit();
+    if (e.key === 'Escape') onClose();
   };
 
   return (
-    <div className="flex items-center w-full">
+    <div className="flex items-center space-x-1">
       <input
         ref={inputRef}
         type="text"
-        value={newName}
-        onChange={(e) => setNewName(e.target.value)}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
         onKeyDown={handleKeyDown}
-        onBlur={handleRename}
-        className="bg-gray-700 text-white text-sm px-2 py-1 rounded flex-1 min-w-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        disabled={isRenaming}
+        className="flex-1 px-1 bg-gray-800 border border-blue-500 rounded text-sm text-white"
       />
-      {error && <span className="text-red-400 text-xs ml-2">{error}</span>}
+      <button
+        onClick={handleSubmit}
+        disabled={isRenaming}
+        className="p-0.5 hover:bg-gray-700 rounded"
+      >
+        <Check className="w-3 h-3" />
+      </button>
+      <button
+        onClick={onClose}
+        className="p-0.5 hover:bg-gray-700 rounded"
+      >
+        <X className="w-3 h-3" />
+      </button>
+      {error && <span className="text-xs text-red-400 ml-2">{error}</span>}
     </div>
   );
 }
