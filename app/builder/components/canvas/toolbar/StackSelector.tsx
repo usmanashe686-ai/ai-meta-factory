@@ -1,5 +1,5 @@
 import React from 'react';
-import { usePlatformStore } from '../../state/platform-store';
+import { usePlatformStore } from '../state/platform-store';
 
 const stacks = {
   web: ['React', 'Vue', 'Svelte', 'Vanilla JS'],
