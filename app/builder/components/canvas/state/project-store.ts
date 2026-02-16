@@ -11,6 +11,7 @@ export interface ConsoleEntry {
 interface ProjectState {
   project: { id: string; name: string } | null;
   files: FileNode[];
+  openFiles: string[]; // IDs of files opened in tabs
   activeFileId: string | null;
   isSaving: boolean;
   console: ConsoleEntry[];
@@ -19,7 +20,10 @@ interface ProjectState {
   createFile: (path: string, content: string, isFolder?: boolean) => void;
   updateFileContent: (fileId: string, content: string) => void;
   deleteFile: (fileId: string) => void;
+  openFile: (fileId: string) => void; // Add to openFiles if not already, and set as active
+  closeFile: (fileId: string) => void; // Remove from openFiles
   setActiveFileId: (id: string | null) => void;
+  setActiveFile: (id: string | null) => void; // Alias for setActiveFileId
   addToConsole: (entry: Omit<ConsoleEntry, 'timestamp'>) => void;
   clearConsole: () => void;
 }
@@ -63,6 +67,7 @@ const deleteNode = (nodes: FileNode[], id: string): FileNode[] => {
 export const useProjectStore = create<ProjectState>((set, get) => ({
   project: null,
   files: [],
+  openFiles: [],
   activeFileId: null,
   isSaving: false,
   console: [],
@@ -102,13 +107,38 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     set({ files: updateNodeContent(files, fileId, content) });
   },
   deleteFile: (fileId) => {
-    const { files, activeFileId } = get();
+    const { files, activeFileId, openFiles } = get();
     const newFiles = deleteNode(files, fileId);
-    // If the active file was deleted, set activeFileId to null
+    const newOpenFiles = openFiles.filter(id => id !== fileId);
     const newActive = activeFileId === fileId ? null : activeFileId;
-    set({ files: newFiles, activeFileId: newActive });
+    set({ files: newFiles, openFiles: newOpenFiles, activeFileId: newActive });
+  },
+  openFile: (fileId) => {
+    const { openFiles, activeFileId, files } = get();
+    // Check if file exists
+    const file = findNodeById(files, fileId);
+    if (!file || file.type === 'folder') return; // Only open files, not folders
+
+    if (!openFiles.includes(fileId)) {
+      set({ openFiles: [...openFiles, fileId] });
+    }
+    // Set as active even if already open
+    if (activeFileId !== fileId) {
+      set({ activeFileId: fileId });
+    }
+  },
+  closeFile: (fileId) => {
+    const { openFiles, activeFileId } = get();
+    const newOpenFiles = openFiles.filter(id => id !== fileId);
+    let newActive = activeFileId;
+    if (activeFileId === fileId) {
+      // If closing active tab, set active to another open tab or null
+      newActive = newOpenFiles.length > 0 ? newOpenFiles[newOpenFiles.length - 1] : null;
+    }
+    set({ openFiles: newOpenFiles, activeFileId: newActive });
   },
   setActiveFileId: (id) => set({ activeFileId: id }),
+  setActiveFile: (id) => set({ activeFileId: id }), // alias
   addToConsole: (entry) => {
     const { console } = get();
     set({
