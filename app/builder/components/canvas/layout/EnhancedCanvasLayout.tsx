@@ -5,14 +5,17 @@ import { ResizablePanels } from './ResizablePanels';
 import { FileExplorer } from '../explorer/FileExplorer';
 import { CodeEditor } from '../editor/CodeEditor';
 import { UniversalPreview } from '../preview/UniversalPreview';
-import CanvasHeader from './CanvasHeader';
+import { CanvasToolbar } from '../toolbar/CanvasToolbar';
+import { AIChatSidebar } from '../ai/AIChatSidebar';
 import { useProjectStore } from '../state/project-store';
 import { usePlatformStore } from '../state/platform-store';
+import { useUIStore } from '../state/ui-store';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
 export function EnhancedCanvasLayout() {
   const { project, createBlankProject } = useProjectStore();
   const { platform } = usePlatformStore();
+  const { isAIPanelOpen } = useUIStore();
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -34,10 +37,10 @@ export function EnhancedCanvasLayout() {
 
   // Mobile layout: stack panels vertically, only one visible at a time
   if (isMobile) {
-    const [mobileTab, setMobileTab] = useState<'explorer' | 'editor' | 'preview'>('editor');
+    const [mobileTab, setMobileTab] = useState<'explorer' | 'editor' | 'preview' | 'ai'>('editor');
     return (
       <div className="flex h-screen flex-col bg-gray-900">
-        <CanvasHeader />
+        <CanvasToolbar />
         <div className="flex border-b border-gray-700 bg-gray-800">
           <button
             className={`flex-1 py-2 text-sm font-medium ${mobileTab === 'explorer' ? 'bg-gray-700 text-white' : 'text-gray-400'}`}
@@ -57,21 +60,28 @@ export function EnhancedCanvasLayout() {
           >
             Preview
           </button>
+          <button
+            className={`flex-1 py-2 text-sm font-medium ${mobileTab === 'ai' ? 'bg-purple-700 text-white' : 'text-gray-400'}`}
+            onClick={() => setMobileTab('ai')}
+          >
+            AI
+          </button>
         </div>
         <div className="flex-1 overflow-hidden">
           {mobileTab === 'explorer' && <FileExplorer />}
           {mobileTab === 'editor' && <CodeEditor />}
           {mobileTab === 'preview' && <UniversalPreview />}
+          {mobileTab === 'ai' && <AIChatSidebar />}
         </div>
       </div>
     );
   }
 
-  // Desktop layout with resizable panels and collapse buttons
+  // Desktop layout with resizable panels and AI sidebar overlay
   return (
     <div className="flex h-screen flex-col bg-gray-900">
-      <CanvasHeader />
-      <div className="flex-1 overflow-hidden">
+      <CanvasToolbar />
+      <div className="flex-1 overflow-hidden relative">
         <ResizablePanels
           left={leftCollapsed ? null : <FileExplorer />}
           center={<CodeEditor />}
@@ -83,6 +93,12 @@ export function EnhancedCanvasLayout() {
           onLeftToggle={() => setLeftCollapsed(!leftCollapsed)}
           onRightToggle={() => setRightCollapsed(!rightCollapsed)}
         />
+        {/* AI Sidebar Overlay */}
+        {isAIPanelOpen && (
+          <div className="absolute top-0 right-0 h-full w-80 bg-gray-900 border-l border-gray-700 shadow-xl z-20 overflow-hidden">
+            <AIChatSidebar />
+          </div>
+        )}
       </div>
     </div>
   );

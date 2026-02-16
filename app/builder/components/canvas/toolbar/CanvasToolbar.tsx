@@ -2,23 +2,16 @@
 
 import React, { useState } from 'react';
 import {
-  Save,
-  Download,
-  Upload,
-  GitBranch,
-  Play,
-  Settings,
-  Brain,
-  Zap,
-  Globe,
-  Users
+  Save, Download, Upload, GitBranch, Play, Settings, Brain,
+  Zap, Globe, Users
 } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 import { usePlatformStore } from '../state/platform-store';
+import { useUIStore } from '../state/ui-store';
 import { ExportModal } from '../export/ExportModal';
 
 interface CanvasToolbarProps {
-  onOpenAI: () => void;
+  onOpenAI?: () => void; // kept for backward compatibility
 }
 
 export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
@@ -26,6 +19,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
   const project = useProjectStore((state) => state.project);
   const { platform, stack } = usePlatformStore();
   const setProjectName = useProjectStore((state) => state.setProjectName);
+  const { toggleAIPanel } = useUIStore();
 
   const handleSave = () => {
     alert('Project saved successfully!');
@@ -33,6 +27,11 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
 
   const handleDeploy = () => {
     setShowExportModal(true);
+  };
+
+  const handleAIClick = () => {
+    if (onOpenAI) onOpenAI();
+    else toggleAIPanel();
   };
 
   const handleProjectNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,7 +72,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
           </button>
 
           <button
-            onClick={onOpenAI}
+            onClick={handleAIClick}
             className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 rounded text-sm"
           >
             <Brain size={14} />

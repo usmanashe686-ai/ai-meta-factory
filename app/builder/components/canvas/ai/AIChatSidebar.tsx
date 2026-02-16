@@ -17,7 +17,7 @@ export const AIChatSidebar: React.FC = () => {
     {
       id: '1',
       role: 'assistant',
-      content: 'Hello! I\'m your AI development assistant. I can help you generate components, fix bugs, explain code, and build complete applications. What would you like to create?',
+      content: 'Hello! I\'m your local AI assistant running on your device. I can help you generate components, fix bugs, explain code, and build complete applications – all without sending your data to the cloud. What would you like to create?',
       timestamp: new Date(),
     },
   ]);
@@ -28,6 +28,9 @@ export const AIChatSidebar: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const projectFiles = useProjectStore((state) => state.files);
   const { platform, stack } = usePlatformStore();
+
+  // Local AI endpoint (your Flask proxy on phone)
+  const AI_API_URL = 'http://localhost:8000/generate';
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -52,32 +55,49 @@ export const AIChatSidebar: React.FC = () => {
     setInput('');
     setIsGenerating(true);
 
-    setTimeout(() => {
-      const aiResponse = generateAIResponse(input);
+    try {
+      // Build prompt with context (optional: include current file content)
+      const context = projectFiles.length > 0 
+        ? `Current project has ${projectFiles.length} files.`
+        : 'No files yet.';
+
+      const fullPrompt = `Context: ${context}\n\nUser: ${input}\n\nAssistant:`;
+
+      const response = await fetch(AI_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'tinyllama-1.1b', // or 'qwen2-0.5b' – you can make this configurable
+          prompt: fullPrompt,
+          max_tokens: 300,
+          temperature: 0.7,
+        }),
+      });
+
+      if (!response.ok) throw new Error('AI service error');
+
+      const data = await response.json();
+      const aiText = data.text || data.generated_text || 'Sorry, I could not generate a response.';
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: aiResponse,
+        content: aiText,
         timestamp: new Date(),
       };
-
       setMessages((prev) => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('AI request failed:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Error connecting to local AI. Make sure your Flask server is running on port 8000.',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsGenerating(false);
-    }, 1500);
-  };
-
-  const generateAIResponse = (prompt: string): string => {
-    const responses = [
-      `I'll help you with "${prompt}". Here's a suggested implementation:\n\n\`\`\`tsx\n// Generated component based on your request\nexport default function GeneratedComponent() {\n  return (\n    <div className="p-4">\n      <h1>Your Component</h1>\n    </div>\n  );\n}\n\`\`\``,
-
-      `Based on your project (${stack || platform}), I recommend:\n1. Create a structured component\n2. Add TypeScript interfaces\n3. Implement proper error handling\n\nWould you like me to generate the code?`,
-
-      `I analyzed your project structure. Here are some improvements:\n• Add proper error boundaries\n• Implement loading states\n• Add accessibility features\n\nI can implement these for you.`,
-
-      `Great idea! Here's how we can implement that:\n\`\`\`tsx\n// Smart implementation with best practices\ninterface Props {\n  // Your props here\n}\n\`\`\``,
-    ];
-
-    return responses[Math.floor(Math.random() * responses.length)];
+    }
   };
 
   const handleCopy = (content: string, id: string) => {
@@ -91,7 +111,7 @@ export const AIChatSidebar: React.FC = () => {
       {
         id: '1',
         role: 'assistant',
-        content: 'Hello! I\'m your AI development assistant. How can I help you today?',
+        content: 'Hello! I\'m your local AI assistant. How can I help you today?',
         timestamp: new Date(),
       },
     ]);
@@ -115,8 +135,8 @@ export const AIChatSidebar: React.FC = () => {
               <Bot size={16} className="text-white" />
             </div>
             <div>
-              <h3 className="font-semibold">AI Assistant</h3>
-              <p className="text-xs text-gray-400">Powered by GPT-4</p>
+              <h3 className="font-semibold">Local AI Assistant</h3>
+              <p className="text-xs text-gray-400">Running on your device</p>
             </div>
           </div>
           <button
@@ -242,7 +262,7 @@ export const AIChatSidebar: React.FC = () => {
           <div className="flex items-center justify-between text-xs text-gray-400">
             <div className="flex items-center space-x-1">
               <Sparkles size={12} />
-              <span>AI can generate code, fix bugs, and explain concepts</span>
+              <span>Local AI – your data stays on device</span>
             </div>
             <button
               type="button"
