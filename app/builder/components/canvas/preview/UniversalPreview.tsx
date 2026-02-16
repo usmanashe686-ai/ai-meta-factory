@@ -11,7 +11,6 @@ import { useSandpack } from '@codesandbox/sandpack-react';
 // Listener component that captures console logs from the sandbox
 function SandpackLogListener({ onLog }: { onLog: (log: LogEntry) => void }) {
   const { listen } = useSandpack();
-
   useEffect(() => {
     const stopListening = listen((msg) => {
       if (msg.type === 'console' && Array.isArray(msg.log)) {
@@ -42,13 +41,16 @@ export function UniversalPreview({ showLogsByDefault = false }: UniversalPreview
   const [device, setDevice] = useState<DeviceType>('desktop');
   const [showLogs, setShowLogs] = useState(showLogsByDefault);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const { files, activeFile } = useProjectStore();
+  const { files, activeFileId } = useProjectStore();
 
-  const sandpackFiles = files.reduce((acc, file) => {
-    const path = file.path.startsWith('/') ? file.path : `/${file.path}`;
-    acc[path] = { code: file.content ?? '' };
-    return acc;
-  }, {} as Record<string, { code: string }>);
+  // Filter out folders and only include file nodes with content
+  const sandpackFiles = files
+    .filter(file => file.type === 'file' && file.content !== undefined)
+    .reduce((acc, file) => {
+      const path = file.path.startsWith('/') ? file.path : `/${file.path}`;
+      acc[path] = { code: file.content ?? '' };
+      return acc;
+    }, {} as Record<string, { code: string }>);
 
   const handleLog = (log: LogEntry) => {
     setLogs(prev => [...prev, log].slice(-50));
@@ -80,7 +82,7 @@ export function UniversalPreview({ showLogsByDefault = false }: UniversalPreview
             template={template}
             files={sandpackFiles}
             options={{
-              activeFile: activeFile ?? undefined,
+              activeFile: activeFileId && sandpackFiles[activeFileId] ? activeFileId : undefined,
               autorun: true,
             }}
             customSetup={{
