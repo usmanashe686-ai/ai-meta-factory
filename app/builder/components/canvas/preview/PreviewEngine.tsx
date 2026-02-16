@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { RefreshCw, ExternalLink, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
-import { useProjectStore } from '../state/project-store';
+import { usePlatformStore } from '../state/platform-store';
 
 export function PreviewEngine() {
-  const { stack } = useProjectStore();
+  const { platform, stack } = usePlatformStore();
   const [isBuilding, setIsBuilding] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'building' | 'running' | 'error' | 'success'>('idle');
@@ -16,25 +16,23 @@ export function PreviewEngine() {
     running: 'bg-green-500',
     success: 'bg-green-500',
     error: 'bg-red-500',
-    initial: 'bg-gray-500',
   };
 
   const buildPreview = async () => {
     setIsBuilding(true);
     setStatus('building');
-    
+
     try {
       // Simulate build process
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       setStatus('running');
       setPreviewUrl(`#preview-${Date.now()}`);
-      
+
       // Simulate successful build
       setTimeout(() => {
         setStatus('success');
       }, 1000);
-      
     } catch (error) {
       console.error('Preview build error:', error);
       setStatus('error');
@@ -61,9 +59,12 @@ export function PreviewEngine() {
     }
   };
 
-  const getStackName = () => {
-    const s = stack?.frontend?.toLowerCase() || 'react';
-    return s.charAt(0).toUpperCase() + s.slice(1);
+  const getDisplayName = () => {
+    // Use stack if available, otherwise platform
+    if (stack && stack !== 'none') {
+      return stack.charAt(0).toUpperCase() + stack.slice(1);
+    }
+    return platform ? platform.charAt(0).toUpperCase() + platform.slice(1) : 'Web';
   };
 
   return (
@@ -74,10 +75,10 @@ export function PreviewEngine() {
           <div className={`w-2 h-2 rounded-full ${statusColors[status] || 'bg-gray-500'} animate-pulse`}></div>
           <span className="text-sm font-medium">Live Preview</span>
           <span className="text-xs px-2 py-0.5 bg-gray-800 rounded">
-            {getStackName()}
+            {getDisplayName()}
           </span>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {previewUrl && (
             <a
@@ -100,7 +101,7 @@ export function PreviewEngine() {
           </button>
         </div>
       </div>
-      
+
       {/* Preview Content */}
       <div className="flex-1 overflow-auto bg-gray-900">
         {isBuilding ? (
@@ -108,8 +109,7 @@ export function PreviewEngine() {
             <Loader2 className="w-8 h-8 text-blue-400 animate-spin mb-3" />
             <p className="text-gray-400">Building preview...</p>
             <p className="text-xs text-gray-600 mt-2">
-              {stack.frontend === 'flutter' ? 'Flutter Web' : 
-               stack.frontend === 'nextjs' ? 'Next.js' : 'React'}
+              {getDisplayName()}
             </p>
           </div>
         ) : status === 'error' ? (
@@ -137,7 +137,7 @@ export function PreviewEngine() {
             <div className="flex-1 p-4">
               <div className="bg-white rounded-lg shadow-lg p-8 text-center">
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  {getStackName()} Preview
+                  {getDisplayName()} Preview
                 </h2>
                 <p className="text-gray-600 mb-6">
                   Live preview will appear here. Edit files to see changes.
