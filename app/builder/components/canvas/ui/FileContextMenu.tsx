@@ -1,5 +1,6 @@
-"use client";
+'use client';
 
+import React from 'react';
 import { useProjectStore } from '../state/project-store';
 
 interface FileContextMenuProps {
@@ -10,49 +11,50 @@ interface FileContextMenuProps {
 }
 
 export function FileContextMenu({ path, x, y, onClose }: FileContextMenuProps) {
-  const { removeFile, copyFile, renameFile } = useProjectStore();
+  const { deleteFile, copyFile, renameFile } = useProjectStore();
 
   const handleDelete = () => {
     if (confirm(`Are you sure you want to delete ${path}?`)) {
-      removeFile(path);
-      onClose();
+      deleteFile(path);
     }
+    onClose();
   };
 
-  const handleDuplicate = () => {
+  const handleCopy = () => {
     copyFile(path);
     onClose();
   };
 
   const handleRename = () => {
     const newName = prompt('Enter new name:', path.split('/').pop());
-    if (newName) {
-      const newPath = path.replace(/[^\/]+$/, newName);
+    if (newName && newName !== path.split('/').pop()) {
+      const newPath = path.substring(0, path.lastIndexOf('/') + 1) + newName;
       renameFile(path, newPath);
-      onClose();
     }
+    onClose();
   };
 
   return (
     <div
-      className="fixed z-50 bg-gray-800 border border-gray-700 rounded shadow-lg py-1"
+      className="fixed z-50 bg-gray-800 border border-gray-700 rounded shadow-lg py-1 min-w-[160px]"
       style={{ left: x, top: y }}
+      onContextMenu={(e) => e.preventDefault()}
     >
       <button
         onClick={handleRename}
-        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-700"
+        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-700 flex items-center gap-2"
       >
         Rename
       </button>
       <button
-        onClick={handleDuplicate}
-        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-700"
+        onClick={handleCopy}
+        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-700 flex items-center gap-2"
       >
         Duplicate
       </button>
       <button
         onClick={handleDelete}
-        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-700 text-red-400"
+        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-700 flex items-center gap-2 text-red-400"
       >
         Delete
       </button>
