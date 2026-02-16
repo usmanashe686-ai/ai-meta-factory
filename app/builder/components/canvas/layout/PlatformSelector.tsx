@@ -79,7 +79,7 @@ export const PLATFORM_OPTIONS: PlatformOption[] = [
   },
 ];
 
-// Map component platform to store platform (store uses narrower types)
+// Map component platform to store platform (store now accepts all these types)
 const mapToStorePlatform = (platform: Platform): 'web' | 'mobile' | 'desktop' | 'game' | 'api' | 'iot' => {
   if (platform === 'website' || platform === 'webapp') return 'web';
   if (platform === 'mobile') return 'mobile';
@@ -87,7 +87,8 @@ const mapToStorePlatform = (platform: Platform): 'web' | 'mobile' | 'desktop' | 
   if (platform === 'game') return 'game';
   if (platform === 'api') return 'api';
   if (platform === 'iot') return 'iot';
-  return 'web'; // fallback
+  // fallback for bot or others
+  return 'web';
 };
 
 interface PlatformSelectorProps {
@@ -99,7 +100,6 @@ export function PlatformSelector({
   onSelect,
   selectedPlatform = null
 }: PlatformSelectorProps) {
-  // Correct store destructuring
   const { platform: storePlatform, setPlatform } = usePlatformStore();
 
   const handleSelect = (platform: Platform) => {
@@ -108,10 +108,8 @@ export function PlatformSelector({
     onSelect?.(platform);
   };
 
-  // Determine if a given platform option is selected (either from props or store)
   const isSelected = (optionId: Platform) => {
     if (selectedPlatform === optionId) return true;
-    // Compare store platform after mapping
     const mappedStore = mapToStorePlatform(optionId);
     return storePlatform === mappedStore;
   };
