@@ -14,6 +14,7 @@ import {
   Users
 } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
+import { usePlatformStore } from '../state/platform-store';
 import { ExportModal } from '../export/ExportModal';
 
 interface CanvasToolbarProps {
@@ -22,8 +23,9 @@ interface CanvasToolbarProps {
 
 export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
   const [showExportModal, setShowExportModal] = useState(false);
-  const projectName = useProjectStore((state) => state.projectName);
-  const stack = useProjectStore((state) => state.stack);
+  const project = useProjectStore((state) => state.project);
+  const { platform, stack } = usePlatformStore();
+  const setProjectName = useProjectStore((state) => state.setProjectName);
 
   const handleSave = () => {
     alert('Project saved successfully!');
@@ -31,6 +33,10 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
 
   const handleDeploy = () => {
     setShowExportModal(true);
+  };
+
+  const handleProjectNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setProjectName(e.target.value);
   };
 
   return (
@@ -43,18 +49,16 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
             </div>
             <span className="font-bold text-sm">AI Meta Factory</span>
           </div>
-
           <div className="h-4 w-px bg-gray-600" />
-
           <div className="flex items-center space-x-2">
             <input
               type="text"
-              value={projectName}
-              onChange={(e) => useProjectStore.getState().setProjectName(e.target.value)}
+              value={project?.name || 'Untitled'}
+              onChange={handleProjectNameChange}
               className="bg-transparent border-none text-sm px-2 py-1 hover:bg-gray-700 rounded"
             />
             <span className="text-xs text-gray-400 px-2 py-1 bg-gray-700 rounded">
-              {stack.frontend}
+              {stack || platform}
             </span>
           </div>
         </div>
