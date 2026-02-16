@@ -5,17 +5,11 @@ import { Terminal, X, Copy, Trash2, Play, AlertCircle, CheckCircle, Bot, Command
 import { useProjectStore } from '../state/project-store';
 
 export function ConsolePanel() {
-  const {
-    consoleOutput,
-    clearConsole,
-    consoleHistory,
-    addToConsoleHistory,
-    isConsoleRunning,
-    setConsoleRunning
-  } = useProjectStore();
-
+  const { console: consoleEntries, addToConsole, clearConsole } = useProjectStore();
   const [input, setInput] = useState('');
   const [filter, setFilter] = useState<'all' | 'error' | 'success' | 'ai' | 'command'>('all');
+  const [isRunning, setIsRunning] = useState(false);
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const consoleEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -25,51 +19,48 @@ export function ConsolePanel() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [consoleOutput]);
+  }, [consoleEntries]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
 
-    // Add to console history
-    addToConsoleHistory(input);
+    // Add to command history
+    setCommandHistory(prev => [...prev, input]);
 
-    // Add command to console output (timestamp added by store)
-    useProjectStore.getState().addToConsole({
+    // Add command to console
+    addToConsole({
       type: 'command',
       message: `> ${input}`,
     });
 
+    setIsRunning(true);
+
     // Simulate command execution
-    setConsoleRunning(true);
-
     setTimeout(() => {
-      // Simulate different responses based on input
       const lowerInput = input.toLowerCase();
-
       if (lowerInput.includes('error')) {
-        useProjectStore.getState().addToConsole({
+        addToConsole({
           type: 'error',
           message: 'Command failed: This is a simulated error.',
         });
       } else if (lowerInput.includes('build') || lowerInput.includes('start')) {
-        useProjectStore.getState().addToConsole({
+        addToConsole({
           type: 'success',
           message: 'Build completed successfully!',
         });
       } else if (lowerInput.includes('ai')) {
-        useProjectStore.getState().addToConsole({
+        addToConsole({
           type: 'ai',
           message: 'AI agent activated: Processing your request...',
         });
       } else {
-        useProjectStore.getState().addToConsole({
+        addToConsole({
           type: 'log',
           message: `Executed: ${input}`,
         });
       }
-
-      setConsoleRunning(false);
+      setIsRunning(false);
     }, 1000);
 
     setInput('');
@@ -80,11 +71,9 @@ export function ConsolePanel() {
   };
 
   const handleCopy = () => {
-    const text = consoleOutput.map((entry: any) => `[${entry.type.toUpperCase()}] ${entry.message}`).join('\n');
+    const text = consoleEntries.map(entry => `[${entry.type.toUpperCase()}] ${entry.message}`).join('\n');
     navigator.clipboard.writeText(text);
-
-    // Add success message (timestamp added by store)
-    useProjectStore.getState().addToConsole({
+    addToConsole({
       type: 'success',
       message: 'Console output copied to clipboard!',
     });
@@ -93,9 +82,7 @@ export function ConsolePanel() {
   const handleRunCommand = (command: string) => {
     setInput(command);
     setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
+      inputRef.current?.focus();
     }, 0);
   };
 
@@ -130,8 +117,8 @@ export function ConsolePanel() {
   };
 
   const filteredOutput = filter === 'all'
-    ? consoleOutput
-    : consoleOutput.filter((entry: any) => entry.type === filter);
+    ? consoleEntries
+    : consoleEntries.filter(entry => entry.type === filter);
 
   const commonCommands = [
     'npm install',
@@ -151,9 +138,9 @@ export function ConsolePanel() {
           <Terminal className="w-5 h-5 text-green-400" />
           <h3 className="font-semibold">Console</h3>
           <div className="flex items-center gap-2 ml-4">
-            <div className={`w-2 h-2 rounded-full ${isConsoleRunning ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}></div>
+            <div className={`w-2 h-2 rounded-full ${isRunning ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}></div>
             <span className="text-xs text-gray-400">
-              {isConsoleRunning ? 'Running...' : 'Ready'}
+              {isRunning ? 'Running...' : 'Ready'}
             </span>
           </div>
         </div>
@@ -164,31 +151,30 @@ export function ConsolePanel() {
               onClick={() => setFilter('all')}
               className={`px-3 py-1 text-xs ${filter === 'all' ? 'bg-gray-800' : 'hover:bg-gray-800'}`}
             >
-              All ({consoleOutput.length})
+              All ({consoleEntries.length})
             </button>
             <button
               onClick={() => setFilter('error')}
               className={`px-3 py-1 text-xs flex items-center gap-1 ${filter === 'error' ? 'bg-red-500/20' : 'hover:bg-gray-800'}`}
             >
               <AlertCircle className="w-3 h-3" />
-              <span>({consoleOutput.filter((e: any) => e.type === 'error').length})</span>
+              <span>({consoleEntries.filter(e => e.type === 'error').length})</span>
             </button>
             <button
               onClick={() => setFilter('success')}
               className={`px-3 py-1 text-xs flex items-center gap-1 ${filter === 'success' ? 'bg-green-500/20' : 'hover:bg-gray-800'}`}
             >
               <CheckCircle className="w-3 h-3" />
-              <span>({consoleOutput.filter((e: any) => e.type === 'success').length})</span>
+              <span>({consoleEntries.filter(e => e.type === 'success').length})</span>
             </button>
             <button
               onClick={() => setFilter('ai')}
               className={`px-3 py-1 text-xs flex items-center gap-1 ${filter === 'ai' ? 'bg-purple-500/20' : 'hover:bg-gray-800'}`}
             >
               <Bot className="w-3 h-3" />
-              <span>({consoleOutput.filter((e: any) => e.type === 'ai').length})</span>
+              <span>({consoleEntries.filter(e => e.type === 'ai').length})</span>
             </button>
           </div>
-
           <button
             onClick={handleCopy}
             className="p-1.5 hover:bg-gray-800 rounded"
@@ -214,22 +200,22 @@ export function ConsolePanel() {
               No console output yet. Run a command to see output here.
             </div>
           ) : (
-            filteredOutput.map((entry: any, index: number) => (
+            filteredOutput.map((entry, index) => (
               <div key={index} className="flex gap-3 hover:bg-gray-800/50 p-2 rounded">
                 <div className="flex-shrink-0 w-4 mt-1">
                   {getEntryIcon(entry.type)}
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between">
-                    <span className={`${getEntryColor(entry.type)}`}>
+                    <span className={getEntryColor(entry.type)}>
                       {entry.message}
                     </span>
                     <span className="text-xs text-gray-500">
-                      {new Date(entry.timestamp).toLocaleTimeString([], {
+                      {entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit',
                         second: '2-digit'
-                      })}
+                      }) : ''}
                     </span>
                   </div>
                 </div>
@@ -271,15 +257,15 @@ export function ConsolePanel() {
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type a command..."
               className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 font-mono"
-              disabled={isConsoleRunning}
+              disabled={isRunning}
             />
           </div>
           <button
             type="submit"
-            disabled={isConsoleRunning || !input.trim()}
+            disabled={isRunning || !input.trim()}
             className="px-6 py-2 bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-medium flex items-center gap-2"
           >
-            {isConsoleRunning ? (
+            {isRunning ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
             ) : (
               <Play className="w-4 h-4" />
@@ -288,11 +274,11 @@ export function ConsolePanel() {
           </button>
         </div>
 
-        {consoleHistory.length > 0 && (
+        {commandHistory.length > 0 && (
           <div className="mt-3">
             <div className="text-xs text-gray-400 mb-1">History (↑↓ to navigate)</div>
             <div className="text-xs text-gray-500 space-y-1">
-              {consoleHistory.slice(-5).map((cmd, index) => (
+              {commandHistory.slice(-5).map((cmd, index) => (
                 <div key={index} className="hover:text-gray-300 cursor-pointer" onClick={() => setInput(cmd)}>
                   {cmd}
                 </div>
