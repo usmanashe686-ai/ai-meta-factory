@@ -26,6 +26,10 @@ interface ProjectState {
   setActiveFile: (id: string | null) => void; // Alias for setActiveFileId
   addToConsole: (entry: Omit<ConsoleEntry, 'timestamp'>) => void;
   clearConsole: () => void;
+  // Editor toolbar methods
+  saveCurrentFile: () => Promise<void>;
+  formatCurrentFile: () => Promise<void>;
+  runPreview: () => Promise<void>;
 }
 
 // Helper to find a node by ID recursively
@@ -147,5 +151,18 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
   clearConsole: () => {
     set({ console: [] });
+  },
+  saveCurrentFile: async () => {
+    console.log('saveCurrentFile called');
+    // Could save the active file content to persistent storage
+    // For now, just log
+  },
+  formatCurrentFile: async () => {
+    console.log('formatCurrentFile called');
+    // Could trigger formatting via prettier or AI
+  },
+  runPreview: async () => {
+    console.log('runPreview called');
+    // Could trigger preview update
   },
 }));
