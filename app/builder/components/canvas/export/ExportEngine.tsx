@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Download, FileCode, Folder, Package, Server, Database } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
+import { usePlatformStore } from '../state/platform-store';
 import { FileNode } from '../types/project.types';
 
 // Helper to count files (excluding folders) in the tree
@@ -15,22 +16,21 @@ const countFiles = (nodes: FileNode[]): number => {
 };
 
 export function ExportEngine() {
-  const { projectName, stack, files } = useProjectStore();
+  const project = useProjectStore((state) => state.project);
+  const files = useProjectStore((state) => state.files);
+  const platform = usePlatformStore((state) => state.platform);
+  const stack = usePlatformStore((state) => state.stack);
   const [exportFormat, setExportFormat] = useState<'zip' | 'github' | 'vercel'>('zip');
   const [isExporting, setIsExporting] = useState(false);
 
+  const projectName = project?.name || 'untitled-project';
+
   const handleExport = async () => {
     setIsExporting(true);
-
     try {
       // Simulate export process
       await new Promise(resolve => setTimeout(resolve, 2000));
       alert(`Project "${projectName}" exported successfully!`);
-
-      // In a real implementation, you would:
-      // 1. Create ZIP file with all files
-      // 2. Push to GitHub repository
-      // 3. Deploy to Vercel
     } catch (error) {
       console.error('Export failed:', error);
       alert('Export failed. Please try again.');
@@ -39,49 +39,11 @@ export function ExportEngine() {
     }
   };
 
-  const getPackageJson = () => {
-    const dependencies: Record<string, string> = {
-      'react': '^18.2.0',
-      'react-dom': '^18.2.0',
-      'next': '^14.0.0',
-      ...(stack.frontend === 'nextjs' ? { 'next': '^14.0.0' } : {}),
-      ...(stack.backend === 'node' ? { 'express': '^4.18.0' } : {}),
-      ...(stack.backend === 'python' ? { 'flask': '^2.3.0' } : {}),
-      ...(stack.database === 'postgresql' ? { 'pg': '^8.11.0' } : {}),
-      ...(stack.database === 'mongodb' ? { 'mongoose': '^7.5.0' } : {}),
-    };
-
-    return JSON.stringify({
-      name: projectName.toLowerCase().replace(/\s+/g, '-'),
-      version: '1.0.0',
-      private: true,
-      scripts: {
-        dev: 'next dev',
-        build: 'next build',
-        start: 'next start',
-        lint: 'next lint'
-      },
-      dependencies,
-      devDependencies: {
-        '@types/node': '^20.0.0',
-        '@types/react': '^18.2.0',
-        '@types/react-dom': '^18.2.0',
-        'autoprefixer': '^10.4.0',
-        'eslint': '^8.0.0',
-        'eslint-config-next': '^14.0.0',
-        'postcss': '^4.0.0',
-        'tailwindcss': '^3.3.0',
-        'typescript': '^5.0.0'
-      }
-    }, null, 2);
-  };
-
-  const getRequirementsTxt = () => {
-    if (stack.backend !== 'python') return '';
-
-    return `flask==2.3.0
-${stack.database === 'postgresql' ? 'psycopg2-binary==2.9.9' : ''}
-${stack.database === 'mongodb' ? 'pymongo==4.5.0' : ''}`;
+  // For the tech stack display, we'll create a simple mapping from platform/stack
+  const techStack = {
+    frontend: platform === 'web' ? stack : 'react-native',
+    backend: 'node', // placeholder
+    database: 'none', // placeholder
   };
 
   return (
@@ -94,7 +56,9 @@ ${stack.database === 'mongodb' ? 'pymongo==4.5.0' : ''}`;
       <div className="grid grid-cols-3 gap-4 mb-6">
         <button
           onClick={() => setExportFormat('zip')}
-          className={`p-4 rounded-lg border-2 flex flex-col items-center ${exportFormat === 'zip' ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 hover:border-gray-600'}`}
+          className={`p-4 rounded-lg border-2 flex flex-col items-center ${
+            exportFormat === 'zip' ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 hover:border-gray-600'
+          }`}
         >
           <Download className="w-8 h-8 mb-2" />
           <span className="font-medium">Download ZIP</span>
@@ -103,7 +67,9 @@ ${stack.database === 'mongodb' ? 'pymongo==4.5.0' : ''}`;
 
         <button
           onClick={() => setExportFormat('github')}
-          className={`p-4 rounded-lg border-2 flex flex-col items-center ${exportFormat === 'github' ? 'border-green-500 bg-green-500/10' : 'border-gray-700 hover:border-gray-600'}`}
+          className={`p-4 rounded-lg border-2 flex flex-col items-center ${
+            exportFormat === 'github' ? 'border-green-500 bg-green-500/10' : 'border-gray-700 hover:border-gray-600'
+          }`}
         >
           <FileCode className="w-8 h-8 mb-2" />
           <span className="font-medium">Push to GitHub</span>
@@ -112,7 +78,9 @@ ${stack.database === 'mongodb' ? 'pymongo==4.5.0' : ''}`;
 
         <button
           onClick={() => setExportFormat('vercel')}
-          className={`p-4 rounded-lg border-2 flex flex-col items-center ${exportFormat === 'vercel' ? 'border-purple-500 bg-purple-500/10' : 'border-gray-700 hover:border-gray-600'}`}
+          className={`p-4 rounded-lg border-2 flex flex-col items-center ${
+            exportFormat === 'vercel' ? 'border-purple-500 bg-purple-500/10' : 'border-gray-700 hover:border-gray-600'
+          }`}
         >
           <Server className="w-8 h-8 mb-2" />
           <span className="font-medium">Deploy to Vercel</span>
@@ -127,14 +95,14 @@ ${stack.database === 'mongodb' ? 'pymongo==4.5.0' : ''}`;
             <Package className="w-5 h-5 text-blue-400" />
             <div>
               <div className="text-sm font-medium">Frontend</div>
-              <div className="text-xs text-gray-400 capitalize">{stack.frontend}</div>
+              <div className="text-xs text-gray-400 capitalize">{techStack.frontend}</div>
             </div>
           </div>
           <div className="flex items-center gap-3 p-3 bg-gray-900/50 rounded">
             <Server className="w-5 h-5 text-green-400" />
             <div>
               <div className="text-sm font-medium">Backend</div>
-              <div className="text-xs text-gray-400 capitalize">{stack.backend}</div>
+              <div className="text-xs text-gray-400 capitalize">{techStack.backend}</div>
             </div>
           </div>
 
@@ -142,7 +110,7 @@ ${stack.database === 'mongodb' ? 'pymongo==4.5.0' : ''}`;
             <Database className="w-5 h-5 text-yellow-400" />
             <div>
               <div className="text-sm font-medium">Database</div>
-              <div className="text-xs text-gray-400 capitalize">{stack.database}</div>
+              <div className="text-xs text-gray-400 capitalize">{techStack.database}</div>
             </div>
           </div>
 
