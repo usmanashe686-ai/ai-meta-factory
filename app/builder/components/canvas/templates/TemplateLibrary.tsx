@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useProjectStore } from '../../state/project-store';
+import { useProjectStore } from '../state/project-store';
 import { TemplatePreview } from './TemplatePreview';
 import { landingPageTemplate } from './website/LandingPageTemplate';
 import { socialAppTemplate } from './mobile/SocialAppTemplate';
@@ -21,13 +21,12 @@ const templates: Template[] = [
   socialAppTemplate,
   textEditorTemplate,
   platformerTemplate,
-  // Add more templates here
 ];
 
 export const TemplateLibrary: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [filteredTemplates, setFilteredTemplates] = useState<Template[]>(templates);
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   const { createProjectFromTemplate } = useProjectStore();
 
   useEffect(() => {
@@ -38,12 +37,13 @@ export const TemplateLibrary: React.FC = () => {
     }
   }, [selectedCategory]);
 
-  const handleSelectTemplate = (template: Template) => {
-    setSelectedTemplate(template);
+  const handleTemplateClick = (template: Template) => {
+    setPreviewTemplate(template);
   };
 
-  const handleClosePreview = () => {
-    setSelectedTemplate(null);
+  const handleUseTemplate = (template: Template) => {
+    createProjectFromTemplate(template);
+    setPreviewTemplate(null);
   };
 
   const categories = ['all', 'website', 'mobile', 'desktop', 'game', 'iot'];
@@ -51,7 +51,7 @@ export const TemplateLibrary: React.FC = () => {
   return (
     <div className="p-6 bg-gray-900 text-white min-h-screen">
       <h2 className="text-2xl font-bold mb-4">Template Library</h2>
-      <div className="flex space-x-2 mb-6">
+      <div className="flex space-x-2 mb-6 flex-wrap">
         {categories.map(cat => (
           <button
             key={cat}
@@ -71,7 +71,7 @@ export const TemplateLibrary: React.FC = () => {
           <div
             key={template.id}
             className="bg-gray-800 rounded-lg overflow-hidden hover:bg-gray-750 transition cursor-pointer"
-            onClick={() => handleSelectTemplate(template)}
+            onClick={() => handleTemplateClick(template)}
           >
             {template.thumbnail ? (
               <img src={template.thumbnail} alt={template.name} className="w-full h-40 object-cover" />
@@ -94,7 +94,11 @@ export const TemplateLibrary: React.FC = () => {
           </div>
         ))}
       </div>
-      <TemplatePreview template={selectedTemplate} onClose={handleClosePreview} />
+      <TemplatePreview
+        template={previewTemplate}
+        onClose={() => setPreviewTemplate(null)}
+        onUse={handleUseTemplate}
+      />
     </div>
   );
 };
