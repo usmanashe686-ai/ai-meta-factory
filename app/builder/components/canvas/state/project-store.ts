@@ -12,11 +12,12 @@ export interface ConsoleEntry {
 interface ProjectState {
   project: { id: string; name: string } | null;
   files: FileNode[];
-  openFiles: string[]; // IDs of files opened in tabs
+  openFiles: string[];
   activeFileId: string | null;
   isSaving: boolean;
   console: ConsoleEntry[];
   createProjectFromTemplate: (template: Template) => Promise<string>;
+  createBlankProject: (name?: string) => void;
   saveProject: () => Promise<void>;
   createFile: (path: string, content: string, isFolder?: boolean) => void;
   updateFileContent: (fileId: string, content: string) => void;
@@ -33,8 +34,8 @@ interface ProjectState {
   renameFile: (oldPath: string, newPath: string) => void;
   copyFile: (path: string) => void;
   searchFiles: (query: string) => Array<{ path: string; name: string }>;
-  moveFile: (sourceId: string, targetId: string) => void; // for DnD
-  setProjectName: (name: string) => void; // Add this
+  moveFile: (sourceId: string, targetId: string) => void;
+  setProjectName: (name: string) => void;
 }
 
 // Helper to find a node by ID recursively
@@ -105,6 +106,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const newProject = { id: projectId, name: template.name };
     set({ project: newProject, files });
     return projectId;
+  },
+  createBlankProject: (name = 'Untitled Project') => {
+    const projectId = 'proj-' + Date.now();
+    set({
+      project: { id: projectId, name },
+      files: [],
+      openFiles: [],
+      activeFileId: null,
+    });
   },
   saveProject: async () => {
     set({ isSaving: true });
@@ -222,7 +232,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (project) {
       set({ project: { ...project, name } });
     } else {
-      // If no project exists, maybe create a temporary one? For now, do nothing.
       console.warn('No project to rename');
     }
   },

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { ResizablePanels } from './ResizablePanels';
 import { FileExplorer } from '../explorer/FileExplorer';
 import { CodeEditor } from '../editor/CodeEditor';
@@ -10,14 +10,21 @@ import { useProjectStore } from '../state/project-store';
 import { usePlatformStore } from '../state/platform-store';
 
 export function EnhancedCanvasLayout() {
-  const { project } = useProjectStore();
+  const { project, createBlankProject } = useProjectStore();
   const { platform } = usePlatformStore();
-  const [activeFile, setActiveFile] = useState('/index.tsx');
+
+  // Auto-create a blank project if none exists
+  useEffect(() => {
+    if (!project) {
+      createBlankProject();
+    }
+  }, [project, createBlankProject]);
 
   if (!project) {
+    // This will only show briefly while the effect runs
     return (
       <div className="flex h-full items-center justify-center bg-gray-900 text-white">
-        <p className="text-xl">Select or create a project to start building</p>
+        <p className="text-xl">Creating blank workspace...</p>
       </div>
     );
   }
