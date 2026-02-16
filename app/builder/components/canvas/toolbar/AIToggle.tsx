@@ -21,3 +21,4 @@ export const AIToggle: React.FC = () => {
     </button>
   );
 };
+// Toggle for AI panel
