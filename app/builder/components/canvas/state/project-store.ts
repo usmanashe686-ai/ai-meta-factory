@@ -109,9 +109,24 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
   createBlankProject: (name = 'Untitled Project') => {
     const projectId = 'proj-' + Date.now();
+    // Create a default App.tsx file so preview has something to show
+    const defaultFile: FileNode = {
+      id: 'src/App.tsx',
+      name: 'App.tsx',
+      type: 'file',
+      path: 'src/App.tsx',
+      content: `export default function App() {
+  return (
+    <div className="p-8">
+      <h1 className="text-2xl font-bold">Hello, AI Meta Factory!</h1>
+      <p className="mt-4 text-gray-400">Start coding your project.</p>
+    </div>
+  );
+}`,
+    };
     set({
       project: { id: projectId, name },
-      files: [],
+      files: [defaultFile],
       openFiles: [],
       activeFileId: null,
     });
