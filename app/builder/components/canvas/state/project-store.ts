@@ -34,6 +34,7 @@ interface ProjectState {
   copyFile: (path: string) => void;
   searchFiles: (query: string) => Array<{ path: string; name: string }>;
   moveFile: (sourceId: string, targetId: string) => void; // for DnD
+  setProjectName: (name: string) => void; // Add this
 }
 
 // Helper to find a node by ID recursively
@@ -215,5 +216,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (sourceIndex === -1 || targetIndex === -1) return;
     const newFiles = arrayMove(files, sourceIndex, targetIndex);
     set({ files: newFiles });
+  },
+  setProjectName: (name) => {
+    const { project } = get();
+    if (project) {
+      set({ project: { ...project, name } });
+    } else {
+      // If no project exists, maybe create a temporary one? For now, do nothing.
+      console.warn('No project to rename');
+    }
   },
 }));
