@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useProjectStore } from '../state/project-store';
+import { useProjectStore } from '../../state/project-store';
 import { TemplatePreview } from './TemplatePreview';
 import { landingPageTemplate } from './website/LandingPageTemplate';
 import { socialAppTemplate } from './mobile/SocialAppTemplate';

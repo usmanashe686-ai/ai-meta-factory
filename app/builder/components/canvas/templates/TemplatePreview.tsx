@@ -1,32 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { Template } from './TemplateLibrary';
-import { useProjectStore } from '../../state/project-store';
+import { useProjectStore } from '../state/project-store';
 import { useRouter } from 'next/navigation';
 
 interface TemplatePreviewProps {
   template: Template | null;
   onClose: () => void;
+  onUse: (template: Template) => void;
 }
 
-export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onClose }) => {
+export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onClose, onUse }) => {
   const [activeFile, setActiveFile] = useState<string>('');
   const { createProjectFromTemplate } = useProjectStore();
   const router = useRouter();
 
   useEffect(() => {
     if (template && template.files) {
-      // Set first file as active
       setActiveFile(Object.keys(template.files)[0] || '');
     }
   }, [template]);
 
   if (!template) return null;
 
-  const handleUseTemplate = () => {
-    createProjectFromTemplate(template);
-    onClose();
-    // Optionally navigate to canvas
-    router.push('/builder');
+  const handleUse = async () => {
+    try {
+      const projectId = await createProjectFromTemplate(template);
+      onUse(template);
+      onClose();
+      router.push(`/builder/project/${projectId}`);
+    } catch (error) {
+      console.error('Failed to create project from template:', error);
+    }
   };
 
   return (
@@ -34,7 +38,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onCl
       <div className="bg-gray-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-4 border-b border-gray-700 flex justify-between items-center">
           <h2 className="text-xl font-bold text-white">{template.name}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">&times;</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">&times;</button>
         </div>
         <div className="flex flex-1 overflow-hidden">
           <div className="w-1/3 border-r border-gray-700 p-2 overflow-y-auto">
@@ -70,7 +74,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onCl
             Cancel
           </button>
           <button
-            onClick={handleUseTemplate}
+            onClick={handleUse}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
             Use This Template
