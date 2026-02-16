@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Template } from '../templates/TemplateLibrary';
 import { FileNode } from '../types/project.types';
+import { arrayMove } from '@dnd-kit/sortable';
 
 export interface ConsoleEntry {
   type: 'command' | 'ai' | 'error' | 'info';
@@ -19,21 +20,20 @@ interface ProjectState {
   saveProject: () => Promise<void>;
   createFile: (path: string, content: string, isFolder?: boolean) => void;
   updateFileContent: (fileId: string, content: string) => void;
-  deleteFile: (fileId: string) => void; // used as removeFile in component
+  deleteFile: (fileId: string) => void;
   openFile: (fileId: string) => void;
   closeFile: (fileId: string) => void;
   setActiveFileId: (id: string | null) => void;
-  setActiveFile: (id: string | null) => void; // alias for setActiveFileId
+  setActiveFile: (id: string | null) => void;
   addToConsole: (entry: Omit<ConsoleEntry, 'timestamp'>) => void;
   clearConsole: () => void;
-  // Editor toolbar methods
   saveCurrentFile: () => Promise<void>;
   formatCurrentFile: () => Promise<void>;
   runPreview: () => Promise<void>;
-  // File operations for explorer
   renameFile: (oldPath: string, newPath: string) => void;
   copyFile: (path: string) => void;
   searchFiles: (query: string) => Array<{ path: string; name: string }>;
+  moveFile: (sourceId: string, targetId: string) => void; // for DnD
 }
 
 // Helper to find a node by ID recursively
@@ -94,9 +94,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   console: [],
   createProjectFromTemplate: async (template) => {
     const projectId = 'proj-' + Date.now();
-    // Convert template files to FileNode array (flat for now)
     const files: FileNode[] = Object.entries(template.files).map(([path, content]) => ({
-      id: path, // Use path as ID (could be improved)
+      id: path,
       name: path.split('/').pop() || path,
       type: 'file',
       path,
@@ -208,5 +207,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     };
     search(files);
     return results;
+  },
+  moveFile: (sourceId, targetId) => {
+    const { files } = get();
+    const sourceIndex = files.findIndex(f => f.id === sourceId);
+    const targetIndex = files.findIndex(f => f.id === targetId);
+    if (sourceIndex === -1 || targetIndex === -1) return;
+    const newFiles = arrayMove(files, sourceIndex, targetIndex);
+    set({ files: newFiles });
   },
 }));
