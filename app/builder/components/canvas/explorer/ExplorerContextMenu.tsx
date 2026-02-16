@@ -1,13 +1,14 @@
-'use client';
+"use client";
 
 import React from 'react';
-import { File, Folder, Copy, Trash2, Edit } from 'lucide-react';
+import { Copy, Edit2, FilePlus, FolderPlus, Trash2 } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 
 interface ExplorerContextMenuProps {
   x: number;
   y: number;
-  path?: string;
+  path: string;
+  type: 'file' | 'folder';
   onClose: () => void;
 }
 
@@ -15,110 +16,90 @@ export const ExplorerContextMenu: React.FC<ExplorerContextMenuProps> = ({
   x,
   y,
   path,
-  onClose
+  type,
+  onClose,
 }) => {
-  // Use the correct store methods – they all work with paths
-  const removeFile = useProjectStore((state) => state.removeFile);
+  // Use the correct store methods – all work with paths
+  const deleteFile = useProjectStore((state) => state.deleteFile);
   const renameFile = useProjectStore((state) => state.renameFile);
   const createFile = useProjectStore((state) => state.createFile);
+  const copyFile = useProjectStore((state) => state.copyFile);
 
   const handleDelete = () => {
-    if (path && confirm(`Delete ${path}?`)) {
-      removeFile(path);
+    if (confirm(`Delete ${type} "${path}"?`)) {
+      deleteFile(path);
     }
     onClose();
   };
 
   const handleRename = () => {
-    if (path) {
-      const newName = prompt('Enter new name:', path.split('/').pop());
-      if (newName) {
-        const newPath = path.split('/').slice(0, -1).concat(newName).join('/');
-        renameFile(path, newPath);
+    const newName = prompt('Enter new name:', path.split('/').pop());
+    if (newName && newName !== path.split('/').pop()) {
+      const newPath = path.substring(0, path.lastIndexOf('/') + 1) + newName;
+      renameFile(path, newPath);
+    }
+    onClose();
+  };
+
+  const handleCopy = () => {
+    copyFile(path);
+    onClose();
+  };
+
+  const handleNewFile = () => {
+    const defaultPath = path + (type === 'folder' ? '' : '/') + 'new-file.tsx';
+    createFile(defaultPath, '', false);
+    onClose();
+  };
+
+  const handleNewFolder = () => {
+    if (type === 'folder') {
+      const folderName = prompt('Enter folder name:');
+      if (folderName) {
+        const folderPath = path + '/' + folderName + '/.folder-marker';
+        createFile(folderPath, '', false);
       }
     }
     onClose();
   };
 
-  const handleNewFile = () => {
-    const fileName = prompt('Enter file name:');
-    if (fileName) {
-      const folderPath = path || '';
-      const fullPath = folderPath ? `${folderPath}/${fileName}` : fileName;
-      // For files, isFolder = false
-      createFile(fullPath, '// New file', false);
-    }
-    onClose();
-  };
-
-  const handleNewFolder = () => {
-    const folderName = prompt('Enter folder name:');
-    if (folderName) {
-      const basePath = path || '';
-      // Use .folder-marker convention for folders
-      const fullPath = basePath ? `${basePath}/${folderName}/.folder-marker` : `${folderName}/.folder-marker`;
-      createFile(fullPath, '', true);
-    }
-    onClose();
-  };
-
   return (
-    <>
-      <div
-        className="fixed inset-0 z-40"
-        onClick={onClose}
-      />
-      <div
-        className="fixed z-50 bg-gray-800 border border-gray-700 rounded-lg shadow-xl py-2 min-w-[200px]"
-        style={{ left: x, top: y }}
+    <div
+      className="fixed z-50 bg-gray-800 border border-gray-700 rounded shadow-lg py-1 min-w-[160px]"
+      style={{ left: x, top: y }}
+    >
+      <button
+        onClick={handleRename}
+        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-700 flex items-center gap-2"
       >
-        {path ? (
-          <>
-            <button
-              onClick={handleRename}
-              className="w-full px-4 py-2 text-sm hover:bg-gray-700 flex items-center space-x-2"
-            >
-              <Edit size={14} />
-              <span>Rename</span>
-            </button>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(path);
-                onClose();
-              }}
-              className="w-full px-4 py-2 text-sm hover:bg-gray-700 flex items-center space-x-2"
-            >
-              <Copy size={14} />
-              <span>Copy Path</span>
-            </button>
-            <div className="h-px bg-gray-700 my-2" />
-            <button
-              onClick={handleDelete}
-              className="w-full px-4 py-2 text-sm hover:bg-red-900/30 text-red-400 flex items-center space-x-2"
-            >
-              <Trash2 size={14} />
-              <span>Delete</span>
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={handleNewFile}
-              className="w-full px-4 py-2 text-sm hover:bg-gray-700 flex items-center space-x-2"
-            >
-              <File size={14} />
-              <span>New File</span>
-            </button>
-            <button
-              onClick={handleNewFolder}
-              className="w-full px-4 py-2 text-sm hover:bg-gray-700 flex items-center space-x-2"
-            >
-              <Folder size={14} />
-              <span>New Folder</span>
-            </button>
-          </>
-        )}
-      </div>
-    </>
+        <Edit2 className="w-3 h-3" /> Rename
+      </button>
+      <button
+        onClick={handleCopy}
+        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-700 flex items-center gap-2"
+      >
+        <Copy className="w-3 h-3" /> Duplicate
+      </button>
+      <button
+        onClick={handleNewFile}
+        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-700 flex items-center gap-2"
+      >
+        <FilePlus className="w-3 h-3" /> New File
+      </button>
+      {type === 'folder' && (
+        <button
+          onClick={handleNewFolder}
+          className="w-full px-4 py-2 text-sm text-left hover:bg-gray-700 flex items-center gap-2"
+        >
+          <FolderPlus className="w-3 h-3" /> New Folder
+        </button>
+      )}
+      <button
+        onClick={handleDelete}
+        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-700 flex items-center gap-2 text-red-400"
+      >
+        <Trash2 className="w-3 h-3" /> Delete
+      </button>
+    </div>
   );
 };
