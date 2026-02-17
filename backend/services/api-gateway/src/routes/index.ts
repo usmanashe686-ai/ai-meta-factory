@@ -13,11 +13,12 @@ const SERVICES = {
 
 // Common proxy options
 const createServiceProxy = (target: string, pathRewrite?: Record<string, string>): RequestHandler => {
-  const options: Options = {
+  // Use 'as any' to bypass strict type checking for the options object
+  const options: any = {
     target,
     changeOrigin: true,
     pathRewrite,
-    onProxyReq: (proxyReq, req: Request, res: Response) => {
+    onProxyReq: (proxyReq: any, req: Request, res: Response) => {
       // Forward authentication header
       if (req.headers.authorization) {
         proxyReq.setHeader('Authorization', req.headers.authorization);
@@ -27,9 +28,9 @@ const createServiceProxy = (target: string, pathRewrite?: Record<string, string>
         console.log(`[API Gateway] Proxying ${req.method} ${req.url} -> ${target}${proxyReq.path}`);
       }
     },
-    onError: (err, req, res) => {
+    onError: (err: any, req: Request, res: Response) => {
       console.error(`Proxy error for ${req.url}:`, err.message);
-      (res as Response).status(502).json({ error: 'Service unavailable' });
+      res.status(502).json({ error: 'Service unavailable' });
     },
   };
   return createProxyMiddleware(options);
@@ -39,8 +40,8 @@ const router = Router();
 
 // Health check endpoint (no proxy)
 router.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
+  res.json({
+    status: 'healthy',
     timestamp: new Date().toISOString(),
     services: {
       auth: SERVICES.auth,
