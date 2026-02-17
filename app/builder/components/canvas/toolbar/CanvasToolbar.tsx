@@ -9,6 +9,7 @@ import { useProjectStore } from '../state/project-store';
 import { usePlatformStore } from '../state/platform-store';
 import { useUIStore } from '../state/ui-store';
 import { ExportModal } from '../export/ExportModal';
+import { BuildStatus } from './BuildStatus';
 
 interface CanvasToolbarProps {
   onOpenAI?: () => void; // kept for backward compatibility
@@ -91,6 +92,8 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
             <Play size={14} />
             <span>Run</span>
           </button>
+
+          <BuildStatus />
         </div>
 
         <div className="flex items-center space-x-2">

@@ -1,0 +1,28 @@
+config:
+  target: "http://localhost:3001"  # your API gateway URL
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      rampTo: 20
+      name: "Warm up"
+    - duration: 120
+      arrivalRate: 20
+      name: "Sustained load"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+scenarios:
+  - name: "Get projects"
+    flow:
+      - get:
+          url: "/api/projects"
+  - name: "Get project by ID"
+    flow:
+      - get:
+          url: "/api/projects/{{ $randomString() }}"
+  - name: "Create project"
+    flow:
+      - post:
+          url: "/api/projects"
+          json:
+            name: "Test project {{ $randomString() }}"

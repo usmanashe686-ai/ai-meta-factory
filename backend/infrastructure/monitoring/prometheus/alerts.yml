@@ -1,0 +1,68 @@
+groups:
+  - name: api_gateway_alerts
+    interval: 30s
+    rules:
+      - alert: HighRequestLatency
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_ms_bucket[5m])) by (le, route)) > 500
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request latency on {{ $labels.route }}"
+          description: "95th percentile latency for {{ $labels.route }} is {{ $value }}ms (threshold 500ms)"
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{code=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate ({{ $value | humanizePercentage }})"
+          description: "Error rate is above 5% for the last 5 minutes."
+
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Instance {{ $labels.instance }} has been down for more than 1 minute."
+
+  - name: queue_alerts
+    interval: 30s
+    rules:
+      - alert: QueueSizeGrowing
+        expr: |
+          sum(bull_queue_size) by (queue) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Queue {{ $labels.queue }} size is {{ $value }}"
+          description: "Queue size has been above 100 for 5 minutes."
+
+      - alert: FailedJobs
+        expr: |
+          increase(bull_job_failed_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Failed jobs in queue {{ $labels.queue }}"
+          description: "There have been failed jobs in the last 5 minutes."
+
+  - name: ai_service_alerts
+    interval: 30s
+    rules:
+      - alert: AILatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum(rate(ai_request_duration_ms_bucket[5m])) by (le, model)) > 10000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High AI latency for model {{ $labels.model }}"
+          description: "95th percentile latency is {{ $value }}ms (threshold 10s)"
