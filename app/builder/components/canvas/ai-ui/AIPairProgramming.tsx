@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDebounce } from 'use-debounce';
-import { useProjectStore } from '../../state/project-store';
-import { useLocalAIStore } from '../../state/local-ai-store';
+import { useProjectStore } from '../state/project-store';
+import { useLocalAIStore } from '../state/local-ai-store';
 import { Sparkles, X, Check, Copy, RefreshCw } from 'lucide-react';
 
 interface Suggestion {
@@ -41,14 +41,13 @@ export const AIPairProgramming: React.FC<AIPairProgrammingProps> = ({ onClose })
     setLoading(true);
     try {
       const prompt = `You are an AI pair programmer. Analyze the following code and provide up to 3 helpful suggestions (completions, improvements, bug fixes). Output JSON array with objects having "type", "title", "description", and optional "code".\n\nCode:\n\`\`\`\n${code}\n\`\`\``;
-      const result = await generate(prompt);
-      const text = result.text;
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      const rawText = await generate(prompt);
+      const jsonMatch = rawText.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         setSuggestions(parsed.map((s: any, idx: number) => ({ ...s, id: `sug-${idx}` })));
       } else {
-        setSuggestions([{ id: 'raw', type: 'info', title: 'AI Suggestion', description: text }]);
+        setSuggestions([{ id: 'raw', type: 'info', title: 'AI Suggestion', description: rawText }]);
       }
     } catch (error) {
       console.error('Failed to generate suggestions:', error);
