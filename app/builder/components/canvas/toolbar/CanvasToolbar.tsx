@@ -3,13 +3,14 @@
 import React, { useState } from 'react';
 import {
   Save, Download, Upload, GitBranch, Play, Settings, Brain,
-  Zap, Globe, Users
+  Zap, Globe, Users, Sparkles
 } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 import { usePlatformStore } from '../state/platform-store';
 import { useUIStore } from '../state/ui-store';
 import { ExportModal } from '../export/ExportModal';
 import { BuildStatus } from './BuildStatus';
+import { AIPairProgramming } from '../ai-ui/AIPairProgramming';
 
 interface CanvasToolbarProps {
   onOpenAI?: () => void; // kept for backward compatibility
@@ -17,6 +18,7 @@ interface CanvasToolbarProps {
 
 export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showPairProgramming, setShowPairProgramming] = useState(false);
   const project = useProjectStore((state) => state.project);
   const { platform, stack } = usePlatformStore();
   const setProjectName = useProjectStore((state) => state.setProjectName);
@@ -81,6 +83,15 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
           </button>
 
           <button
+            onClick={() => setShowPairProgramming(true)}
+            className="flex items-center space-x-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded text-sm"
+            title="AI Pair Programming"
+          >
+            <Sparkles size={14} />
+            <span>Pair</span>
+          </button>
+
+          <button
             onClick={handleDeploy}
             className="flex items-center space-x-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded text-sm"
           >
@@ -110,6 +121,14 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
       </div>
 
       <ExportModal isOpen={showExportModal} onClose={() => setShowExportModal(false)} />
+
+      {showPairProgramming && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="w-96 h-[600px] bg-gray-900 rounded-lg overflow-hidden">
+            <AIPairProgramming onClose={() => setShowPairProgramming(false)} />
+          </div>
+        </div>
+      )}
     </>
   );
 };
