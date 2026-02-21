@@ -1,0 +1,28 @@
+# PersistentVolumeClaim for AI models (used by ai-service)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ai-models-pvc
+  namespace: ai-meta-factory
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: fast  # reference the StorageClass above
+  resources:
+    requests:
+      storage: 20Gi
+---
+# If you need separate PVCs for other components, add them below.
+# For example, a shared volume for uploaded files or logs.
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: shared-data-pvc
+#   namespace: ai-meta-factory
+# spec:
+#   accessModes:
+#     - ReadWriteMany
+#   storageClassName: fast  # ensure your storage class supports RWX
+#   resources:
+#     requests:
+#       storage: 10Gi

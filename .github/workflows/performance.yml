@@ -1,0 +1,52 @@
+name: Performance Testing
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # nightly at 2 AM
+  workflow_dispatch:      # allow manual trigger
+  push:
+    branches: [ main ]
+    paths:
+      - 'load-test/**'
+      - '.github/workflows/performance.yml'
+
+jobs:
+  k6-load-test:
+    name: Run k6 Load Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run k6 test
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: load-test/k6-test.js
+          flags: --out json=results.json
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-results
+          path: results.json
+
+      - name: Summary output
+        run: |
+          echo "## Performance Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "k6 test completed. Results attached as artifact." >> $GITHUB_STEP_SUMMARY
+
+  # Alternative: Artillery (uncomment if you prefer)
+  # artillery-load-test:
+  #   name: Run Artillery Load Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #     - run: npm install -g artillery
+  #     - run: artillery run load-test/artillery-test.yml --output report.json
+  #     - name: Upload test results
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: artillery-results
+  #         path: report.json

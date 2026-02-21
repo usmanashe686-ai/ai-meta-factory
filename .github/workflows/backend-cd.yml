@@ -1,0 +1,128 @@
+name: Backend CD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/services/**'
+      - 'prisma/**'
+      - '.github/workflows/backend-cd.yml'
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api-gateway, auth-service, project-service, realtime-service, queue-service, email-service, notification-service]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}
+          tags: |
+            type=sha,prefix=,suffix=,format=short
+            type=ref,event=branch
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/services/${{ matrix.service }}
+          file: ./backend/services/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  run-migrations:
+    name: Run Database Migrations
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./backend/services/api-gateway  # or where your prisma is located
+
+      - name: Run Prisma Migrations
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: npx prisma migrate deploy
+        working-directory: ./backend/services/api-gateway
+
+  deploy-to-k8s:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: run-migrations
+    if: false  # Enable when cluster is ready
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > $HOME/.kube/config
+
+      - name: Update Kubernetes deployments
+        run: |
+          kubectl set image -n ai-meta-factory deployment/api-gateway \
+            api-gateway=${{ secrets.DOCKER_USERNAME }}/api-gateway:${{ github.sha }}
+          kubectl set image -n ai-meta-factory deployment/auth-service \
+            auth-service=${{ secrets.DOCKER_USERNAME }}/auth-service:${{ github.sha }}
+          kubectl set image -n ai-meta-factory deployment/project-service \
+            project-service=${{ secrets.DOCKER_USERNAME }}/project-service:${{ github.sha }}
+          kubectl set image -n ai-meta-factory deployment/realtime-service \
+            realtime-service=${{ secrets.DOCKER_USERNAME }}/realtime-service:${{ github.sha }}
+          kubectl set image -n ai-meta-factory deployment/queue-service \
+            queue-service=${{ secrets.DOCKER_USERNAME }}/queue-service:${{ github.sha }}
+          kubectl set image -n ai-meta-factory deployment/email-service \
+            email-service=${{ secrets.DOCKER_USERNAME }}/email-service:${{ github.sha }}
+          kubectl set image -n ai-meta-factory deployment/notification-service \
+            notification-service=${{ secrets.DOCKER_USERNAME }}/notification-service:${{ github.sha }}
+
+      - name: Rollout status
+        run: |
+          kubectl rollout status deployment/api-gateway -n ai-meta-factory
+          kubectl rollout status deployment/auth-service -n ai-meta-factory
+          kubectl rollout status deployment/project-service -n ai-meta-factory
+          kubectl rollout status deployment/realtime-service -n ai-meta-factory
+          kubectl rollout status deployment/queue-service -n ai-meta-factory
+          kubectl rollout status deployment/email-service -n ai-meta-factory
+          kubectl rollout status deployment/notification-service -n ai-meta-factory
+
+  trigger-render:
+    name: Trigger Render Deploy
+    runs-on: ubuntu-latest
+    needs: run-migrations
+    if: false  # Enable if using Render
+    steps:
+      - name: Call Render Deploy Hook
+        run: |
+          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}

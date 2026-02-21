@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-meta-factory
+  labels:
+    name: ai-meta-factory
+    environment: production

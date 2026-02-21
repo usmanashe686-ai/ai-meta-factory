@@ -12,6 +12,8 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import winston from 'winston';
 import { authMiddleware } from './middleware/auth';
 import prisma from './lib/prisma';
+import adminRouter from './routes/admin';
+app.use('/api/admin', adminRouter);
 
 const app: Express = express();
 const PORT = process.env.PORT || 3001;

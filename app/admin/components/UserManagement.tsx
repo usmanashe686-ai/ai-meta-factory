@@ -1,0 +1,119 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Trash2, Edit, UserCheck, UserX } from 'lucide-react';
+
+interface User {
+  id: string;
+  name: string | null;
+  email: string | null;
+  createdAt: string;
+  projectCount: number;
+  isAdmin?: boolean;
+}
+
+export default function UserManagement() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('/api/admin/users');
+      if (!res.ok) throw new Error('Failed to fetch users');
+      const data = await res.json();
+      setUsers(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (userId: string) => {
+    if (!confirm('Are you sure you want to delete this user? All associated data will be lost.')) return;
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete user');
+      setUsers(users.filter(u => u.id !== userId));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error deleting user');
+    }
+  };
+
+  const toggleAdmin = async (userId: string, currentIsAdmin: boolean) => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/toggle-admin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isAdmin: !currentIsAdmin }),
+      });
+      if (!res.ok) throw new Error('Failed to update user');
+      setUsers(users.map(u => u.id === userId ? { ...u, isAdmin: !currentIsAdmin } : u));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error updating user');
+    }
+  };
+
+  if (loading) return <div className="text-center p-4">Loading users...</div>;
+  if (error) return <div className="text-red-500 text-center p-4">{error}</div>;
+
+  return (
+    <div className="bg-gray-800 rounded-lg p-6">
+      <h2 className="text-xl font-bold mb-4">User Management</h2>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-gray-700">
+              <th className="text-left py-2 px-4">Name</th>
+              <th className="text-left py-2 px-4">Email</th>
+              <th className="text-left py-2 px-4">Joined</th>
+              <th className="text-left py-2 px-4">Projects</th>
+              <th className="text-left py-2 px-4">Admin</th>
+              <th className="text-left py-2 px-4">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map(user => (
+              <tr key={user.id} className="border-b border-gray-700 hover:bg-gray-700/50">
+                <td className="py-2 px-4">{user.name || '—'}</td>
+                <td className="py-2 px-4">{user.email || '—'}</td>
+                <td className="py-2 px-4">{new Date(user.createdAt).toLocaleDateString()}</td>
+                <td className="py-2 px-4">{user.projectCount}</td>
+                <td className="py-2 px-4">
+                  {user.isAdmin ? (
+                    <span className="text-green-400">Admin</span>
+                  ) : (
+                    <span className="text-gray-400">User</span>
+                  )}
+                </td>
+                <td className="py-2 px-4">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => toggleAdmin(user.id, !!user.isAdmin)}
+                      className="p-1 hover:bg-gray-600 rounded"
+                      title={user.isAdmin ? 'Remove admin' : 'Make admin'}
+                    >
+                      {user.isAdmin ? <UserX size={16} /> : <UserCheck size={16} />}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(user.id)}
+                      className="p-1 hover:bg-red-600/20 text-red-400 rounded"
+                      title="Delete user"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

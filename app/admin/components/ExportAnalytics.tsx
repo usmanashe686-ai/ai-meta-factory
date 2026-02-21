@@ -1,0 +1,90 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
+interface ExportStats {
+  total: number;
+  success: number;
+  failed: number;
+  byFormat: Array<{ format: string; _count: { format: number } }>;
+  last7Days: Array<{ createdAt: string; _count: { id: number } }>;
+}
+
+export default function ExportAnalytics() {
+  const [stats, setStats] = useState<ExportStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetch('/api/analytics/export-stats')
+      .then(res => res.json())
+      .then(data => {
+        setStats(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <div>Loading stats...</div>;
+  if (error) return <div className="text-red-500">Error: {error}</div>;
+  if (!stats) return null;
+
+  const successRate = stats.total > 0 ? ((stats.success / stats.total) * 100).toFixed(1) : '0';
+
+  return (
+    <div className="p-6 bg-gray-900 text-white rounded-lg">
+      <h2 className="text-2xl font-bold mb-4">Export Analytics</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-gray-800 p-4 rounded">
+          <div className="text-sm text-gray-400">Total Exports</div>
+          <div className="text-3xl font-bold">{stats.total}</div>
+        </div>
+        <div className="bg-gray-800 p-4 rounded">
+          <div className="text-sm text-gray-400">Successful</div>
+          <div className="text-3xl font-bold text-green-400">{stats.success}</div>
+        </div>
+        <div className="bg-gray-800 p-4 rounded">
+          <div className="text-sm text-gray-400">Failed</div>
+          <div className="text-3xl font-bold text-red-400">{stats.failed}</div>
+        </div>
+      </div>
+      <div className="mb-6">
+        <div className="text-lg font-semibold mb-2">Success Rate</div>
+        <div className="w-full bg-gray-700 rounded-full h-4">
+          <div
+            className="bg-blue-600 h-4 rounded-full"
+            style={{ width: `${successRate}%` }}
+          ></div>
+        </div>
+        <div className="text-right text-sm mt-1">{successRate}%</div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h3 className="text-lg font-semibold mb-2">By Format</h3>
+          <ul className="space-y-2">
+            {stats.byFormat.map((item) => (
+              <li key={item.format} className="flex justify-between">
+                <span className="capitalize">{item.format}</span>
+                <span className="font-mono">{item._count.format}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Last 7 Days</h3>
+          <ul className="space-y-2">
+            {stats.last7Days.map((item) => (
+              <li key={item.createdAt} className="flex justify-between">
+                <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                <span className="font-mono">{item._count.id}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}

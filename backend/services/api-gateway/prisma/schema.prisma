@@ -84,3 +84,23 @@ model ApiKey {
   @@index([userId])
   @@index([createdAt])
 }
+
+// Added for export analytics
+model ExportLog {
+  id          String   @id @default(cuid())
+  projectId   String?
+  projectName String?
+  format      String   // 'zip', 'apk', 'github', 'vercel', etc.
+  platform    String?  // 'web', 'mobile', 'desktop'
+  status      String   // 'success', 'failed'
+  error       String?  // error message if failed
+  duration    Int?     // export duration in ms
+  userId      String?  // if authentication is available
+  createdAt   DateTime @default(now())
+  metadata    Json?    // additional data (file sizes, options)
+
+  @@index([createdAt])
+  @@index([projectId])
+  @@index([format])
+  @@index([status])
+}

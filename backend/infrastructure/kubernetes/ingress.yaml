@@ -1,0 +1,62 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-gateway-ingress
+  namespace: ai-meta-factory
+  annotations:
+    # Ingress controller type
+    kubernetes.io/ingress.class: nginx
+    # Enable SSL redirect
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Cert-manager for automatic TLS
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # Optional: enable CORS
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+spec:
+  tls:
+  - hosts:
+      - api.aimetafactory.com
+    secretName: api-tls-secret
+  rules:
+  - host: api.aimetafactory.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway-service
+            port:
+              number: 80
+      # Optional: direct routing to other services if needed
+      # - path: /ai
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: ai-service
+      #       port:
+      #         number: 8000
+---
+# Optional: if you also want to expose the AI service directly under a subpath
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: ai-service-ingress
+#   namespace: ai-meta-factory
+#   annotations:
+#     kubernetes.io/ingress.class: nginx
+#     nginx.ingress.kubernetes.io/rewrite-target: /
+# spec:
+#   rules:
+#   - host: api.aimetafactory.com
+#     http:
+#       paths:
+#       - path: /ai
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: ai-service
+#             port:
+#               number: 8000

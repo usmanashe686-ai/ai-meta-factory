@@ -1,0 +1,263 @@
+'use client';
+
+import React, { useState } from 'react';
+import { Loader2, Play, Download, CheckCircle, XCircle } from 'lucide-react';
+
+interface Hyperparameters {
+  lora_r: number;
+  lora_alpha: number;
+  lora_dropout: number;
+  epochs: number;
+  learning_rate: number;
+}
+
+const defaultHyperparams: Hyperparameters = {
+  lora_r: 8,
+  lora_alpha: 16,
+  lora_dropout: 0.05,
+  epochs: 3,
+  learning_rate: 0.0002,
+};
+
+const AVAILABLE_MODELS = [
+  { id: 'codellama/CodeLlama-7b-hf', name: 'CodeLlama 7B' },
+  { id: 'mistralai/Mistral-7B-v0.1', name: 'Mistral 7B' },
+  { id: 'microsoft/phi-2', name: 'Phi-2' },
+];
+
+export const AITrainingPanel: React.FC = () => {
+  const [dataset, setDataset] = useState('');
+  const [model, setModel] = useState(AVAILABLE_MODELS[0].id);
+  const [hyperparams, setHyperparams] = useState<Hyperparameters>(defaultHyperparams);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [status, setStatus] = useState<'idle' | 'queued' | 'running' | 'completed' | 'failed'>('idle');
+  const [error, setError] = useState<string | null>(null);
+  const [polling, setPolling] = useState<NodeJS.Timeout | null>(null);
+
+  const handleStartTraining = async () => {
+    // Reset state
+    setError(null);
+    setStatus('queued');
+    setJobId(null);
+
+    // Parse dataset – assume it's a JSON array of objects with instruction and output
+    let parsedDataset;
+    try {
+      parsedDataset = JSON.parse(dataset);
+      if (!Array.isArray(parsedDataset)) throw new Error('Dataset must be an array');
+    } catch (e: any) {
+      setError('Invalid JSON: ' + e.message);
+      setStatus('idle');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/finetune', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model_name: model,
+          dataset: parsedDataset,
+          ...hyperparams,
+        }),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Failed to start training');
+      }
+      const data = await response.json();
+      setJobId(data.job_id);
+      setStatus('queued');
+      // Start polling for status
+      const interval = setInterval(() => pollStatus(data.job_id), 2000);
+      setPolling(interval);
+    } catch (err: any) {
+      setError(err.message);
+      setStatus('idle');
+    }
+  };
+
+  const pollStatus = async (id: string) => {
+    try {
+      const res = await fetch(`/api/finetune/status/${id}`);
+      if (!res.ok) throw new Error('Status fetch failed');
+      const data = await res.json();
+      setStatus(data.status);
+      if (data.status === 'completed' || data.status === 'failed') {
+        if (polling) clearInterval(polling);
+        setPolling(null);
+        if (data.status === 'failed') setError(data.error || 'Training failed');
+      }
+    } catch (err) {
+      console.error('Polling error:', err);
+    }
+  };
+
+  const handleCancel = () => {
+    if (polling) {
+      clearInterval(polling);
+      setPolling(null);
+    }
+    setStatus('idle');
+  };
+
+  const handleHyperparamChange = (key: keyof Hyperparameters, value: number) => {
+    setHyperparams(prev => ({ ...prev, [key]: value }));
+  };
+
+  const exampleDataset = `[
+  {
+    "instruction": "Write a function to add two numbers",
+    "output": "def add(a, b):\\n    return a + b"
+  },
+  {
+    "instruction": "Explain the concept of closures in JavaScript",
+    "output": "A closure is a function that has access to its outer function's scope even after the outer function has returned..."
+  }
+]`;
+
+  return (
+    <div className="p-6 bg-gray-900 text-white rounded-lg h-full overflow-y-auto">
+      <h2 className="text-2xl font-bold mb-4">Fine‑tune a Model</h2>
+      <p className="text-gray-400 mb-6">
+        Upload your own dataset to fine‑tune a base model using LoRA. Your data stays private.
+      </p>
+
+      <div className="space-y-6">
+        {/* Model selection */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Base Model</label>
+          <select
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
+          >
+            {AVAILABLE_MODELS.map(m => (
+              <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Dataset input */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Dataset (JSON array)</label>
+          <textarea
+            value={dataset}
+            onChange={(e) => setDataset(e.target.value)}
+            rows={8}
+            className="w-full p-2 bg-gray-800 border border-gray-700 rounded font-mono text-sm"
+            placeholder={exampleDataset}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Each object must have <code>instruction</code> and <code>output</code> fields.
+          </p>
+        </div>
+
+        {/* Hyperparameters */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">LoRA r ({hyperparams.lora_r})</label>
+            <input
+              type="range"
+              min="1"
+              max="64"
+              value={hyperparams.lora_r}
+              onChange={(e) => handleHyperparamChange('lora_r', parseInt(e.target.value))}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">LoRA alpha ({hyperparams.lora_alpha})</label>
+            <input
+              type="range"
+              min="1"
+              max="64"
+              value={hyperparams.lora_alpha}
+              onChange={(e) => handleHyperparamChange('lora_alpha', parseInt(e.target.value))}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Dropout ({hyperparams.lora_dropout})</label>
+            <input
+              type="range"
+              min="0"
+              max="0.5"
+              step="0.01"
+              value={hyperparams.lora_dropout}
+              onChange={(e) => handleHyperparamChange('lora_dropout', parseFloat(e.target.value))}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Epochs ({hyperparams.epochs})</label>
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={hyperparams.epochs}
+              onChange={(e) => handleHyperparamChange('epochs', parseInt(e.target.value))}
+              className="w-full"
+            />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-sm font-medium mb-1">Learning Rate ({hyperparams.learning_rate.toExponential(1)})</label>
+            <input
+              type="range"
+              min="1e-6"
+              max="1e-3"
+              step="1e-6"
+              value={hyperparams.learning_rate}
+              onChange={(e) => handleHyperparamChange('learning_rate', parseFloat(e.target.value))}
+              className="w-full"
+            />
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-4">
+          <button
+            onClick={handleStartTraining}
+            disabled={status !== 'idle' || !dataset.trim()}
+            className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            <Play size={16} />
+            Start Training
+          </button>
+          {status !== 'idle' && (
+            <button
+              onClick={handleCancel}
+              className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+
+        {/* Status display */}
+        {status !== 'idle' && (
+          <div className="mt-4 p-4 bg-gray-800 rounded">
+            <div className="flex items-center gap-3">
+              {status === 'queued' && <Loader2 className="w-5 h-5 animate-spin text-yellow-400" />}
+              {status === 'running' && <Loader2 className="w-5 h-5 animate-spin text-blue-400" />}
+              {status === 'completed' && <CheckCircle className="w-5 h-5 text-green-400" />}
+              {status === 'failed' && <XCircle className="w-5 h-5 text-red-400" />}
+              <span className="font-medium capitalize">{status}</span>
+              {jobId && <span className="text-xs text-gray-400 ml-2">Job ID: {jobId}</span>}
+            </div>
+            {status === 'completed' && (
+              <div className="mt-3">
+                <p className="text-green-400">Training completed successfully!</p>
+                <button className="mt-2 px-3 py-1 bg-green-600 rounded text-sm flex items-center gap-1">
+                  <Download size={14} />
+                  Download Model
+                </button>
+              </div>
+            )}
+            {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
