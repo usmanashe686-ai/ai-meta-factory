@@ -1,0 +1,165 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { formatDistanceToNow } from 'date-fns';
+import { Send, Trash2, User } from 'lucide-react';
+
+interface Comment {
+  id: string;
+  content: string;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string | null;
+    image: string | null;
+  };
+}
+
+interface CommentsProps {
+  projectId: string;
+  className?: string;
+}
+
+export const Comments: React.FC<CommentsProps> = ({ projectId, className = '' }) => {
+  const { data: session } = useSession();
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchComments = async () => {
+    try {
+      const res = await fetch(`/api/comments/${projectId}`);
+      if (!res.ok) throw new Error('Failed to fetch comments');
+      const data = await res.json();
+      setComments(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchComments();
+  }, [projectId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || !session?.user) return;
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, content: newComment }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to post comment');
+      }
+      const comment = await res.json();
+      setComments(prev => [comment, ...prev]);
+      setNewComment('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to post comment');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (commentId: string) => {
+    if (!confirm('Delete this comment?')) return;
+    try {
+      const res = await fetch(`/api/comments/${commentId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to delete comment');
+      setComments(prev => prev.filter(c => c.id !== commentId));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error deleting comment');
+    }
+  };
+
+  if (loading) return <div className="text-center py-4 text-gray-400">Loading comments...</div>;
+
+  return (
+    <div className={`bg-gray-800 rounded-lg p-4 ${className}`}>
+      <h3 className="text-lg font-semibold mb-4">Comments</h3>
+
+      {error && <div className="mb-4 p-2 bg-red-500/20 text-red-400 rounded text-sm">{error}</div>}
+
+      {/* Comment form */}
+      {session?.user ? (
+        <form onSubmit={handleSubmit} className="mb-6">
+          <textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Add a comment..."
+            rows={3}
+            className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={submitting}
+          />
+          <div className="flex justify-end mt-2">
+            <button
+              type="submit"
+              disabled={submitting || !newComment.trim()}
+              className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 text-sm"
+            >
+              <Send size={16} />
+              {submitting ? 'Posting...' : 'Post Comment'}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="mb-6 p-3 bg-gray-700 rounded-lg text-center text-sm text-gray-400">
+          Please sign in to leave a comment.
+        </div>
+      )}
+
+      {/* Comments list */}
+      {comments.length === 0 ? (
+        <p className="text-gray-400 text-center py-4">No comments yet. Be the first!</p>
+      ) : (
+        <div className="space-y-4">
+          {comments.map((comment) => (
+            <div key={comment.id} className="flex gap-3">
+              {/* Avatar */}
+              {comment.user.image ? (
+                <img src={comment.user.image} alt={comment.user.name || ''} className="w-8 h-8 rounded-full" />
+              ) : (
+                <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
+                  <User size={16} />
+                </div>
+              )}
+              <div className="flex-1">
+                <div className="bg-gray-700 rounded-lg p-3">
+                  <div className="flex justify-between items-start">
+                    <span className="font-medium text-sm">{comment.user.name || 'Anonymous'}</span>
+                    <span className="text-xs text-gray-400">
+                      {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm whitespace-pre-wrap">{comment.content}</p>
+                </div>
+                {/* Delete button (only for own comments) */}
+                {session?.user?.id === comment.user.id && (
+                  <button
+                    onClick={() => handleDelete(comment.id)}
+                    className="mt-1 text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
+                  >
+                    <Trash2 size={12} /> Delete
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};

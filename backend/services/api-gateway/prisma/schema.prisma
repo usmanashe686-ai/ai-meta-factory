@@ -21,6 +21,20 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Social relations
+  followers     Follow[]  @relation("follower")
+  following     Follow[]  @relation("following")
+  likes         Like[]
+  comments      Comment[]
+
+  // Badges
+  badges        UserBadge[]
+
+  // Reports (as reporter or reviewer)
+  reportsMade   Report[]  @relation("reporter")
+  reportsReviewed Report[] @relation("reviewer")
+  reportedIn    Report[]  @relation("reportedUser")
+
   @@index([email])
   @@index([createdAt])
 }
@@ -65,10 +79,22 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Sharing fields
+  isPublic  Boolean  @default(false)
+  shareId   String?  @unique
+
+  // Social relations
+  likes     Like[]
+  comments  Comment[]
+
+  // Reports
+  reports   Report[]
+
   @@unique([userId, name])
   @@index([userId])
   @@index([createdAt])
   @@index([name])
+  @@index([isPublic])
 }
 
 model ApiKey {
@@ -85,7 +111,7 @@ model ApiKey {
   @@index([createdAt])
 }
 
-// Added for export analytics
+// Export analytics
 model ExportLog {
   id          String   @id @default(cuid())
   projectId   String?
@@ -103,4 +129,89 @@ model ExportLog {
   @@index([projectId])
   @@index([format])
   @@index([status])
+}
+
+// Social features
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower    User     @relation("follower", fields: [followerId], references: [id])
+  following   User     @relation("following", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
+
+model Like {
+  userId    String
+  projectId String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+  project   Project  @relation(fields: [projectId], references: [id])
+
+  @@id([userId, projectId])
+  @@index([projectId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  userId    String
+  projectId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id])
+  project   Project  @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([userId])
+}
+
+// Badges & Achievements
+model Badge {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  icon        String?  // URL or emoji
+  criteria    Json     // conditions to earn (e.g., { type: "project_count", threshold: 5 })
+  createdAt   DateTime @default(now())
+
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  userId    String
+  badgeId   String
+  earnedAt  DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+  badge     Badge    @relation(fields: [badgeId], references: [id])
+
+  @@id([userId, badgeId])
+}
+
+// Community Moderation
+model Report {
+  id          String   @id @default(cuid())
+  reporterId  String
+  reportedUserId String? // optional, if reporting a user
+  reportedProjectId String? // optional, if reporting a project
+  reason      String
+  description String?  // additional details
+  status      String   @default("pending") // pending, reviewed, dismissed
+  createdAt   DateTime @default(now())
+  reviewedAt  DateTime?
+  reviewerId  String?  // admin who reviewed
+
+  reporter    User     @relation("reporter", fields: [reporterId], references: [id])
+  reportedUser User?   @relation("reportedUser", fields: [reportedUserId], references: [id])
+  reportedProject Project? @relation(fields: [reportedProjectId], references: [id])
+  reviewer    User?    @relation("reviewer", fields: [reviewerId], references: [id])
+
+  @@index([status])
+  @@index([createdAt])
 }

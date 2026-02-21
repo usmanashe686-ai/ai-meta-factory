@@ -1,0 +1,137 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+
+export default function UserProfile() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({ name: '', image: '' });
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchProfile();
+    }
+  }, [session]);
+
+  const fetchProfile = async () => {
+    try {
+      const res = await fetch('/api/auth/profile');
+      if (!res.ok) throw new Error('Failed to fetch profile');
+      const data = await res.json();
+      setProfile(data);
+      setFormData({ name: data.name || '', image: data.image || '' });
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      if (!res.ok) throw new Error('Update failed');
+      const updated = await res.json();
+      setProfile(updated);
+      setIsEditing(false);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  if (loading) return <div className="text-center p-8">Loading profile...</div>;
+  if (error) return <div className="text-red-500 text-center p-8">{error}</div>;
+  if (!profile) return null;
+
+  return (
+    <div className="max-w-2xl mx-auto p-6 bg-gray-900 text-white rounded-lg">
+      <h1 className="text-2xl font-bold mb-6">User Profile</h1>
+      {!isEditing ? (
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            {profile.image ? (
+              <Image src={profile.image} alt={profile.name} width={80} height={80} className="rounded-full" />
+            ) : (
+              <div className="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center text-3xl">
+                {profile.name?.charAt(0) || 'U'}
+              </div>
+            )}
+            <div>
+              <div className="text-xl font-semibold">{profile.name || 'No name'}</div>
+              <div className="text-gray-400">{profile.email}</div>
+            </div>
+          </div>
+          <div className="text-sm text-gray-400">Joined: {new Date(profile.createdAt).toLocaleDateString()}</div>
+          <div className="flex gap-2">
+            <div className="bg-gray-800 px-4 py-2 rounded">
+              <div className="text-lg font-bold">{profile._count?.projects || 0}</div>
+              <div className="text-xs text-gray-400">Projects</div>
+            </div>
+            <div className="bg-gray-800 px-4 py-2 rounded">
+              <div className="text-lg font-bold">{profile._count?.apiKeys || 0}</div>
+              <div className="text-xs text-gray-400">API Keys</div>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsEditing(true)}
+            className="mt-4 px-4 py-2 bg-blue-600 rounded hover:bg-blue-700"
+          >
+            Edit Profile
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={handleUpdate} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Name</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Profile Image URL</label>
+            <input
+              type="url"
+              value={formData.image}
+              onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+              className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
+            />
+          </div>
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+          <div className="flex gap-2">
+            <button type="submit" className="px-4 py-2 bg-green-600 rounded hover:bg-green-700">
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="px-4 py-2 bg-gray-600 rounded hover:bg-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}

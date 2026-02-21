@@ -19,6 +19,8 @@ const isAdmin = (req: any, res: any, next: any) => {
 // Apply admin middleware to all routes
 router.use(isAdmin);
 
+// ==================== User Management ====================
+
 // GET /api/admin/users
 router.get('/users', async (req, res) => {
   try {
@@ -36,8 +38,7 @@ router.get('/users', async (req, res) => {
       email: u.email,
       createdAt: u.createdAt,
       projectCount: u._count.projects,
-      // If you have an isAdmin field, include it. For now, we can infer from email or a flag.
-      // Let's add a simple check: users with email containing 'admin' are admins (for demo)
+      // Placeholder for admin flag – adjust if you add a role field
       isAdmin: u.email?.includes('admin') ?? false,
     }));
     res.json(formatted);
@@ -66,9 +67,10 @@ router.post('/users/:id/toggle-admin', async (req, res) => {
   const { isAdmin } = req.body;
   // If you have an isAdmin field in the User model, you'd update it here.
   // For now, we'll just return a success message (no actual change).
-  // In a real app, you'd have a role field.
   res.json({ success: true, message: 'Admin status toggled (placeholder)' });
 });
+
+// ==================== Statistics ====================
 
 // GET /api/admin/stats
 router.get('/stats', async (req, res) => {
@@ -85,6 +87,62 @@ router.get('/stats', async (req, res) => {
     });
   } catch (err) {
     console.error('Error fetching stats:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ==================== Report Moderation ====================
+
+// GET /api/admin/reports – list pending reports
+router.get('/reports', async (req, res) => {
+  try {
+    const reports = await prisma.report.findMany({
+      where: { status: 'pending' },
+      include: {
+        reporter: { select: { id: true, name: true, email: true } },
+        reportedUser: { select: { id: true, name: true, email: true } },
+        reportedProject: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json(reports);
+  } catch (err) {
+    console.error('Error fetching reports:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/admin/reports/:id/review – review a report
+router.post('/reports/:id/review', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // 'reviewed' or 'dismissed'
+    const adminId = (req as any).user?.id;
+    if (!adminId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const updated = await prisma.report.update({
+      where: { id },
+      data: {
+        status,
+        reviewedAt: new Date(),
+        reviewerId: adminId,
+      },
+    });
+    res.json(updated);
+  } catch (err) {
+    console.error('Error reviewing report:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /api/admin/projects/:id – delete a reported project
+router.delete('/projects/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.project.delete({ where: { id } });
+    res.status(204).send();
+  } catch (err) {
+    console.error('Error deleting project:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
