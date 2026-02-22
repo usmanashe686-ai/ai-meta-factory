@@ -1,6 +1,4 @@
 import { create } from 'zustand';
-import ModelManager from '../ai-local/ModelManager';
-import { ModelDownloader, ModelInfo, DownloadProgress } from '../ai-local/ModelDownloader';
 
 export interface AIModel {
   id: string;
@@ -18,7 +16,7 @@ export interface AIModel {
 export interface LocalAIState {
   availableModels: AIModel[];
   currentModel: AIModel | null;
-  downloadProgress: Record<string, DownloadProgress>;
+  downloadProgress: Record<string, any>;
   isLoading: boolean;
   error: string | null;
 
@@ -32,136 +30,90 @@ export interface LocalAIState {
   generate: (prompt: string, options?: any) => Promise<string>;
 }
 
-const downloader = new ModelDownloader();
+const FALLBACK_MODELS: AIModel[] = [
+  {
+    id: 'tinyllama-1.1b',
+    name: 'TinyLlama 1.1B',
+    size: '590 MB',
+    downloaded: true,
+    active: false,
+    type: 'llamacpp',
+    tags: ['llama', 'small'],
+  },
+];
 
 export const useLocalAIStore = create<LocalAIState>((set, get) => ({
-  availableModels: [],
+  availableModels: FALLBACK_MODELS,
   currentModel: null,
   downloadProgress: {},
   isLoading: false,
   error: null,
 
   fetchAvailableModels: async () => {
-    set({ isLoading: true, error: null });
     try {
-      const models = await downloader.fetchAvailableModels();
-      set({ availableModels: models.map(m => ({ ...m, active: false })), isLoading: false });
+      const res = await fetch('http://localhost:8000/models');
+      if (res.ok) {
+        const data = await res.json();
+        const models = data.map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          size: m.size,
+          downloaded: true,
+          active: false,
+          type: 'llamacpp',
+          tags: [],
+        }));
+        set({ availableModels: models, isLoading: false });
+      } else {
+        set({ availableModels: FALLBACK_MODELS, isLoading: false });
+      }
     } catch (error) {
-      set({ error: (error as Error).message, isLoading: false });
+      console.error('Failed to fetch models, using fallback:', error);
+      set({ availableModels: FALLBACK_MODELS, isLoading: false });
     }
   },
 
   downloadModel: async (modelId: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      const model = get().availableModels.find(m => m.id === modelId);
-      if (!model) throw new Error('Model not found');
-
-      const progressCallback = (progress: DownloadProgress) => {
-        set(state => ({
-          downloadProgress: {
-            ...state.downloadProgress,
-            [modelId]: progress,
-          },
-        }));
-        if (progress.status === 'completed') {
-          set(state => ({
-            availableModels: state.availableModels.map(m =>
-              m.id === modelId ? { ...m, downloaded: true, path: progress.filePath } : m
-            ),
-            downloadProgress: {
-              ...state.downloadProgress,
-              [modelId]: progress,
-            },
-            isLoading: false,
-          }));
-        }
-      };
-
-      const filePath = await downloader.downloadModel(modelId, progressCallback);
-      set(state => ({
-        availableModels: state.availableModels.map(m =>
-          m.id === modelId ? { ...m, downloaded: true, path: filePath } : m
-        ),
-        isLoading: false,
-      }));
-    } catch (error) {
-      set({ error: (error as Error).message, isLoading: false });
-    }
+    set({ error: 'Download not supported in browser' });
   },
 
-  cancelDownload: async (modelId: string) => {
-    try {
-      await downloader.cancelDownload(modelId);
-      set(state => ({
-        downloadProgress: {
-          ...state.downloadProgress,
-          [modelId]: { ...state.downloadProgress[modelId], status: 'cancelled' },
-        },
-      }));
-    } catch (error) {
-      set({ error: (error as Error).message });
-    }
-  },
+  cancelDownload: async (modelId: string) => {},
 
   loadModel: async (modelId: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      const model = get().availableModels.find(m => m.id === modelId);
-      if (!model) throw new Error('Model not found');
-      if (!model.downloaded || !model.path) throw new Error('Model not downloaded');
-
-      await ModelManager.unloadModel();
-
-      if (model.type === 'llamacpp') {
-        await ModelManager.loadLlamaModel(model.path);
-      } else {
-        await ModelManager.loadTransformersModel(model.id);
-      }
-
-      set(state => ({
-        currentModel: model,
-        availableModels: state.availableModels.map(m =>
-          m.id === modelId ? { ...m, active: true } : { ...m, active: false }
-        ),
-        isLoading: false,
-      }));
-      return true;
-    } catch (error) {
-      set({ error: (error as Error).message, isLoading: false });
-      return false;
-    }
+    const model = get().availableModels.find(m => m.id === modelId);
+    if (!model) return false;
+    set({ currentModel: model });
+    return true;
   },
 
   unloadModel: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      await ModelManager.unloadModel();
-      set(state => ({
-        currentModel: null,
-        availableModels: state.availableModels.map(m => ({ ...m, active: false })),
-        isLoading: false,
-      }));
-    } catch (error) {
-      set({ error: (error as Error).message, isLoading: false });
-    }
+    set({ currentModel: null });
   },
 
-  setCurrentModel: (model) => {
-    set({ currentModel: model });
-  },
+  setCurrentModel: (model) => set({ currentModel: model }),
 
   clearError: () => set({ error: null }),
 
   generate: async (prompt: string, options?: any) => {
-    set({ isLoading: true, error: null });
+    const { currentModel } = get();
+    const modelId = currentModel?.id || 'tinyllama-1.1b';
     try {
-      const result = await ModelManager.generate(prompt, options);
-      set({ isLoading: false });
-      return result.text;
+      const response = await fetch('http://localhost:8000/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          model: modelId,
+          max_tokens: options?.max_tokens || 300,
+          temperature: options?.temperature || 0.7,
+        }),
+      });
+      if (!response.ok) throw new Error(`AI service error: ${response.status}`);
+      const data = await response.json();
+      return data.text || data.generated_text || '';
     } catch (error) {
-      set({ error: (error as Error).message, isLoading: false });
-      throw error;
+      console.error('Generate failed:', error);
+      return 'Error generating response.';
     }
   },
 }));
