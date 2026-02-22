@@ -24,7 +24,18 @@ export const AIPairProgramming: React.FC<AIPairProgrammingProps> = ({ onClose })
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const { files, activeFileId, updateFileContent } = useProjectStore();
-  const { currentModel, generate } = useLocalAIStore();
+  const { availableModels, currentModel, setCurrentModel, generate, fetchAvailableModels } = useLocalAIStore();
+
+  // Fetch models and set default if none selected
+  useEffect(() => {
+    fetchAvailableModels();
+  }, []);
+
+  useEffect(() => {
+    if (availableModels.length > 0 && !currentModel) {
+      setCurrentModel(availableModels[0]);
+    }
+  }, [availableModels, currentModel, setCurrentModel]);
 
   const activeFile = files.find(f => f.id === activeFileId);
   const currentCode = activeFile?.content || '';
@@ -45,16 +56,14 @@ export const AIPairProgramming: React.FC<AIPairProgrammingProps> = ({ onClose })
       const jsonMatch = rawText.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        // Ensure each suggestion has a valid type
         const validTypes = ['completion', 'refactor', 'fix', 'doc'];
         const validated = parsed.map((s: any, idx: number) => ({
           ...s,
           id: `sug-${idx}`,
-          type: validTypes.includes(s.type) ? s.type : 'doc', // fallback to 'doc' if unknown
+          type: validTypes.includes(s.type) ? s.type : 'doc',
         }));
         setSuggestions(validated);
       } else {
-        // Fallback with a valid type
         setSuggestions([{ 
           id: 'raw', 
           type: 'doc', 
@@ -124,7 +133,9 @@ export const AIPairProgramming: React.FC<AIPairProgrammingProps> = ({ onClose })
       </div>
 
       <div className="flex items-center gap-2 mb-4 text-sm">
-        {!currentModel && (
+        {currentModel ? (
+          <span className="text-xs text-green-400">Model: {currentModel.name}</span>
+        ) : (
           <span className="text-xs text-yellow-400">No model selected</span>
         )}
       </div>
