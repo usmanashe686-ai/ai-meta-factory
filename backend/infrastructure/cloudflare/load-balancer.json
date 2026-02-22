@@ -1,0 +1,19 @@
+{
+  "description": "Global load balancer for API Gateway",
+  "name": "api-gateway-lb",
+  "ttl": 30,
+  "proxied": true,
+  "enabled": true,
+  "session_affinity": "cookie",
+  "session_affinity_ttl": 3600,
+  "steering_policy": "geo",
+  "fallback_pool": "primary-pool",
+  "default_pools": ["primary-pool", "secondary-pool"],
+  "region_pools": {
+    "WNAM": ["primary-pool"],
+    "ENAM": ["primary-pool"],
+    "WEU": ["secondary-pool"],
+    "EEU": ["secondary-pool"],
+    "apac": ["asia-pool"]
+  }
+}
