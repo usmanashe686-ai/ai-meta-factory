@@ -1,0 +1,64 @@
+# Edge Deployment Configuration
+# This is a conceptual configuration for deploying AI models to edge locations.
+# Actual implementation depends on the edge provider (Cloudflare Workers, Vercel Edge, etc.)
+
+# Example: Deploy a lightweight model to multiple edge regions using Cloudflare Workers
+apiVersion: v1
+kind: EdgeDeployment
+metadata:
+  name: ai-edge
+  namespace: default
+spec:
+  # The model to deploy (could be a Wasm binary or container)
+  model:
+    name: tinyllama-edge
+    source: s3://ai-meta-factory/models/tinyllama-1.1b-q4_0.wasm
+    type: wasm  # WebAssembly
+    sha256: 0a3b5c8d1e2f...
+
+  # Edge locations (cloud providers and regions)
+  locations:
+    - provider: cloudflare
+      zones:
+        - example.com
+      routes:
+        - path: /ai/generate
+          method: POST
+    - provider: vercel
+      regions:
+        - iad1
+        - sfo1
+      function: api/ai/generate
+    - provider: fly.io
+      regions:
+        - ord
+        - lhr
+
+  # Resources per replica
+  resources:
+    memory: 512Mi
+    cpu: 0.5
+    timeout: 10s
+
+  # Scaling
+  replicas: 5
+  autoScaling:
+    minReplicas: 2
+    maxReplicas: 20
+    targetCPU: 70
+    targetLatency: 500ms
+
+  # Caching
+  cache:
+    ttl: 60
+    vary: ["authorization"]
+
+  # Fallback to central inference (if edge fails)
+  fallback:
+    endpoint: https://api.aimetafactory.com/ai/generate
+    timeout: 5s
+
+  # Monitoring
+  metrics:
+    - type: prometheus
+      port: 9090
