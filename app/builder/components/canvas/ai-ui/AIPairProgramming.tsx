@@ -45,9 +45,22 @@ export const AIPairProgramming: React.FC<AIPairProgrammingProps> = ({ onClose })
       const jsonMatch = rawText.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        setSuggestions(parsed.map((s: any, idx: number) => ({ ...s, id: `sug-${idx}` })));
+        // Ensure each suggestion has a valid type
+        const validTypes = ['completion', 'refactor', 'fix', 'doc'];
+        const validated = parsed.map((s: any, idx: number) => ({
+          ...s,
+          id: `sug-${idx}`,
+          type: validTypes.includes(s.type) ? s.type : 'doc', // fallback to 'doc' if unknown
+        }));
+        setSuggestions(validated);
       } else {
-        setSuggestions([{ id: 'raw', type: 'info', title: 'AI Suggestion', description: rawText }]);
+        // Fallback with a valid type
+        setSuggestions([{ 
+          id: 'raw', 
+          type: 'doc', 
+          title: 'AI Suggestion', 
+          description: rawText 
+        }]);
       }
     } catch (error) {
       console.error('Failed to generate suggestions:', error);
