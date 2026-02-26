@@ -6,10 +6,9 @@ import { useMemo } from 'react';
 import '@codesandbox/sandpack-react/dist/index.css';
 
 export function SandpackPreview() {
-  const { files, activeFileId } = useProjectStore(); // activeFileId is a string (path) or null
+  const { files, activeFileId } = useProjectStore();
 
   const sandpackFiles = useMemo(() => {
-    // Filter out folders and only include file nodes with content
     const fileNodes = files.filter(f => f.type === 'file' && f.content !== undefined);
     return fileNodes.reduce((acc, file) => {
       const path = file.path.startsWith('/') ? file.path : `/${file.path}`;
