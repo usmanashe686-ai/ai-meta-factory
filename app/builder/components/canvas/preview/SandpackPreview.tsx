@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { SandpackProvider, SandpackLayout, SandpackPreview } from '@codesandbox/sandpack-react';
+import { SandpackProvider, SandpackLayout, SandpackPreview as SandpackPreviewComponent } from '@codesandbox/sandpack-react';
 import { useProjectStore } from '../state/project-store';
 import '@codesandbox/sandpack-react/dist/index.css';
 
@@ -94,7 +94,7 @@ export function SandpackPreview() {
           }}
         >
           <SandpackLayout>
-            <SandpackPreview
+            <SandpackPreviewComponent
               showNavigator
               showRefreshButton
               className="h-full"
