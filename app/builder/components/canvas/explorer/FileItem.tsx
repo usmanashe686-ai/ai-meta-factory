@@ -22,7 +22,7 @@ interface FileItemProps {
   onRenameSubmit: () => void;
   onRenameCancel: () => void;
   onRenameInputChange: (value: string) => void;
-  renameInputRef: React.RefObject<HTMLInputElement | null>;  // Allow null initial value
+  renameInputRef: React.RefObject<HTMLInputElement>;  // Correct type
 }
 
 export function FileItem({
