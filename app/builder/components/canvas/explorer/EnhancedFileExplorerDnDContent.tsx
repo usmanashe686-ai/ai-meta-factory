@@ -20,7 +20,7 @@ import {
   restrictToParentElement,
 } from '@dnd-kit/modifiers';
 import {
-  Plus, Search, FolderPlus, Folder
+  Plus, Search, FolderPlus, Folder, Edit2, Copy, Trash2, FileText
 } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 import { SortableFileItem } from './dnd/SortableFileItem';
