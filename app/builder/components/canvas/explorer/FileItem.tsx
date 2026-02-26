@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { FileNode } from '../types/project.types';
 
-interface FileItemProps {
+export interface FileItemProps {
   file: FileNode;
   expandedFolders: Set<string>;
   onToggleFolder: (path: string) => void;

@@ -3,27 +3,9 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { FileItem } from '../FileItem';
-import { FileNode } from '../../types/project.types';
+import { FileItem, FileItemProps } from '../FileItem';
 
-interface SortableFileItemProps {
-  file: FileNode;
-  expandedFolders: Set<string>;
-  onToggleFolder: (path: string) => void;
-  onSelect: (file: FileNode) => void;
-  onRenameStart: (path: string, currentName: string) => void;
-  onDelete: (path: string, type: 'file' | 'folder') => void;
-  onDuplicate: (path: string) => void;
-  onContextMenu: (e: React.MouseEvent, path: string, type: 'file' | 'folder') => void;
-  isRenaming: boolean;
-  renamingName: string;
-  onRenameSubmit: () => void;
-  onRenameCancel: () => void;
-  onRenameInputChange: (value: string) => void;
-  renameInputRef: React.RefObject<HTMLInputElement | null>;
-}
-
-export function SortableFileItem(props: SortableFileItemProps) {
+export function SortableFileItem(props: FileItemProps) {
   const { file } = props;
   const {
     attributes,
