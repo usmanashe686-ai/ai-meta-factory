@@ -11,7 +11,6 @@ import {
   DragEndEvent,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
@@ -21,7 +20,7 @@ import {
   restrictToParentElement,
 } from '@dnd-kit/modifiers';
 import {
-  Plus, Search, FolderPlus, FileText, Folder, File
+  Plus, Search, FolderPlus, Folder
 } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 import { SortableFileItem } from './dnd/SortableFileItem';
@@ -132,6 +131,11 @@ export function EnhancedFileExplorerDnDContent() {
     setExpandedFolders(newExpanded);
   };
 
+  // Handler to adapt setActiveFile (expects string) to onSelect (expects FileNode)
+  const handleSelect = (file: FileNode) => {
+    setActiveFile(file.id);
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -218,7 +222,7 @@ export function EnhancedFileExplorerDnDContent() {
                     file={file}
                     expandedFolders={expandedFolders}
                     onToggleFolder={handleToggleFolder}
-                    onSelect={setActiveFile}
+                    onSelect={handleSelect}
                     onRenameStart={handleRenameStart}
                     onDelete={handleDelete}
                     onDuplicate={handleDuplicate}
