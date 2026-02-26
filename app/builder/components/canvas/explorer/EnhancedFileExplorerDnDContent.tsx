@@ -1,20 +1,31 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  FileText, Folder, FolderOpen, ChevronRight, ChevronDown,
-  Plus, Trash2, FileCode, FileJson, FileImage, Search,
-  MoreVertical, Edit2, Copy, FolderPlus, X, Check,
-  Type, File, FileType
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  restrictToVerticalAxis,
+  restrictToParentElement,
+} from '@dnd-kit/modifiers';
+import {
+  Plus, Search, FolderPlus, FileText, Folder, File
 } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
-
-interface FileItem {
-  id: string;
-  path: string;
-  name: string;
-  type: 'file' | 'folder';
-}
+import { SortableFileItem } from './dnd/SortableFileItem';
+import { FileNode } from '../types/project.types';
 
 export function EnhancedFileExplorerDnDContent() {
   const {
@@ -22,38 +33,32 @@ export function EnhancedFileExplorerDnDContent() {
     activeFileId,
     setActiveFile,
     createFile,
-    deleteFile, // rename from removeFile
+    deleteFile,
     renameFile,
     copyFile,
-    searchFiles
+    searchFiles,
+    moveFile,
   } = useProjectStore();
 
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['src', 'public', 'app']));
   const [searchQuery, setSearchQuery] = useState('');
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [renamingName, setRenamingName] = useState('');
-  const [contextMenu, setContextMenu] = useState<{x: number, y: number, path: string} | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; path: string } | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  const buildFileTree = (): FileItem[] => {
-    const items: FileItem[] = [];
+  useEffect(() => {
+    if (renamingPath && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [renamingPath]);
 
-    // Since files is an array of FileNode, we can map directly
-    files.forEach(node => {
-      items.push({
-        id: node.id,
-        path: node.path,
-        name: node.name,
-        type: node.type
-      });
-    });
-
-    return items.sort((a, b) => {
-      if (a.type === 'folder' && b.type !== 'folder') return -1;
-      if (a.type !== 'folder' && b.type === 'folder') return 1;
-      return a.name.localeCompare(b.name);
-    });
-  };
+  useEffect(() => {
+    const handleClickOutside = () => setContextMenu(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const handleCreateFile = () => {
     const defaultPath = 'src/components/NewComponent.tsx';
@@ -64,7 +69,6 @@ export function EnhancedFileExplorerDnDContent() {
     </div>
   );
 }`;
-
     createFile(defaultPath, defaultContent, false);
   };
 
@@ -73,7 +77,6 @@ export function EnhancedFileExplorerDnDContent() {
     if (folderName) {
       const folderPath = `src/${folderName}/.folder-marker`;
       createFile(folderPath, '', false);
-
       const newExpanded = new Set(expandedFolders);
       newExpanded.add(`src/${folderName}`);
       setExpandedFolders(newExpanded);
@@ -112,11 +115,10 @@ export function EnhancedFileExplorerDnDContent() {
   const handleContextMenu = (e: React.MouseEvent, path: string, type: 'file' | 'folder') => {
     e.preventDefault();
     e.stopPropagation();
-
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
-      path
+      path,
     });
   };
 
@@ -130,43 +132,23 @@ export function EnhancedFileExplorerDnDContent() {
     setExpandedFolders(newExpanded);
   };
 
-  const getFileIcon = (fileName: string) => {
-    const extension = fileName.split('.').pop()?.toLowerCase();
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
-    switch (extension) {
-      case 'ts': case 'tsx': case 'js': case 'jsx':
-        return <FileCode className="w-4 h-4 text-blue-400" />;
-      case 'json':
-        return <FileJson className="w-4 h-4 text-yellow-400" />;
-      case 'css': case 'scss':
-        return <FileText className="w-4 h-4 text-pink-400" />;
-      case 'md':
-        return <FileText className="w-4 h-4 text-gray-400" />;
-      case 'png': case 'jpg': case 'jpeg': case 'gif': case 'svg':
-        return <FileImage className="w-4 h-4 text-green-400" />;
-      case 'py':
-        return <FileType className="w-4 h-4 text-green-400" />;
-      case 'dart':
-        return <File className="w-4 h-4 text-blue-300" />;
-      default:
-        return <FileText className="w-4 h-4 text-gray-400" />;
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      const oldIndex = files.findIndex(f => f.id === active.id);
+      const newIndex = files.findIndex(f => f.id === over?.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        moveFile(active.id as string, over?.id as string);
+      }
     }
-  };
-
-  useEffect(() => {
-    if (renamingPath && renameInputRef.current) {
-      renameInputRef.current.focus();
-      renameInputRef.current.select();
-    }
-  }, [renamingPath]);
-
-  useEffect(() => {
-    const handleClickOutside = () => setContextMenu(null);
-    window.addEventListener('click', handleClickOutside);
-    return () => window.removeEventListener('click', handleClickOutside);
-  }, []);
-
-  const fileItems = buildFileTree();
+  }
 
   return (
     <div className="h-full flex flex-col bg-gray-900/50 border-r border-gray-800">
@@ -215,116 +197,43 @@ export function EnhancedFileExplorerDnDContent() {
                 className="flex items-center py-1 px-2 hover:bg-gray-800/50 cursor-pointer rounded"
                 onClick={() => setActiveFile(result.path)}
               >
-                {result.path.endsWith('/') ? (
-                  <Folder className="w-4 h-4 text-yellow-500/70" />
-                ) : (
-                  <FileText className="w-4 h-4 text-gray-400" />
-                )}
+                <Folder className="w-4 h-4 text-yellow-500/70" />
                 <span className="text-sm ml-2 truncate">{result.name}</span>
                 <span className="text-xs text-gray-500 ml-2 truncate">{result.path}</span>
               </div>
             ))}
           </div>
         ) : (
-          fileItems.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center py-1 px-2 hover:bg-gray-800/50 cursor-pointer group"
-              onContextMenu={(e) => handleContextMenu(e, item.path, item.type)}
-              onClick={() => {
-                if (item.type === 'folder') {
-                  handleToggleFolder(item.path);
-                } else {
-                  setActiveFile(item.id);
-                }
-              }}
-            >
-              <div className="flex items-center w-4 mr-1">
-                {item.type === 'folder' && (
-                  expandedFolders.has(item.path) ? (
-                    <ChevronDown className="w-3 h-3" />
-                  ) : (
-                    <ChevronRight className="w-3 h-3" />
-                  )
-                )}
-              </div>
-
-              <div className="mr-2">
-                {item.type === 'folder' ? (
-                  expandedFolders.has(item.path) ? (
-                    <FolderOpen className="w-4 h-4 text-yellow-500" />
-                  ) : (
-                    <Folder className="w-4 h-4 text-yellow-500/70" />
-                  )
-                ) : (
-                  getFileIcon(item.name)
-                )}
-              </div>
-
-              {renamingPath === item.path ? (
-                <div className="flex items-center flex-1">
-                  <input
-                    ref={renameInputRef}
-                    type="text"
-                    value={renamingName}
-                    onChange={(e) => setRenamingName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleRenameSubmit();
-                      if (e.key === 'Escape') handleRenameCancel();
-                    }}
-                    onBlur={handleRenameSubmit}
-                    className="flex-1 px-1 bg-gray-800 border border-blue-500 rounded text-sm"
-                    autoFocus
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+            modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+          >
+            <SortableContext items={files.map(f => f.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-1">
+                {files.map((file) => (
+                  <SortableFileItem
+                    key={file.id}
+                    file={file}
+                    expandedFolders={expandedFolders}
+                    onToggleFolder={handleToggleFolder}
+                    onSelect={setActiveFile}
+                    onRenameStart={handleRenameStart}
+                    onDelete={handleDelete}
+                    onDuplicate={handleDuplicate}
+                    onContextMenu={handleContextMenu}
+                    isRenaming={renamingPath === file.path}
+                    renamingName={renamingName}
+                    onRenameSubmit={handleRenameSubmit}
+                    onRenameCancel={handleRenameCancel}
+                    onRenameInputChange={setRenamingName}
+                    renameInputRef={renameInputRef}
                   />
-                  <button onClick={handleRenameSubmit} className="ml-1 p-0.5">
-                    <Check className="w-3 h-3" />
-                  </button>
-                  <button onClick={handleRenameCancel} className="ml-1 p-0.5">
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ) : (
-                <span className="text-sm truncate flex-1">{item.name}</span>
-              )}
-
-              {renamingPath !== item.path && (
-                <div className="flex items-center opacity-0 group-hover:opacity-100">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRenameStart(item.path, item.name);
-                    }}
-                    className="p-0.5 hover:bg-gray-700 rounded"
-                    title="Rename"
-                  >
-                    <Edit2 className="w-3 h-3" />
-                  </button>
-                  {item.type === 'file' && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDuplicate(item.path);
-                      }}
-                      className="p-0.5 hover:bg-gray-700 rounded ml-1"
-                      title="Duplicate"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </button>
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(item.path, item.type);
-                    }}
-                    className="p-0.5 hover:bg-gray-700 rounded ml-1"
-                    title="Delete"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-            </div>
-          ))
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
 
