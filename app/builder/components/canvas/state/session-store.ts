@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import localforage from 'localforage';
 
 export interface SessionState {
@@ -15,19 +15,8 @@ export interface SessionState {
   setSelectedModelId: (id: string | null) => void;
 }
 
-// Custom storage for zustand persist using localforage
-const storage = {
-  getItem: async (name: string) => {
-    const value = await localforage.getItem(name);
-    return value ?? null;
-  },
-  setItem: async (name: string, value: any) => {
-    await localforage.setItem(name, value);
-  },
-  removeItem: async (name: string) => {
-    await localforage.removeItem(name);
-  },
-};
+// Create a storage object that conforms to PersistStorage interface
+const storage = createJSONStorage(() => localforage);
 
 export const useSessionStore = create<SessionState>()(
   persist(
