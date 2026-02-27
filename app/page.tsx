@@ -16,19 +16,16 @@ export default function Home() {
                 Meta Factory
               </span>
             </div>
-            <div className="flex items-center gap-6">
-              <Link href="/builder" className="text-gray-600 hover:text-blue-600 font-medium">
-                Builder
-              </Link>
-              <Link href="#" className="text-gray-600 hover:text-blue-600 font-medium">
-                Docs
-              </Link>
-              <Link href="#" className="text-gray-600 hover:text-blue-600 font-medium">
-                Pricing
-              </Link>
-              <Link 
-                href="/builder" 
-                className="px-5 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-lg hover:shadow-lg transition-shadow"
+            <div className="flex items-center gap-4">
+              <Link href="/builder" className="text-gray-600 hover:text-blue-600 font-medium text-sm md:text-base whitespace-nowrap">Builder</Link>
+              <Link href="/marketplace" className="text-gray-600 hover:text-blue-600 font-medium text-sm md:text-base whitespace-nowrap">Marketplace</Link>
+              <Link href="/admin" className="text-gray-600 hover:text-blue-600 font-medium text-sm md:text-base whitespace-nowrap">Admin</Link>
+              <Link href="/docs" className="text-gray-600 hover:text-blue-600 font-medium text-sm md:text-base whitespace-nowrap">Docs</Link>
+              <Link href="/culture" className="text-gray-600 hover:text-blue-600 font-medium text-sm md:text-base whitespace-nowrap">Culture</Link>
+              <Link href="/sufism" className="text-gray-600 hover:text-blue-600 font-medium text-sm md:text-base whitespace-nowrap">Sufism</Link>
+              <Link
+                href="/builder"
+                className="px-5 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-lg hover:shadow-lg transition-shadow whitespace-nowrap"
               >
                 Launch Builder
               </Link>
@@ -44,19 +41,19 @@ export default function Home() {
             Generate <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Full-Stack Applications</span> with AI
           </h1>
           <p className="text-xl text-gray-600 mb-10 max-w-3xl mx-auto">
-            From components to complete projects with database integration, Git deployment, and production-ready code. 
+            From components to complete projects with database integration, Git deployment, and production-ready code.
             The future of development is here.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-20">
-            <Link 
-              href="/builder" 
+            <Link
+              href="/builder"
               className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:shadow-xl transition-all flex items-center justify-center gap-2"
             >
               Launch Builder
               <ArrowRight className="w-5 h-5" />
             </Link>
-            <Link 
-              href="#" 
+            <Link
+              href="/docs"
               className="px-8 py-4 bg-white border-2 border-gray-200 text-gray-800 font-semibold rounded-xl hover:border-blue-500 transition-all"
             >
               View Documentation
@@ -207,14 +204,14 @@ export default function Home() {
             Join thousands of developers building faster with AI Meta Factory
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link 
-              href="/builder" 
+            <Link
+              href="/builder"
               className="px-8 py-4 bg-white text-blue-600 font-bold rounded-xl hover:bg-gray-100 transition-colors"
             >
               Start Building Free
             </Link>
-            <Link 
-              href="#" 
+            <Link
+              href="/docs"
               className="px-8 py-4 bg-transparent border-2 border-white text-white font-bold rounded-xl hover:bg-white/10 transition-colors"
             >
               Schedule Demo
@@ -250,6 +247,8 @@ export default function Home() {
               </div>
               <p className="text-gray-400">Full-Stack AI Development Platform</p>
               <p className="text-gray-500 text-sm mt-2">Built with Next.js, TypeScript, and Gemini AI</p>
+              <p className="text-gray-400 text-sm mt-2">Powered by Sufi's World ❤</p>
+              <p className="text-gray-400 text-sm mt-1">Created & Developed by: USMAN ASHEBIR AND UMER ASHEBIR</p>
               <div className="flex items-center gap-2 mt-4">
                 <div className="px-3 py-1 bg-gray-800 rounded-full text-sm">▲ Vercel</div>
                 <div className="px-3 py-1 bg-gray-800 rounded-full text-sm">🚀 Production Ready</div>
@@ -260,18 +259,16 @@ export default function Home() {
                 <h4 className="font-bold mb-4">Product</h4>
                 <ul className="space-y-2 text-gray-400">
                   <li><Link href="/builder" className="hover:text-white">Builder</Link></li>
-                  <li><Link href="#" className="hover:text-white">Documentation</Link></li>
-                  <li><Link href="#" className="hover:text-white">API Reference</Link></li>
-                  <li><Link href="#" className="hover:text-white">Pricing</Link></li>
+                  <li><Link href="/marketplace" className="hover:text-white">Marketplace</Link></li>
+                  <li><Link href="/docs" className="hover:text-white">Documentation</Link></li>
                 </ul>
               </div>
               <div>
                 <h4 className="font-bold mb-4">Company</h4>
                 <ul className="space-y-2 text-gray-400">
-                  <li><Link href="#" className="hover:text-white">About</Link></li>
-                  <li><Link href="#" className="hover:text-white">Blog</Link></li>
-                  <li><Link href="#" className="hover:text-white">Careers</Link></li>
-                  <li><Link href="#" className="hover:text-white">Contact</Link></li>
+                  <li><Link href="/culture" className="hover:text-white">Culture</Link></li>
+                  <li><Link href="/sufism" className="hover:text-white">Sufism</Link></li>
+                  <li><Link href="/admin" className="hover:text-white">Admin</Link></li>
                 </ul>
               </div>
             </div>
