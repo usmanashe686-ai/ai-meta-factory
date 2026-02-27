@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 import { UniversalExporter, ProjectFile } from './UniversalExporter';
 import { useProjectStore } from '../state/project-store';
 
@@ -14,8 +16,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
   const [isExporting, setIsExporting] = useState(false);
   const [repoName, setRepoName] = useState('');
   const [githubToken, setGithubToken] = useState('');
+  const [buildServerUrl, setBuildServerUrl] = useState(process.env.NEXT_PUBLIC_BUILD_SERVICE_URL || '/api/build');
 
-  // Get files and project from store
   const files = useProjectStore((state) => state.files);
   const project = useProjectStore((state) => state.project);
 
@@ -23,34 +25,37 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
 
   const projectName = project?.name || 'project';
 
+  // Convert files (FileNode[]) to ProjectFile[] format
+  const getProjectFiles = (): ProjectFile[] => {
+    const projectFiles: ProjectFile[] = [];
+    const collectFiles = (nodes: any[]) => {
+      for (const node of nodes) {
+        if (node.type === 'file' && node.content !== undefined) {
+          projectFiles.push({
+            path: node.path,
+            content: node.content,
+          });
+        }
+        if (node.children) {
+          collectFiles(node.children);
+        }
+      }
+    };
+    collectFiles(files);
+    return projectFiles;
+  };
+
   const handleExport = async () => {
     if (!files || files.length === 0) return;
 
     setIsExporting(true);
     try {
-      // Convert files (FileNode[]) to ProjectFile[] format
-      const projectFiles: ProjectFile[] = [];
-      const collectFiles = (nodes: any[]) => {
-        for (const node of nodes) {
-          if (node.type === 'file' && node.content !== undefined) {
-            projectFiles.push({
-              path: node.path,
-              content: node.content,
-            });
-          }
-          if (node.children) {
-            collectFiles(node.children);
-          }
-        }
-      };
-      collectFiles(files);
-
       switch (format) {
         case 'zip':
-          await UniversalExporter.exportProject(projectFiles, `${projectName}.zip`);
+          await handleZipExport();
           break;
         case 'apk':
-          alert('APK export requires backend build service. Coming soon!');
+          await handleApkExport();
           break;
         case 'github':
           alert('GitHub export not implemented yet.');
@@ -66,6 +71,76 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handleZipExport = async () => {
+    const projectFiles = getProjectFiles();
+    await UniversalExporter.exportProject(projectFiles, `${projectName}.zip`);
+  };
+
+  const handleApkExport = async () => {
+    // Step 1: Create ZIP of project files
+    const projectFiles = getProjectFiles();
+    const zip = new JSZip();
+    projectFiles.forEach(file => {
+      zip.file(file.path, file.content);
+    });
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+    // Step 2: Send to build service
+    const formData = new FormData();
+    formData.append('project', zipBlob, `${projectName}.zip`);
+    formData.append('appName', projectName);
+    formData.append('packageName', `com.aimetafactory.${projectName.toLowerCase().replace(/[^a-z0-9]/g, '')}`);
+    formData.append('version', '1.0.0');
+
+    const response = await fetch(`${buildServerUrl}/apk`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Build failed: ${error}`);
+    }
+
+    // Step 3: Handle response – could be direct APK or job ID
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/octet-stream')) {
+      // Direct APK download
+      const blob = await response.blob();
+      saveAs(blob, `${projectName}.apk`);
+    } else {
+      // Assume it's a job ID – start polling
+      const { jobId } = await response.json();
+      await pollBuildStatus(jobId);
+    }
+  };
+
+  const pollBuildStatus = async (jobId: string) => {
+    const maxAttempts = 60;
+    const interval = 2000; // 2 seconds
+    for (let i = 0; i < maxAttempts; i++) {
+      const res = await fetch(`${buildServerUrl}/status/${jobId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'completed') {
+          // Download the APK
+          const downloadRes = await fetch(`${buildServerUrl}/download/${jobId}`);
+          if (downloadRes.ok) {
+            const blob = await downloadRes.blob();
+            saveAs(blob, `${projectName}.apk`);
+          } else {
+            throw new Error('Failed to download APK');
+          }
+          return;
+        } else if (data.status === 'failed') {
+          throw new Error(data.error || 'Build failed');
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, interval));
+    }
+    throw new Error('Build timed out');
   };
 
   return (
