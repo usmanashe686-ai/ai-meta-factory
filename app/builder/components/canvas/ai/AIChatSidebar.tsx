@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles, Copy, Check, Trash2 } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Copy, Check, Trash2, FileText } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 import { usePlatformStore } from '../state/platform-store';
+import { useDocsStore } from '../state/docs-store';
 
 interface Message {
   id: string;
@@ -12,25 +13,46 @@ interface Message {
   timestamp: Date;
 }
 
+interface ModelInfo {
+  id: string;
+  name: string;
+  size: string;
+}
+
 export const AIChatSidebar: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
       role: 'assistant',
-      content: 'Hello! I\'m your local AI assistant running on your device. I can help you generate components, fix bugs, explain code, and build complete applications – all without sending your data to the cloud. What would you like to create?',
+      content: 'Hello! I\'m your local AI assistant. I can help you generate components, fix bugs, explain code, and build complete applications. I can also follow your project documents – just enable "Include Docs" below.',
       timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
+  const [selectedModel, setSelectedModel] = useState<ModelInfo | null>(null);
+  const [includeDocs, setIncludeDocs] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const projectFiles = useProjectStore((state) => state.files);
   const { platform, stack } = usePlatformStore();
+  const { docs, selectedDocId, loadDocs } = useDocsStore();
 
-  // Local AI endpoint (your Flask proxy on phone)
-  const AI_API_URL = 'http://localhost:8000/generate';
+  const AI_API_URL = 'http://localhost:8000';
+
+  // Fetch available models on mount
+  useEffect(() => {
+    fetch(`${AI_API_URL}/models`)
+      .then(res => res.json())
+      .then(data => {
+        setAvailableModels(data);
+        if (data.length > 0) setSelectedModel(data[0]);
+      })
+      .catch(err => console.error('Failed to fetch models:', err));
+    loadDocs();
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -42,7 +64,14 @@ export const AIChatSidebar: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isGenerating) return;
+    if (!input.trim() || isGenerating || !selectedModel) return;
+
+    // Build context from documents if enabled
+    let contextPrompt = '';
+    if (includeDocs && docs.length > 0) {
+      const selectedDoc = docs.find(d => d.id === selectedDocId) || docs[0];
+      contextPrompt = `Project Documents:\nTitle: ${selectedDoc.title}\nTags: ${selectedDoc.tags.join(', ')}\nContent:\n${selectedDoc.content}\n\n`;
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -55,46 +84,54 @@ export const AIChatSidebar: React.FC = () => {
     setInput('');
     setIsGenerating(true);
 
+    const assistantMessageId = (Date.now() + 1).toString();
+    setMessages((prev) => [...prev, { id: assistantMessageId, role: 'assistant', content: '', timestamp: new Date() }]);
+
     try {
-      // Build prompt with context (optional: include current file content)
-      const context = projectFiles.length > 0 
-        ? `Current project has ${projectFiles.length} files.`
-        : 'No files yet.';
-
-      const fullPrompt = `Context: ${context}\n\nUser: ${input}\n\nAssistant:`;
-
-      const response = await fetch(AI_API_URL, {
+      const fullPrompt = contextPrompt + `User: ${input}\n\nAssistant:`;
+      const response = await fetch(`${AI_API_URL}/generate-stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'tinyllama-1.1b', // or 'qwen2-0.5b' – you can make this configurable
           prompt: fullPrompt,
+          model: selectedModel.id,
           max_tokens: 300,
           temperature: 0.7,
         }),
       });
 
-      if (!response.ok) throw new Error('AI service error');
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedContent = '';
 
-      const data = await response.json();
-      const aiText = data.text || data.generated_text || 'Sorry, I could not generate a response.';
+      while (true) {
+        const { done, value } = await reader!.read();
+        if (done) break;
 
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: aiText,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiMessage]);
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.slice(6));
+            if (data.token) {
+              accumulatedContent += data.token;
+              setMessages(prev => prev.map(msg =>
+                msg.id === assistantMessageId ? { ...msg, content: accumulatedContent } : msg
+              ));
+            }
+          }
+        }
+      }
     } catch (error) {
-      console.error('AI request failed:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
+      console.error('Streaming failed:', error);
+      setMessages(prev => prev.filter(msg => msg.id !== assistantMessageId));
+      const errorMsg: Message = {
+        id: Date.now().toString(),
         role: 'assistant',
-        content: 'Error connecting to local AI. Make sure your Flask server is running on port 8000.',
+        content: 'Error connecting to local AI. Make sure your Flask server is running.',
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsGenerating(false);
     }
@@ -149,6 +186,37 @@ export const AIChatSidebar: React.FC = () => {
         </div>
       </div>
 
+      {/* Model selector */}
+      <div className="p-3 border-b border-gray-700">
+        <select
+          value={selectedModel?.id}
+          onChange={(e) => {
+            const model = availableModels.find(m => m.id === e.target.value);
+            setSelectedModel(model || null);
+          }}
+          className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-sm"
+        >
+          {availableModels.map(model => (
+            <option key={model.id} value={model.id}>{model.name} ({model.size})</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Include Docs toggle */}
+      <div className="p-3 border-b border-gray-700 flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="includeDocs"
+          checked={includeDocs}
+          onChange={(e) => setIncludeDocs(e.target.checked)}
+          className="rounded bg-gray-700"
+        />
+        <label htmlFor="includeDocs" className="text-sm flex items-center gap-1 cursor-pointer">
+          <FileText size={14} /> Include project documents as context
+        </label>
+      </div>
+
+      {/* Quick prompts */}
       <div className="p-3 border-b border-gray-700">
         <div className="flex flex-wrap gap-2">
           {quickPrompts.map((prompt) => (
@@ -248,9 +316,9 @@ export const AIChatSidebar: React.FC = () => {
             />
             <button
               type="submit"
-              disabled={isGenerating || !input.trim()}
+              disabled={isGenerating || !input.trim() || !selectedModel}
               className={`absolute right-3 bottom-3 p-2 rounded-lg ${
-                isGenerating || !input.trim()
+                isGenerating || !input.trim() || !selectedModel
                   ? 'bg-gray-700 cursor-not-allowed'
                   : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90'
               }`}
@@ -264,15 +332,11 @@ export const AIChatSidebar: React.FC = () => {
               <Sparkles size={12} />
               <span>Local AI – your data stays on device</span>
             </div>
-            <button
-              type="button"
-              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-xs"
-              onClick={() => {
-                // This would open AI settings/options
-              }}
-            >
-              Options
-            </button>
+            {includeDocs && (
+              <span className="text-green-400 flex items-center gap-1">
+                <FileText size={12} /> Docs included
+              </span>
+            )}
           </div>
         </form>
       </div>
