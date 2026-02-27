@@ -1,6 +1,6 @@
-import { useSessionStore } from "./session-store";
 import { create } from 'zustand';
 import localforage from 'localforage';
+import { useSessionStore } from './session-store';
 import { FileNode } from '../types/project.types';
 
 export interface Backup {
@@ -45,13 +45,13 @@ export const useBackupStore = create<BackupState>((set, get) => ({
   },
 
   addBackup: async (files, projectName, description) => {
-    useSessionStore.getState().setLastOpenedBackupId(id);
-    // After adding backup, update session store with this backup as last opened
-    useSessionStore.getState().setLastOpenedBackupId(id);
     const timestamp = Date.now();
     const id = `backup-${timestamp}`;
     const backup: Backup = { id, timestamp, files, projectName, description };
     await backupStorage.setItem(id, backup);
+    
+    // Update session store with this backup as last opened
+    useSessionStore.getState().setLastOpenedBackupId(id);
     
     const { backups, clearOldBackups } = get();
     const updated = [backup, ...backups].sort((a,b) => b.timestamp - a.timestamp);
