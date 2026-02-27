@@ -246,10 +246,15 @@ export default function Home() {
                 <span className="text-xl font-bold">AI Meta Factory</span>
               </div>
               <p className="text-gray-400">Full-Stack AI Development Platform</p>
-              <p className="text-gray-500 text-sm mt-2">Built with Next.js, TypeScript, and Gemini AI</p>
-              <p className="text-gray-400 text-sm mt-2">Powered by Sufi's World ❤</p>
-              <p className="text-gray-400 text-sm mt-1">Created & Developed by: USMAN ASHEBIR AND UMER ASHEBIR</p>
-              <div className="flex items-center gap-2 mt-4">
+              
+              <p className="text-gray-500 text-sm mt-2 text-center">
+  O Prophet ﷺ, mercy to the worlds so bright, <br/>
+  Your light guides hearts through darkest night. <br/>
+  Wisdom, love, and peace you bring, <br/>
+  In every soul, Your praises sing. <br/>
+  <span className="block mt-1">Powered by Sufi's World ❤ | Created & Developed by: Usman Ashebir & Umer Ashebir</span>
+</p>
+                <div className="flex items-center gap-2 mt-4">
                 <div className="px-3 py-1 bg-gray-800 rounded-full text-sm">▲ Vercel</div>
                 <div className="px-3 py-1 bg-gray-800 rounded-full text-sm">🚀 Production Ready</div>
               </div>
