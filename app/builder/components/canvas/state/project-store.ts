@@ -36,6 +36,7 @@ interface ProjectState {
   searchFiles: (query: string) => Array<{ path: string; name: string }>;
   moveFile: (sourceId: string, targetId: string) => void;
   setProjectName: (name: string) => void;
+  setFiles: (newFiles: FileNode[]) => void; // Add this method
 }
 
 // Helper to find a node by ID recursively
@@ -109,7 +110,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
   createBlankProject: (name = 'Untitled Project') => {
     const projectId = 'proj-' + Date.now();
-    // Create a default App.tsx file so preview has something to show
     const defaultFile: FileNode = {
       id: 'src/App.tsx',
       name: 'App.tsx',
@@ -137,7 +137,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     set({ isSaving: false });
   },
   createFile: (path, content, isFolder = false) => {
-    console.log("createFile called with path:", path);
+    console.log('createFile called with path:', path);
     const { files } = get();
     const newFile: FileNode = {
       id: path,
@@ -251,4 +251,5 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       console.warn('No project to rename');
     }
   },
+  setFiles: (newFiles) => set({ files: newFiles }), // Keep exactly one
 }));
