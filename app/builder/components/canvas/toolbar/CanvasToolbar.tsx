@@ -8,11 +8,14 @@ import {
 import { useProjectStore } from '../state/project-store';
 import { usePlatformStore } from '../state/platform-store';
 import { useUIStore } from '../state/ui-store';
+import { usePreviewStore } from '../state/preview-store';
 import { ExportModal } from '../export/ExportModal';
 import { BuildStatus } from './BuildStatus';
 import { AIPairProgramming } from '../ai-ui/AIPairProgramming';
 import { BackupManager } from '../ui/BackupManager';
 import { DocsPanel } from '../docs/DocsPanel';
+import { GitModal } from '../ui/GitModal';
+import { SettingsModal } from '../ui/SettingsModal';
 
 interface CanvasToolbarProps {
   onOpenAI?: () => void; // kept for backward compatibility
@@ -23,10 +26,13 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
   const [showPairProgramming, setShowPairProgramming] = useState(false);
   const [showBackupManager, setShowBackupManager] = useState(false);
   const [showDocsPanel, setShowDocsPanel] = useState(false);
+  const [showGitModal, setShowGitModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const project = useProjectStore((state) => state.project);
   const { platform, stack } = usePlatformStore();
   const setProjectName = useProjectStore((state) => state.setProjectName);
   const { toggleAIPanel } = useUIStore();
+  const { triggerRefresh } = usePreviewStore();
 
   const handleSave = () => {
     alert('Project saved successfully!');
@@ -42,19 +48,20 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
   };
 
   const handleRun = () => {
-    alert('Run feature coming soon!');
+    triggerRefresh();
   };
 
   const handleGit = () => {
-    window.open('https://github.com/usmanashe686-ai/ai-meta-factory', '_blank');
+    setShowGitModal(true);
   };
 
   const handleUsers = () => {
-    alert('Collaboration feature coming soon!');
+    // In offline mode, we can disable or remove this button.
+    alert('Users feature is disabled in offline mode.');
   };
 
   const handleSettings = () => {
-    alert('Settings panel coming soon!');
+    setShowSettingsModal(true);
   };
 
   const handleProjectNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -134,7 +141,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
           <button onClick={handleGit} className="p-2 hover:bg-gray-700 rounded">
             <GitBranch size={16} />
           </button>
-          <button onClick={handleUsers} className="p-2 hover:bg-gray-700 rounded">
+          <button onClick={handleUsers} className="p-2 hover:bg-gray-700 rounded opacity-50 cursor-not-allowed" disabled>
             <Users size={16} />
           </button>
           <button onClick={handleSettings} className="p-2 hover:bg-gray-700 rounded">
@@ -168,6 +175,10 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
           </div>
         </div>
       )}
+
+      {showGitModal && <GitModal onClose={() => setShowGitModal(false)} />}
+
+      {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
     </>
   );
 };
