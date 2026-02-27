@@ -7,6 +7,7 @@ import { CodeEditor } from '../editor/CodeEditor';
 import { UniversalPreview } from '../preview/UniversalPreview';
 import { CanvasToolbar } from '../toolbar/CanvasToolbar';
 import { AIChatSidebar } from '../ai/AIChatSidebar';
+import { DocsPanel } from '../docs/DocsPanel';
 import { useProjectStore } from '../state/project-store';
 import { usePlatformStore } from '../state/platform-store';
 import { useUIStore } from '../state/ui-store';
@@ -72,7 +73,7 @@ export function EnhancedCanvasLayout() {
 
   // Mobile layout: stack panels vertically, only one visible at a time
   if (isMobile) {
-    const [mobileTab, setMobileTab] = useState<'explorer' | 'editor' | 'preview' | 'ai'>('editor');
+    const [mobileTab, setMobileTab] = useState<'explorer' | 'editor' | 'preview' | 'ai' | 'docs'>('editor');
     return (
       <div className="flex h-screen flex-col bg-gray-900">
         <CanvasToolbar />
@@ -101,12 +102,19 @@ export function EnhancedCanvasLayout() {
           >
             AI
           </button>
+          <button
+            className={`flex-1 py-2 text-sm font-medium ${mobileTab === 'docs' ? 'bg-blue-700 text-white' : 'text-gray-400'}`}
+            onClick={() => setMobileTab('docs')}
+          >
+            Docs
+          </button>
         </div>
         <div className="flex-1 overflow-hidden">
           {mobileTab === 'explorer' && <FileExplorer />}
           {mobileTab === 'editor' && <CodeEditor />}
           {mobileTab === 'preview' && <UniversalPreview />}
           {mobileTab === 'ai' && <AIChatSidebar />}
+          {mobileTab === 'docs' && <DocsPanel />}
         </div>
       </div>
     );

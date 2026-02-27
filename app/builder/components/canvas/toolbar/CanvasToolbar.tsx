@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import {
   Save, Download, Upload, GitBranch, Play, Settings, Brain,
-  Zap, Globe, Users, Sparkles, Clock
+  Zap, Globe, Users, Sparkles, Clock, FileText
 } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 import { usePlatformStore } from '../state/platform-store';
@@ -12,6 +12,7 @@ import { ExportModal } from '../export/ExportModal';
 import { BuildStatus } from './BuildStatus';
 import { AIPairProgramming } from '../ai-ui/AIPairProgramming';
 import { BackupManager } from '../ui/BackupManager';
+import { DocsPanel } from '../docs/DocsPanel';
 
 interface CanvasToolbarProps {
   onOpenAI?: () => void; // kept for backward compatibility
@@ -21,6 +22,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showPairProgramming, setShowPairProgramming] = useState(false);
   const [showBackupManager, setShowBackupManager] = useState(false);
+  const [showDocsPanel, setShowDocsPanel] = useState(false);
   const project = useProjectStore((state) => state.project);
   const { platform, stack } = usePlatformStore();
   const setProjectName = useProjectStore((state) => state.setProjectName);
@@ -141,6 +143,9 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
           <button onClick={() => setShowBackupManager(true)} className="p-2 hover:bg-gray-700 rounded" title="Backups">
             <Clock size={16} />
           </button>
+          <button onClick={() => setShowDocsPanel(true)} className="p-2 hover:bg-gray-700 rounded" title="Project Docs">
+            <FileText size={16} />
+          </button>
         </div>
       </div>
 
@@ -155,6 +160,14 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
       )}
 
       {showBackupManager && <BackupManager onClose={() => setShowBackupManager(false)} />}
+
+      {showDocsPanel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="w-96 h-[600px] bg-gray-900 rounded-lg overflow-hidden">
+            <DocsPanel onClose={() => setShowDocsPanel(false)} />
+          </div>
+        </div>
+      )}
     </>
   );
 };
