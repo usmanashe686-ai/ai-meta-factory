@@ -11,21 +11,56 @@ import { useProjectStore } from '../state/project-store';
 import { usePlatformStore } from '../state/platform-store';
 import { useUIStore } from '../state/ui-store';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useBackupStore } from '../state/backup-store';
+import { useSessionStore } from '../state/session-store';
+import { useLocalAIStore } from '../state/local-ai-store';
 
 export function EnhancedCanvasLayout() {
-  const { project, createBlankProject } = useProjectStore();
+  const { project, files, activeFileId, setActiveFile, createBlankProject, setFiles, setProjectName } = useProjectStore();
   const { platform } = usePlatformStore();
   const { isAIPanelOpen } = useUIStore();
+  const { isAutoSaveEnabled, addBackup, loadBackups, restoreBackup } = useBackupStore();
+  const { lastOpenedBackupId } = useSessionStore();
+  const { loadSessionModel } = useLocalAIStore();
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
 
-  // Auto-create a blank project if none exists
+  // Load backups and restore last opened project
   useEffect(() => {
-    if (!project) {
-      createBlankProject();
+    const init = async () => {
+      await loadBackups();
+      if (lastOpenedBackupId) {
+        const backup = await restoreBackup(lastOpenedBackupId);
+        if (backup) {
+          setFiles(backup.files);
+          setProjectName(backup.projectName);
+        } else {
+          createBlankProject();
+        }
+      } else {
+        createBlankProject();
+      }
+      await loadSessionModel();
+    };
+    init();
+  }, []);
+
+  // Auto-select first file when files load and no file is active
+  useEffect(() => {
+    if (files.length > 0 && !activeFileId) {
+      setActiveFile(files[0].id);
     }
-  }, [project, createBlankProject]);
+  }, [files, activeFileId, setActiveFile]);
+
+  // Auto-save every 60 seconds
+  useEffect(() => {
+    if (!isAutoSaveEnabled || !project || files.length === 0) return;
+    const interval = setInterval(() => {
+      addBackup(files, project.name, 'Auto-save');
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [isAutoSaveEnabled, project, files, addBackup]);
 
   if (!project) {
     return (

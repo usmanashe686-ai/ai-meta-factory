@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useSessionStore } from './session-store';
 
 export interface AIModel {
   id: string;
@@ -16,18 +17,16 @@ export interface AIModel {
 export interface LocalAIState {
   availableModels: AIModel[];
   currentModel: AIModel | null;
-  downloadProgress: Record<string, any>;
   isLoading: boolean;
   error: string | null;
 
   fetchAvailableModels: () => Promise<void>;
-  downloadModel: (modelId: string) => Promise<void>;
-  cancelDownload: (modelId: string) => Promise<void>;
   loadModel: (modelId: string) => Promise<boolean>;
   unloadModel: () => Promise<void>;
   setCurrentModel: (model: AIModel | null) => void;
   clearError: () => void;
   generate: (prompt: string, options?: any) => Promise<string>;
+  loadSessionModel: () => Promise<void>;
 }
 
 const FALLBACK_MODELS: AIModel[] = [
@@ -45,7 +44,6 @@ const FALLBACK_MODELS: AIModel[] = [
 export const useLocalAIStore = create<LocalAIState>((set, get) => ({
   availableModels: FALLBACK_MODELS,
   currentModel: null,
-  downloadProgress: {},
   isLoading: false,
   error: null,
 
@@ -63,34 +61,35 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
           type: 'llamacpp',
           tags: [],
         }));
-        set({ availableModels: models, isLoading: false });
+        set({ availableModels: models });
       } else {
-        set({ availableModels: FALLBACK_MODELS, isLoading: false });
+        set({ availableModels: FALLBACK_MODELS });
       }
     } catch (error) {
       console.error('Failed to fetch models, using fallback:', error);
-      set({ availableModels: FALLBACK_MODELS, isLoading: false });
+      set({ availableModels: FALLBACK_MODELS });
     }
   },
-
-  downloadModel: async (modelId: string) => {
-    set({ error: 'Download not supported in browser' });
-  },
-
-  cancelDownload: async (modelId: string) => {},
 
   loadModel: async (modelId: string) => {
     const model = get().availableModels.find(m => m.id === modelId);
     if (!model) return false;
     set({ currentModel: model });
+    // Update session store
+    useSessionStore.getState().setSelectedModelId(modelId);
     return true;
   },
 
   unloadModel: async () => {
     set({ currentModel: null });
+    useSessionStore.getState().setSelectedModelId(null);
   },
 
-  setCurrentModel: (model) => set({ currentModel: model }),
+  setCurrentModel: (model) => {
+    set({ currentModel: model });
+    if (model) useSessionStore.getState().setSelectedModelId(model.id);
+    else useSessionStore.getState().setSelectedModelId(null);
+  },
 
   clearError: () => set({ error: null }),
 
@@ -108,12 +107,25 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
           temperature: options?.temperature || 0.7,
         }),
       });
-      if (!response.ok) throw new Error(`AI service error: ${response.status}`);
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || `HTTP ${response.status}`);
+      }
       const data = await response.json();
       return data.text || data.generated_text || '';
     } catch (error) {
       console.error('Generate failed:', error);
       return 'Error generating response.';
+    }
+  },
+
+  loadSessionModel: async () => {
+    const sessionModelId = useSessionStore.getState().selectedModelId;
+    if (sessionModelId) {
+      await get().loadModel(sessionModelId);
+    } else if (get().availableModels.length > 0) {
+      // Default to first available model
+      await get().loadModel(get().availableModels[0].id);
     }
   },
 }));
