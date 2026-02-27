@@ -60,6 +60,7 @@ export function EnhancedFileExplorerDnDContent() {
   }, []);
 
   const handleCreateFile = () => {
+  console.log("handleCreateFile called");
     const defaultPath = 'src/components/NewComponent.tsx';
     const defaultContent = `export default function NewComponent() {
   return (

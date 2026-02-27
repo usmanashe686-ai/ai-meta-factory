@@ -137,6 +137,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     set({ isSaving: false });
   },
   createFile: (path, content, isFolder = false) => {
+    console.log("createFile called with path:", path);
     const { files } = get();
     const newFile: FileNode = {
       id: path,
