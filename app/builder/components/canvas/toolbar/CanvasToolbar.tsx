@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import {
   Save, Download, Upload, GitBranch, Play, Settings, Brain,
-  Zap, Globe, Users, Sparkles
+  Zap, Globe, Users, Sparkles, Clock
 } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 import { usePlatformStore } from '../state/platform-store';
@@ -11,6 +11,7 @@ import { useUIStore } from '../state/ui-store';
 import { ExportModal } from '../export/ExportModal';
 import { BuildStatus } from './BuildStatus';
 import { AIPairProgramming } from '../ai-ui/AIPairProgramming';
+import { BackupManager } from '../ui/BackupManager';
 
 interface CanvasToolbarProps {
   onOpenAI?: () => void; // kept for backward compatibility
@@ -19,6 +20,7 @@ interface CanvasToolbarProps {
 export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showPairProgramming, setShowPairProgramming] = useState(false);
+  const [showBackupManager, setShowBackupManager] = useState(false);
   const project = useProjectStore((state) => state.project);
   const { platform, stack } = usePlatformStore();
   const setProjectName = useProjectStore((state) => state.setProjectName);
@@ -35,6 +37,22 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
   const handleAIClick = () => {
     if (onOpenAI) onOpenAI();
     else toggleAIPanel();
+  };
+
+  const handleRun = () => {
+    alert('Run feature coming soon!');
+  };
+
+  const handleGit = () => {
+    window.open('https://github.com/usmanashe686-ai/ai-meta-factory', '_blank');
+  };
+
+  const handleUsers = () => {
+    alert('Collaboration feature coming soon!');
+  };
+
+  const handleSettings = () => {
+    alert('Settings panel coming soon!');
   };
 
   const handleProjectNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,7 +117,10 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
             <span>Deploy</span>
           </button>
 
-          <button className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm">
+          <button
+            onClick={handleRun}
+            className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+          >
             <Play size={14} />
             <span>Run</span>
           </button>
@@ -108,14 +129,17 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
         </div>
 
         <div className="flex items-center space-x-2">
-          <button className="p-2 hover:bg-gray-700 rounded">
+          <button onClick={handleGit} className="p-2 hover:bg-gray-700 rounded">
             <GitBranch size={16} />
           </button>
-          <button className="p-2 hover:bg-gray-700 rounded">
+          <button onClick={handleUsers} className="p-2 hover:bg-gray-700 rounded">
             <Users size={16} />
           </button>
-          <button className="p-2 hover:bg-gray-700 rounded">
+          <button onClick={handleSettings} className="p-2 hover:bg-gray-700 rounded">
             <Settings size={16} />
+          </button>
+          <button onClick={() => setShowBackupManager(true)} className="p-2 hover:bg-gray-700 rounded" title="Backups">
+            <Clock size={16} />
           </button>
         </div>
       </div>
@@ -129,6 +153,8 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
           </div>
         </div>
       )}
+
+      {showBackupManager && <BackupManager onClose={() => setShowBackupManager(false)} />}
     </>
   );
 };
