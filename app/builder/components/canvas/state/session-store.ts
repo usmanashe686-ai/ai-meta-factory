@@ -45,7 +45,7 @@ export const useSessionStore = create<SessionState>()(
     }),
     {
       name: 'ai-meta-factory-session',
-      getStorage: () => storage,
+      storage: storage,
     }
   )
 );
