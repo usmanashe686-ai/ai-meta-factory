@@ -41,12 +41,9 @@ def llama_completion(prompt, **kwargs):
 
 def clean_code_output(text):
     """Remove language tags, backticks, and extra whitespace."""
-    # Remove markdown code blocks
     text = re.sub(r'```\w*\n?', '', text)
     text = re.sub(r'```', '', text)
-    # Remove language tags like "python" at the beginning
     text = re.sub(r'^\s*(python|javascript|typescript|js|ts|java|cpp|c|ruby|go|rust)\s*\n', '', text, flags=re.IGNORECASE)
-    # Strip extra whitespace
     return text.strip()
 
 @app.route('/health', methods=['GET'])
@@ -62,15 +59,28 @@ def health():
         "model": MODEL_NAME
     })
 
+@app.route('/models', methods=['GET'])
+def list_models():
+    """Return a list of available models (currently just the one)."""
+    return jsonify([
+        {
+            "id": MODEL_NAME.lower().replace(' ', '-'),
+            "name": MODEL_NAME,
+            "size": "unknown"
+        }
+    ])
+
 @app.route('/generate', methods=['POST'])
 def generate():
     data = request.get_json()
     user_prompt = data.get('prompt')
     if not user_prompt:
         return jsonify({"error": "prompt required"}), 400
+
     max_new_tokens = data.get('max_new_tokens', 200)
     temperature = data.get('temperature', 0.7)
     top_p = data.get('top_p', 0.95)
+
     try:
         prompt = build_prompt(user_prompt)
         generated = llama_completion(
@@ -81,6 +91,7 @@ def generate():
         )
         cleaned = clean_code_output(generated)
         return jsonify({
+            "text": cleaned,
             "generated_text": cleaned,
             "model": MODEL_NAME,
             "usage": {"prompt_tokens": 0, "completion_tokens": 0}
@@ -95,6 +106,7 @@ def explain():
     language = data.get('language', 'python')
     if not code:
         return jsonify({"error": "code required"}), 400
+
     user_prompt = f"Explain the following {language} code in simple terms:\n\n{code}"
     prompt = build_prompt(user_prompt)
     try:
@@ -170,4 +182,5 @@ def embed():
     return jsonify({"error": "Embeddings not supported"}), 501
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000, debug=True)
+    # Bind to localhost only for security
+    app.run(host='127.0.0.1', port=8000, debug=False)

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useDebounce } from 'use-debounce';
 import { useProjectStore } from '../state/project-store';
 import { useLocalAIStore } from '../state/local-ai-store';
-import { Sparkles, X, Check, Copy, RefreshCw } from 'lucide-react';
+import { Sparkles, X, Check, Copy, RefreshCw, ArrowDown } from 'lucide-react';
 
 interface Suggestion {
   id: string;
@@ -83,6 +83,14 @@ export const AIPairProgramming: React.FC<AIPairProgrammingProps> = ({ onClose })
     updateFileContent(activeFileId, suggestion.code);
     setSuggestions(prev => prev.filter(s => s.id !== suggestion.id));
   }, [updateFileContent, activeFileId]);
+
+  const insertBelowCursor = useCallback((suggestion: Suggestion) => {
+    if (!suggestion.code || !activeFileId || !activeFile) return;
+    // Simple: append at end (replace with proper cursor position later)
+    const newContent = activeFile.content + '\n\n' + suggestion.code;
+    updateFileContent(activeFileId, newContent);
+    setSuggestions(prev => prev.filter(s => s.id !== suggestion.id));
+  }, [updateFileContent, activeFileId, activeFile]);
 
   const dismissSuggestion = useCallback((id: string) => {
     setSuggestions(prev => prev.filter(s => s.id !== id));
@@ -170,6 +178,13 @@ export const AIPairProgramming: React.FC<AIPairProgrammingProps> = ({ onClose })
                   <Check size={12} /> Apply
                 </button>
               )}
+              <button
+                onClick={() => insertBelowCursor(sug)}
+                className="px-2 py-1 bg-indigo-600 text-xs rounded hover:bg-indigo-700 flex items-center gap-1"
+                title="Insert below cursor (or at end)"
+              >
+                <ArrowDown size={12} /> Insert
+              </button>
               <button
                 onClick={() => navigator.clipboard.writeText(sug.code || sug.description)}
                 className="px-2 py-1 bg-gray-700 text-xs rounded hover:bg-gray-600 flex items-center gap-1"
