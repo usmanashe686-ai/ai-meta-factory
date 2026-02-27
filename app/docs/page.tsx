@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { 
   Book, Code, Rocket, Settings, Users, Shield, Download, FileText, 
-  Zap, Brain, Globe, Database, GitBranch, Cloud, Sparkles, Box
+  Zap, Brain, Globe, Database, GitBranch, Cloud, Sparkles, Box, Terminal
 } from 'lucide-react';
 
 export default function DocsPage() {
@@ -25,6 +25,16 @@ export default function DocsPage() {
         { name: 'Code Editor', href: '/docs/studio/editor' },
         { name: 'Live Preview', href: '/docs/studio/preview' },
         { name: 'Terminal / Console', href: '/docs/studio/console' },
+      ]
+    },
+    {
+      title: 'Local AI Setup',
+      icon: <Terminal className="w-6 h-6" />,
+      links: [
+        { name: 'Running llama.cpp on Termux', href: '/docs/ai/local-setup' },
+        { name: 'Using Your Own Models', href: '/docs/ai/own-models' },
+        { name: 'Flask Proxy Configuration', href: '/docs/ai/proxy' },
+        { name: 'Troubleshooting', href: '/docs/ai/troubleshooting' },
       ]
     },
     {
@@ -170,16 +180,48 @@ export default function DocsPage() {
           </div>
         </div>
 
+        {/* Local AI Server Section */}
+        <div className="mb-16 p-8 bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl text-white">
+          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+            <Terminal className="w-8 h-8" /> Local AI Server (Termux / Any Device)
+          </h2>
+          <p className="text-lg mb-4">
+            To use AI features, you need to run a local AI server on your device. This can be done on Android via Termux, on Linux, macOS, or even Windows.
+          </p>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-white/10 p-4 rounded-xl">
+              <h3 className="font-semibold mb-2">📱 On Termux (Android)</h3>
+              <p className="text-sm opacity-90 mb-2">
+                1. Install Termux and dependencies.<br/>
+                2. Clone and compile llama.cpp.<br/>
+                3. Download a model (e.g., TinyLlama).<br/>
+                4. Run the Flask proxy.<br/>
+                <Link href="/docs/ai/local-setup" className="text-blue-300 underline">Full guide →</Link>
+              </p>
+            </div>
+            <div className="bg-white/10 p-4 rounded-xl">
+              <h3 className="font-semibold mb-2">💻 On Linux/macOS</h3>
+              <p className="text-sm opacity-90 mb-2">
+                Use the same llama.cpp + Flask setup. You can also run the build service for APK exports.
+              </p>
+            </div>
+          </div>
+          <p className="mt-4 text-sm opacity-80">
+            The AI server runs on <code className="bg-black/30 px-2 py-1 rounded">localhost:8000</code> and communicates with the frontend. You can use any GGUF model – just place it in the models directory.
+          </p>
+        </div>
+
         {/* Quick Start Guide */}
         <div className="mb-16 grid md:grid-cols-2 gap-8">
           <div className="bg-white rounded-xl shadow-lg border p-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">🚀 Quick Start</h2>
             <ol className="space-y-4 list-decimal list-inside text-gray-700">
+              <li><strong>Start your local AI server</strong> (see section above).</li>
               <li>Open the <Link href="/builder" className="text-blue-600 hover:underline">Builder</Link> – a blank project is auto‑created.</li>
               <li>Use the file explorer to add new files (right‑click or use the + button).</li>
               <li>Edit code in the Monaco editor with syntax highlighting.</li>
               <li>Click the <strong>Run</strong> button to refresh the live preview.</li>
-              <li>Ask the AI Assistant (brain icon) for help – it uses your local TinyLlama model.</li>
+              <li>Ask the AI Assistant (brain icon) for help – it uses your local model.</li>
               <li>Export your project as a ZIP or try APK (requires build service).</li>
             </ol>
           </div>
