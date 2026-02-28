@@ -16,16 +16,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
   const [isExporting, setIsExporting] = useState(false);
   const [repoName, setRepoName] = useState('');
   const [githubToken, setGithubToken] = useState('');
+  const [vercelToken, setVercelToken] = useState('');
+  const [vercelProjectId, setVercelProjectId] = useState('');
   const [buildServerUrl, setBuildServerUrl] = useState(process.env.NEXT_PUBLIC_BUILD_SERVICE_URL || '/api/build');
 
   const files = useProjectStore((state) => state.files);
   const project = useProjectStore((state) => state.project);
+  const envVars = useProjectStore((state) => state.envVars);
 
   if (!isOpen) return null;
 
   const projectName = project?.name || 'project';
 
-  // Convert files (FileNode[]) to ProjectFile[] format
+  // Helper to collect files
   const getProjectFiles = (): ProjectFile[] => {
     const projectFiles: ProjectFile[] = [];
     const collectFiles = (nodes: any[]) => {
@@ -45,6 +48,20 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
     return projectFiles;
   };
 
+  // Create a ZIP blob with project files + .env
+  const createProjectZip = async (includeEnv = true): Promise<Blob> => {
+    const projectFiles = getProjectFiles();
+    const zip = new JSZip();
+    projectFiles.forEach(file => zip.file(file.path, file.content));
+    if (includeEnv && Object.keys(envVars).length > 0) {
+      const envContent = Object.entries(envVars)
+        .map(([k, v]) => `${k}=${v}`)
+        .join('\n');
+      zip.file('.env', envContent);
+    }
+    return await zip.generateAsync({ type: 'blob' });
+  };
+
   const handleExport = async () => {
     if (!files || files.length === 0) return;
 
@@ -58,10 +75,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
           await handleApkExport();
           break;
         case 'github':
-          alert('GitHub export not implemented yet.');
+          await handleGitHubExport();
           break;
         case 'vercel':
-          alert('Vercel deployment not implemented yet.');
+          await handleVercelDeploy();
           break;
       }
       onClose();
@@ -75,57 +92,94 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
 
   const handleZipExport = async () => {
     const projectFiles = getProjectFiles();
+    if (Object.keys(envVars).length > 0) {
+      const envContent = Object.entries(envVars)
+        .map(([key, value]) => `${key}=${value}`)
+        .join('\n');
+      projectFiles.push({ path: '.env', content: envContent });
+    }
     await UniversalExporter.exportProject(projectFiles, `${projectName}.zip`);
   };
 
   const handleApkExport = async () => {
-    // Step 1: Create ZIP of project files
-    const projectFiles = getProjectFiles();
-    const zip = new JSZip();
-    projectFiles.forEach(file => {
-      zip.file(file.path, file.content);
-    });
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
-
-    // Step 2: Send to build service
+    const zipBlob = await createProjectZip(true);
     const formData = new FormData();
     formData.append('project', zipBlob, `${projectName}.zip`);
     formData.append('appName', projectName);
     formData.append('packageName', `com.aimetafactory.${projectName.toLowerCase().replace(/[^a-z0-9]/g, '')}`);
     formData.append('version', '1.0.0');
-
+    // Include env vars as a JSON string in the request (or they are inside the zip)
     const response = await fetch(`${buildServerUrl}/apk`, {
       method: 'POST',
       body: formData,
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Build failed: ${error}`);
-    }
-
-    // Step 3: Handle response – could be direct APK or job ID
+    if (!response.ok) throw new Error(`Build failed: ${await response.text()}`);
     const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/octet-stream')) {
-      // Direct APK download
+    if (contentType?.includes('application/octet-stream')) {
       const blob = await response.blob();
       saveAs(blob, `${projectName}.apk`);
     } else {
-      // Assume it's a job ID – start polling
       const { jobId } = await response.json();
       await pollBuildStatus(jobId);
     }
   };
 
+  const handleGitHubExport = async () => {
+    if (!repoName || !githubToken) {
+      alert('Please enter repository name and GitHub token');
+      return;
+    }
+    const zipBlob = await createProjectZip(true);
+    const formData = new FormData();
+    formData.append('project', zipBlob, `${projectName}.zip`);
+    formData.append('repo', repoName);
+    formData.append('token', githubToken);
+    formData.append('commitMessage', `Export from AI Meta Factory – ${new Date().toISOString()}`);
+
+    const response = await fetch('/api/github/export', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) throw new Error(`GitHub export failed: ${await response.text()}`);
+    const data = await response.json();
+    alert(`✅ Repository created: ${data.repoUrl}`);
+  };
+
+  const handleVercelDeploy = async () => {
+    // Vercel token and project ID can come from the form or from envVars
+    const token = vercelToken || envVars.VERCEL_TOKEN;
+    const projectId = vercelProjectId || envVars.VERCEL_PROJECT_ID;
+    if (!token || !projectId) {
+      alert('Please provide Vercel token and project ID (either in the form or as environment variables VERCEL_TOKEN and VERCEL_PROJECT_ID)');
+      return;
+    }
+    const zipBlob = await createProjectZip(true);
+    const formData = new FormData();
+    formData.append('project', zipBlob, `${projectName}.zip`);
+    formData.append('token', token);
+    formData.append('projectId', projectId);
+    if (envVars) {
+      // Optionally send env vars as JSON for Vercel to set as environment variables
+      formData.append('envVars', JSON.stringify(envVars));
+    }
+
+    const response = await fetch('/api/vercel/deploy', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) throw new Error(`Vercel deploy failed: ${await response.text()}`);
+    const data = await response.json();
+    alert(`✅ Deployed to Vercel: ${data.deploymentUrl}`);
+  };
+
   const pollBuildStatus = async (jobId: string) => {
     const maxAttempts = 60;
-    const interval = 2000; // 2 seconds
+    const interval = 2000;
     for (let i = 0; i < maxAttempts; i++) {
       const res = await fetch(`${buildServerUrl}/status/${jobId}`);
       if (res.ok) {
         const data = await res.json();
         if (data.status === 'completed') {
-          // Download the APK
           const downloadRes = await fetch(`${buildServerUrl}/download/${jobId}`);
           if (downloadRes.ok) {
             const blob = await downloadRes.blob();
@@ -145,7 +199,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg p-6 w-96 text-white">
+      <div className="bg-gray-800 rounded-lg p-6 w-96 text-white max-h-[80vh] overflow-y-auto">
         <h2 className="text-xl font-bold mb-4">Export Project</h2>
         <div className="space-y-4">
           <div>
@@ -182,6 +236,31 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
                   onChange={(e) => setGithubToken(e.target.value)}
                   className="w-full p-2 bg-gray-700 rounded border border-gray-600"
                 />
+                <p className="text-xs text-gray-400 mt-1">Requires `repo` scope.</p>
+              </div>
+            </>
+          )}
+
+          {format === 'vercel' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium mb-1">Vercel Token</label>
+                <input
+                  type="password"
+                  value={vercelToken}
+                  onChange={(e) => setVercelToken(e.target.value)}
+                  className="w-full p-2 bg-gray-700 rounded border border-gray-600"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Vercel Project ID</label>
+                <input
+                  type="text"
+                  value={vercelProjectId}
+                  onChange={(e) => setVercelProjectId(e.target.value)}
+                  className="w-full p-2 bg-gray-700 rounded border border-gray-600"
+                />
+                <p className="text-xs text-gray-400 mt-1">You can also set VERCEL_TOKEN and VERCEL_PROJECT_ID as environment variables in the project.</p>
               </div>
             </>
           )}
