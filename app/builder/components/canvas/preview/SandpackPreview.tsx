@@ -3,6 +3,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { SandpackProvider, SandpackLayout, SandpackPreview as SandpackPreviewComponent } from '@codesandbox/sandpack-react';
 import { useProjectStore } from '../state/project-store';
+import { usePreviewStore } from '../state/preview-store';
 import '@codesandbox/sandpack-react/dist/index.css';
 
 // Error boundary to catch render errors
@@ -28,6 +29,7 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode, fallback
 
 export function SandpackPreview() {
   const { files, activeFileId } = useProjectStore();
+  const { refreshCounter } = usePreviewStore();
   const [sandpackError, setSandpackError] = useState(false);
   const [timeoutError, setTimeoutError] = useState(false);
   const [fallbackHtml, setFallbackHtml] = useState('');
@@ -115,12 +117,15 @@ export function SandpackPreview() {
     </div>
   );
 
+  // Combine retryKey and refreshCounter to force remount on Run click
+  const providerKey = `${retryKey}-${refreshCounter}`;
+
   return (
     <div className="h-full w-full border-l border-gray-200">
       <ErrorBoundary fallback={fallback} onError={() => setSandpackError(true)}>
         {!sandpackError && !timeoutError ? (
           <SandpackProvider
-            key={retryKey}
+            key={providerKey}
             template="react-ts"
             files={sandpackFiles}
             customSetup={{
