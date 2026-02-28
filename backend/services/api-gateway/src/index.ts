@@ -5,15 +5,27 @@
 // ============================================================================
 
 import express, { Express, Request, Response } from 'express';
+import path from "path";
 import cors from 'cors';
+import path from "path";
 import helmet from 'helmet';
+import path from "path";
 import compression from 'compression';
+import path from "path";
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import path from "path";
 import winston from 'winston';
+import path from "path";
 import { authMiddleware } from './middleware/auth';
+import path from "path";
 import prisma from './lib/prisma';
+import path from "path";
 import adminRouter from './routes/admin';
+import path from "path";
 app.use('/api/admin', adminRouter);
+import templatesRouter from './routes/templates';
+import path from "path";
+app.use('/api/templates', templatesRouter);
 
 const app: Express = express();
 const PORT = process.env.PORT || 3001;
@@ -45,6 +57,7 @@ app.use(cors({
 }));
 app.use(compression());
 app.use(express.json());
+app.use("/uploads", express.static(path.join(__dirname, "../../public/uploads")));
 
 // Request logging middleware
 app.use((req, res, next) => {
