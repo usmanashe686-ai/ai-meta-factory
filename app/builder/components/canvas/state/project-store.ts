@@ -16,6 +16,7 @@ interface ProjectState {
   activeFileId: string | null;
   isSaving: boolean;
   console: ConsoleEntry[];
+  envVars: Record<string, string>;
   createProjectFromTemplate: (template: Template) => Promise<string>;
   createBlankProject: (name?: string) => void;
   saveProject: () => Promise<void>;
@@ -36,10 +37,13 @@ interface ProjectState {
   searchFiles: (query: string) => Array<{ path: string; name: string }>;
   moveFile: (sourceId: string, targetId: string) => void;
   setProjectName: (name: string) => void;
-  setFiles: (newFiles: FileNode[]) => void; // Add this method
+  setFiles: (newFiles: FileNode[]) => void;
+  setEnvVar: (key: string, value: string) => void;
+  removeEnvVar: (key: string) => void;
+  getEnvVars: () => Record<string, string>;
 }
 
-// Helper to find a node by ID recursively
+// Helper functions (unchanged)
 const findNodeById = (nodes: FileNode[], id: string): FileNode | null => {
   for (const node of nodes) {
     if (node.id === id) return node;
@@ -51,7 +55,6 @@ const findNodeById = (nodes: FileNode[], id: string): FileNode | null => {
   return null;
 };
 
-// Helper to update a node's content by ID (immutably)
 const updateNodeContent = (nodes: FileNode[], id: string, content: string): FileNode[] => {
   return nodes.map(node => {
     if (node.id === id) {
@@ -64,7 +67,6 @@ const updateNodeContent = (nodes: FileNode[], id: string, content: string): File
   });
 };
 
-// Helper to delete a node by ID
 const deleteNode = (nodes: FileNode[], id: string): FileNode[] => {
   return nodes.filter(node => {
     if (node.id === id) return false;
@@ -75,7 +77,6 @@ const deleteNode = (nodes: FileNode[], id: string): FileNode[] => {
   });
 };
 
-// Helper to rename a node
 const renameNode = (nodes: FileNode[], oldId: string, newId: string, newName: string): FileNode[] => {
   return nodes.map(node => {
     if (node.id === oldId) {
@@ -95,6 +96,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   activeFileId: null,
   isSaving: false,
   console: [],
+  envVars: {},
+
   createProjectFromTemplate: async (template) => {
     const projectId = 'proj-' + Date.now();
     const files: FileNode[] = Object.entries(template.files).map(([path, content]) => ({
@@ -105,9 +108,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       content,
     }));
     const newProject = { id: projectId, name: template.name };
-    set({ project: newProject, files });
+    set({ project: newProject, files, envVars: {} });
     return projectId;
   },
+
   createBlankProject: (name = 'Untitled Project') => {
     const projectId = 'proj-' + Date.now();
     const defaultFile: FileNode = {
@@ -129,13 +133,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       files: [defaultFile],
       openFiles: [],
       activeFileId: null,
+      envVars: {},
     });
   },
+
   saveProject: async () => {
     set({ isSaving: true });
     await new Promise(resolve => setTimeout(resolve, 500));
     set({ isSaving: false });
   },
+
   createFile: (path, content, isFolder = false) => {
     console.log('createFile called with path:', path);
     const { files } = get();
@@ -149,10 +156,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     };
     set({ files: [...files, newFile] });
   },
+
   updateFileContent: (fileId, content) => {
     const { files } = get();
     set({ files: updateNodeContent(files, fileId, content) });
   },
+
   deleteFile: (fileId) => {
     const { files, activeFileId, openFiles } = get();
     const newFiles = deleteNode(files, fileId);
@@ -160,6 +169,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const newActive = activeFileId === fileId ? null : activeFileId;
     set({ files: newFiles, openFiles: newOpenFiles, activeFileId: newActive });
   },
+
   openFile: (fileId) => {
     const { openFiles, activeFileId, files } = get();
     const file = findNodeById(files, fileId);
@@ -172,6 +182,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       set({ activeFileId: fileId });
     }
   },
+
   closeFile: (fileId) => {
     const { openFiles, activeFileId } = get();
     const newOpenFiles = openFiles.filter(id => id !== fileId);
@@ -181,31 +192,29 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
     set({ openFiles: newOpenFiles, activeFileId: newActive });
   },
+
   setActiveFileId: (id) => set({ activeFileId: id }),
   setActiveFile: (id) => set({ activeFileId: id }),
+
   addToConsole: (entry) => {
     const { console } = get();
     set({
       console: [...console, { ...entry, timestamp: new Date() }]
     });
   },
-  clearConsole: () => {
-    set({ console: [] });
-  },
-  saveCurrentFile: async () => {
-    console.log('saveCurrentFile called');
-  },
-  formatCurrentFile: async () => {
-    console.log('formatCurrentFile called');
-  },
-  runPreview: async () => {
-    console.log('runPreview called');
-  },
+
+  clearConsole: () => set({ console: [] }),
+
+  saveCurrentFile: async () => console.log('saveCurrentFile called'),
+  formatCurrentFile: async () => console.log('formatCurrentFile called'),
+  runPreview: async () => console.log('runPreview called'),
+
   renameFile: (oldPath, newPath) => {
     const { files } = get();
     const newName = newPath.split('/').pop() || newPath;
     set({ files: renameNode(files, oldPath, newPath, newName) });
   },
+
   copyFile: (path) => {
     const { files } = get();
     const node = findNodeById(files, path);
@@ -221,6 +230,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       set({ files: [...files, newFile] });
     }
   },
+
   searchFiles: (query) => {
     const { files } = get();
     const results: { path: string; name: string }[] = [];
@@ -235,6 +245,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     search(files);
     return results;
   },
+
   moveFile: (sourceId, targetId) => {
     const { files } = get();
     const sourceIndex = files.findIndex(f => f.id === sourceId);
@@ -243,6 +254,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const newFiles = arrayMove(files, sourceIndex, targetIndex);
     set({ files: newFiles });
   },
+
   setProjectName: (name) => {
     const { project } = get();
     if (project) {
@@ -251,5 +263,20 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       console.warn('No project to rename');
     }
   },
-  setFiles: (newFiles) => set({ files: newFiles }), // Keep exactly one
+
+  setFiles: (newFiles) => set({ files: newFiles }),
+
+  setEnvVar: (key, value) => {
+    const { envVars } = get();
+    set({ envVars: { ...envVars, [key]: value } });
+  },
+
+  removeEnvVar: (key) => {
+    const { envVars } = get();
+    const newEnvVars = { ...envVars };
+    delete newEnvVars[key];
+    set({ envVars: newEnvVars });
+  },
+
+  getEnvVars: () => get().envVars,
 }));

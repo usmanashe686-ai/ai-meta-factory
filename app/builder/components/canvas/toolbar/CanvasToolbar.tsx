@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import {
   Save, Download, Upload, GitBranch, Play, Settings, Brain,
-  Zap, Globe, Users, Sparkles, Clock, FileText
+  Zap, Globe, Users, Sparkles, Clock, FileText, Key
 } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 import { usePlatformStore } from '../state/platform-store';
@@ -16,9 +16,10 @@ import { BackupManager } from '../ui/BackupManager';
 import { DocsPanel } from '../docs/DocsPanel';
 import { GitModal } from '../ui/GitModal';
 import { SettingsModal } from '../ui/SettingsModal';
+import { EnvVarsModal } from '../ui/EnvVarsModal';
 
 interface CanvasToolbarProps {
-  onOpenAI?: () => void; // kept for backward compatibility
+  onOpenAI?: () => void;
 }
 
 export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
@@ -28,45 +29,22 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
   const [showDocsPanel, setShowDocsPanel] = useState(false);
   const [showGitModal, setShowGitModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showEnvVarsModal, setShowEnvVarsModal] = useState(false);
   const project = useProjectStore((state) => state.project);
   const { platform, stack } = usePlatformStore();
   const setProjectName = useProjectStore((state) => state.setProjectName);
   const { toggleAIPanel } = useUIStore();
   const { triggerRefresh } = usePreviewStore();
 
-  const handleSave = () => {
-    alert('Project saved successfully!');
-  };
-
-  const handleDeploy = () => {
-    setShowExportModal(true);
-  };
-
-  const handleAIClick = () => {
-    if (onOpenAI) onOpenAI();
-    else toggleAIPanel();
-  };
-
-  const handleRun = () => {
-    triggerRefresh();
-  };
-
-  const handleGit = () => {
-    setShowGitModal(true);
-  };
-
-  const handleUsers = () => {
-    // In offline mode, we can disable or remove this button.
-    alert('Users feature is disabled in offline mode.');
-  };
-
-  const handleSettings = () => {
-    setShowSettingsModal(true);
-  };
-
-  const handleProjectNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setProjectName(e.target.value);
-  };
+  const handleSave = () => alert('Project saved successfully!');
+  const handleDeploy = () => setShowExportModal(true);
+  const handleAIClick = () => (onOpenAI ? onOpenAI() : toggleAIPanel());
+  const handleRun = () => triggerRefresh();
+  const handleGit = () => setShowGitModal(true);
+  const handleUsers = () => alert('Users feature is disabled in offline mode.');
+  const handleSettings = () => setShowSettingsModal(true);
+  const handleEnvVars = () => setShowEnvVarsModal(true);
+  const handleProjectNameChange = (e: React.ChangeEvent<HTMLInputElement>) => setProjectName(e.target.value);
 
   return (
     <>
@@ -93,47 +71,21 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
         </div>
 
         <div className="flex items-center space-x-2">
-          <button
-            onClick={handleSave}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
-          >
-            <Save size={14} />
-            <span>Save</span>
+          <button onClick={handleSave} className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm">
+            <Save size={14} /><span>Save</span>
           </button>
-
-          <button
-            onClick={handleAIClick}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 rounded text-sm"
-          >
-            <Brain size={14} />
-            <span>AI Assistant</span>
+          <button onClick={handleAIClick} className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 rounded text-sm">
+            <Brain size={14} /><span>AI Assistant</span>
           </button>
-
-          <button
-            onClick={() => setShowPairProgramming(true)}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded text-sm"
-            title="AI Pair Programming"
-          >
-            <Sparkles size={14} />
-            <span>Pair</span>
+          <button onClick={() => setShowPairProgramming(true)} className="flex items-center space-x-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded text-sm" title="AI Pair Programming">
+            <Sparkles size={14} /><span>Pair</span>
           </button>
-
-          <button
-            onClick={handleDeploy}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded text-sm"
-          >
-            <Globe size={14} />
-            <span>Deploy</span>
+          <button onClick={handleDeploy} className="flex items-center space-x-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded text-sm">
+            <Globe size={14} /><span>Deploy</span>
           </button>
-
-          <button
-            onClick={handleRun}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
-          >
-            <Play size={14} />
-            <span>Run</span>
+          <button onClick={handleRun} className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm">
+            <Play size={14} /><span>Run</span>
           </button>
-
           <BuildStatus />
         </div>
 
@@ -153,11 +105,13 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
           <button onClick={() => setShowDocsPanel(true)} className="p-2 hover:bg-gray-700 rounded" title="Project Docs">
             <FileText size={16} />
           </button>
+          <button onClick={handleEnvVars} className="p-2 hover:bg-gray-700 rounded" title="Environment Variables">
+            <Key size={16} />
+          </button>
         </div>
       </div>
 
       <ExportModal isOpen={showExportModal} onClose={() => setShowExportModal(false)} />
-
       {showPairProgramming && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="w-96 h-[600px] bg-gray-900 rounded-lg overflow-hidden">
@@ -165,9 +119,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
           </div>
         </div>
       )}
-
       {showBackupManager && <BackupManager onClose={() => setShowBackupManager(false)} />}
-
       {showDocsPanel && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="w-96 h-[600px] bg-gray-900 rounded-lg overflow-hidden">
@@ -175,10 +127,9 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ onOpenAI }) => {
           </div>
         </div>
       )}
-
       {showGitModal && <GitModal onClose={() => setShowGitModal(false)} />}
-
       {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
+      {showEnvVarsModal && <EnvVarsModal onClose={() => setShowEnvVarsModal(false)} />}
     </>
   );
 };
