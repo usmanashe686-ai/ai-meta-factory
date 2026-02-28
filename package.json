@@ -9,10 +9,14 @@
     "lint": "next lint",
     "deploy": "vercel --prod",
     "typecheck": "tsc --noEmit",
-    "test": "echo 'No tests yet'"
+    "test": "echo 'No tests yet'",
+    "export": "next build && next export"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
+    "@capacitor/android": "^8.1.0",
+    "@capacitor/cli": "^8.1.0",
+    "@capacitor/core": "^8.1.0",
     "@codesandbox/sandpack-react": "^2.20.0",
     "@codesandbox/sandpack-themes": "^2.0.21",
     "@dnd-kit/core": "^6.3.1",
