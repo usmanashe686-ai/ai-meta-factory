@@ -18,6 +18,7 @@ model User {
   sessions      Session[]
   projects      Project[]
   apiKeys       ApiKey[]
+  templates     Template[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
