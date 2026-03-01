@@ -2,7 +2,6 @@ import { apiFetch } from "@/lib/apiClient";
 import { apiFetch } from "@/lib/apiClient";
 import { apiFetch } from "@/lib/apiClient";
 import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
 import React, { useState } from 'react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
