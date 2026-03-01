@@ -1,3 +1,4 @@
+import { logApiBaseUrl } from "@/utils/debugApi";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { SessionProvider } from "@/components/SessionProvider";
@@ -15,6 +16,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  logApiBaseUrl();
   return (
     <html lang="en">
       <body className={inter.className}>
