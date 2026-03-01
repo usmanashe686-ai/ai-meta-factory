@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/apiConfig";
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -40,7 +41,7 @@ export const AIChatSidebar: React.FC = () => {
   const { platform, stack } = usePlatformStore();
   const { docs, selectedDocId, loadDocs } = useDocsStore();
 
-  const AI_API_URL = 'http://localhost:8000';
+  const AI_API_URL = API_BASE_URL;
 
   // Fetch available models on mount
   useEffect(() => {

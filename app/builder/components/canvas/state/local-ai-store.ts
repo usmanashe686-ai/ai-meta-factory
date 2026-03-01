@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/apiConfig";
 import { create } from 'zustand';
 import { useSessionStore } from './session-store';
 
@@ -49,7 +50,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
 
   fetchAvailableModels: async () => {
     try {
-      const res = await fetch('http://localhost:8000/models');
+      const res = await fetch('${API_BASE_URL}/models');
       if (res.ok) {
         const data = await res.json();
         const models = data.map((m: any) => ({
@@ -97,7 +98,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
     const { currentModel } = get();
     const modelId = currentModel?.id || 'tinyllama-1.1b';
     try {
-      const response = await fetch('http://localhost:8000/generate', {
+      const response = await fetch('${API_BASE_URL}/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
