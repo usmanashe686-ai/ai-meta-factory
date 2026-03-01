@@ -1,10 +1,6 @@
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
 'use client';
 
+import { apiFetch } from "@/lib/apiClient";
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { formatDistanceToNow } from 'date-fns';

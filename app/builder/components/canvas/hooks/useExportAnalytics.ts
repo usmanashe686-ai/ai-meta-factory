@@ -1,10 +1,6 @@
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
 'use client';
 
+import { apiFetch } from "@/lib/apiClient";
 import { useCallback } from 'react';
 
 interface ExportEvent {

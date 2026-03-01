@@ -1,8 +1,4 @@
 import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 export function useAuth() {

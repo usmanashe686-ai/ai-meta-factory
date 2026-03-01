@@ -1,9 +1,6 @@
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
 "use client";
 
+import { apiFetch } from "@/lib/apiClient";
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'react-hot-toast';

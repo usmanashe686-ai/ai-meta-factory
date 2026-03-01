@@ -1,10 +1,5 @@
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
 'use client';
-
+import { apiFetch } from "@/lib/apiClient";
 import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';

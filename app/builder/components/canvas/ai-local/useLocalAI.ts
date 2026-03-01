@@ -1,9 +1,5 @@
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
 import { useState, useCallback } from 'react';
+import { apiFetch } from "@/lib/apiClient";
 
 interface UseLocalAIReturn {
   generate: (prompt: string, context?: string) => Promise<string>;

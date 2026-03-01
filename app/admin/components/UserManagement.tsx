@@ -1,12 +1,8 @@
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
-import { apiFetch } from "@/lib/apiClient";
 'use client';
 
 import { useState, useEffect } from 'react';
 import { Trash2, Edit, UserCheck, UserX } from 'lucide-react';
+import { apiFetch } from "@/lib/apiClient";
 
 interface User {
   id: string;
