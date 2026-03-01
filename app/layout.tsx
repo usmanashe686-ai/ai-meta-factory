@@ -1,4 +1,3 @@
-import { logApiBaseUrl } from "@/utils/debugApi";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { SessionProvider } from "@/components/SessionProvider";
