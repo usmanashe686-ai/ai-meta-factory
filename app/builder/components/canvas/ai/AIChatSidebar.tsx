@@ -1,7 +1,7 @@
-import { API_BASE_URL } from "@/lib/apiConfig";
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { API_BASE_URL } from '@/lib/apiConfig';
 import { Send, Bot, User, Sparkles, Copy, Check, Trash2, FileText } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 import { usePlatformStore } from '../state/platform-store';
