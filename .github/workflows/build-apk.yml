@@ -24,7 +24,10 @@ jobs:
 
       - name: Build Next.js static export
         env:
-          NEXT_PUBLIC_API_URL: https://ai-meta-factory.onrender.com
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_AI_URL: ${{ secrets.NEXT_PUBLIC_AI_URL }}
+          NEXT_PUBLIC_BUILD_SERVICE_URL: ${{ secrets.NEXT_PUBLIC_BUILD_SERVICE_URL }}
+          NEXT_PUBLIC_REALTIME_URL: ${{ secrets.NEXT_PUBLIC_REALTIME_URL }}
         run: npm run build
 
       - name: Sync Capacitor Android
