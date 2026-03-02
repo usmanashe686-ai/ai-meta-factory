@@ -7,7 +7,9 @@ export interface RoadmapStep {
 }
 
 export class RoadmapGenerator {
-  private static apiEndpoint = 'http://localhost:8000';
+  private static get apiEndpoint() {
+  return process.env.NEXT_PUBLIC_AI_URL || 'http://localhost:8000';
+}
 
   /**
    * Generate a detailed roadmap for a project idea.

@@ -6,7 +6,9 @@ export interface ExtractedFeature {
 }
 
 export class FeatureExtractor {
-  private static apiEndpoint = 'http://localhost:8000'; // Your Flask proxy
+  private static get apiEndpoint() {
+  return process.env.NEXT_PUBLIC_AI_URL || 'http://localhost:8000';
+}
 
   /**
    * Extract features from a project idea using AI.
