@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Static Export and APK
 
 on:
   push:
@@ -27,7 +27,8 @@ jobs:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
           NEXT_PUBLIC_AI_URL: ${{ secrets.NEXT_PUBLIC_AI_URL }}
           NEXT_PUBLIC_BUILD_SERVICE_URL: ${{ secrets.NEXT_PUBLIC_BUILD_SERVICE_URL }}
-          NEXT_PUBLIC_REALTIME_URL: ${{ secrets.NEXT_PUBLIC_REALTIME_URL }}
+          NEXT_PUBLIC_REAL_TIME_URL: ${{ secrets.NEXT_PUBLIC_REAL_TIME_URL }}
+          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
         run: npm run build
 
       - name: Sync Capacitor Android
@@ -37,7 +38,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 21
+          java-version: '21'
 
       - name: Build APK
         working-directory: ./android
