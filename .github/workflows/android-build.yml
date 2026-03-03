@@ -23,9 +23,11 @@ jobs:
 
       - name: Build Next.js Static Export
         env:
-          NEXT_PUBLIC_API_URL: https://ai-meta-factory.onrender.com
-                env:
-          NEXT_PUBLIC_API_URL: https://ai-meta-factory.onrender.com
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_FLASK_URL: ${{ secrets.NEXT_PUBLIC_FLASK_URL }}
+          NEXT_PUBLIC_BUILD_SERVICE_URL: ${{ secrets.NEXT_PUBLIC_BUILD_SERVICE_URL }}
+          NEXT_PUBLIC_REAL_TIME_URL: ${{ secrets.NEXT_PUBLIC_REAL_TIME_URL }}
+          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
         run: npm run build
 
       - name: Install Capacitor Android
