@@ -27,7 +27,7 @@ jobs:
           NEXT_PUBLIC_FLASK_URL: ${{ secrets.NEXT_PUBLIC_FLASK_URL }}
           NEXT_PUBLIC_BUILD_SERVICE_URL: ${{ secrets.NEXT_PUBLIC_BUILD_SERVICE_URL }}
           NEXT_PUBLIC_REAL_TIME_URL: ${{ secrets.NEXT_PUBLIC_REAL_TIME_URL }}
-          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+          NEXT_AUTH_URL: ${{ secrets.NEXT_AUTH_URL }}
         run: npm run build
 
       - name: Install Capacitor Android
