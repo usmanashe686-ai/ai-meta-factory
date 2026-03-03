@@ -1,4 +1,4 @@
-name: Build Static Export and APK
+name: Build Android APK
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
       - name: Build Next.js static export
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_AI_URL: ${{ secrets.NEXT_PUBLIC_AI_URL }}
+          NEXT_PUBLIC_FLASK_URL: ${{ secrets.NEXT_PUBLIC_FLASK_URL }}
           NEXT_PUBLIC_BUILD_SERVICE_URL: ${{ secrets.NEXT_PUBLIC_BUILD_SERVICE_URL }}
           NEXT_PUBLIC_REAL_TIME_URL: ${{ secrets.NEXT_PUBLIC_REAL_TIME_URL }}
           NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
@@ -38,7 +38,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: 21
 
       - name: Build APK
         working-directory: ./android
