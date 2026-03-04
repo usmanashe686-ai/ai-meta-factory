@@ -10,18 +10,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: 'npm'
 
-      - name: Install Dependencies
-        run: npm install
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Build Next.js Static Export
+      - name: Build Next.js static export
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
           NEXT_PUBLIC_FLASK_URL: ${{ secrets.NEXT_PUBLIC_FLASK_URL }}
@@ -30,25 +31,23 @@ jobs:
           NEXT_AUTH_URL: ${{ secrets.NEXT_AUTH_URL }}
         run: npm run build
 
-      - name: Install Capacitor Android
-        run: |
-          npm install @capacitor/android
-          npx cap sync android
+      - name: Sync Capacitor Android
+        run: npx cap sync android
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: 21
 
-      - name: Build Debug APK
+      - name: Build APK
+        working-directory: ./android
         run: |
-          cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload APK Artifact
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Meta-Factory-Debug-APK
+          name: AI-Meta-Factory-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
