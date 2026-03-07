@@ -3,7 +3,7 @@ const config = {
   appName: 'AI Meta Factory',
   webDir: 'out',
   server: {
-    url: 'https://ai-meta-factory.vercel.app',
+    url: 'https://ai-meta-factory-git-main-usman-ashes-projects.vercel.app',
     cleartext: true
   }
 };
