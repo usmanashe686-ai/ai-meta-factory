@@ -22,39 +22,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build and Debug Next.js Export
+      - name: Build Next.js static export
         env:
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
           NEXT_PUBLIC_FLASK_URL: ${{ secrets.NEXT_PUBLIC_FLASK_URL }}
           NEXT_PUBLIC_BUILD_SERVICE_URL: ${{ secrets.NEXT_PUBLIC_BUILD_SERVICE_URL }}
           NEXT_PUBLIC_REAL_TIME_URL: ${{ secrets.NEXT_PUBLIC_REAL_TIME_URL }}
           NEXT_AUTH_URL: ${{ secrets.NEXT_AUTH_URL }}
+        run: npm run build
+
+      - name: Debug - List out folder
         run: |
-          echo "=== STEP 1: Current directory ==="
-          pwd
-          ls -la
+          echo "Contents of out folder:"
+          ls -la out/ || echo "out folder not found"
 
-          echo "=== STEP 2: Running build ==="
-          npm run build
-
-          echo "=== STEP 3: After build - directory contents ==="
-          ls -la
-
-          echo "=== STEP 4: Searching for any possible output folder ==="
-          find . -maxdepth 2 -type d \( -name "out" -o -name "dist" -o -name "build" -o -name "public" -o -name ".next" \) | head -20
-
-          echo "=== STEP 5: Checking package.json scripts ==="
-          grep -A5 '"scripts"' package.json
-
-          echo "=== STEP 6: Checking if next.config.js exists and its content ==="
-          if [ -f next.config.js ]; then
-            cat next.config.js
-          else
-            echo "next.config.js not found!"
-          fi
-
-          echo "=== STEP 7: Checking for any index.html files ==="
-          find . -name "index.html" | head -10
+      - name: Debug - Show Capacitor config
+        run: |
+          echo "=== capacitor.config.js ==="
+          cat capacitor.config.js || echo "File not found"
+          echo "=== capacitor.config.ts (if exists) ==="
+          cat capacitor.config.ts 2>/dev/null || echo "No .ts file"
 
       - name: Sync Capacitor Android
         run: npx cap sync android
