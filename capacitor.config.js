@@ -1,7 +1,7 @@
-const config = {
-  appId: 'com.imetafactory.app',
-  appName: 'Im Meta Factory',
-  webDir: 'out'
+/** @type {import('@capacitor/cli').CapacitorConfig} */
+module.exports = {
+  appId: 'com.aimetafactory.app',
+  appName: 'AI Meta Factory',
+  webDir: 'out',
+  bundledWebRuntime: false
 };
-
-export default config;
