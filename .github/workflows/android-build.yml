@@ -30,16 +30,21 @@ jobs:
           NEXT_PUBLIC_REAL_TIME_URL: ${{ secrets.NEXT_PUBLIC_REAL_TIME_URL }}
           NEXT_AUTH_URL: ${{ secrets.NEXT_AUTH_URL }}
         run: |
+          echo "📦 Installing dependencies..."
+          npm ci
+          echo "🏗️ Building Next.js app..."
           npm run build
-          # If your package.json has a separate export script, uncomment the next line:
-          # npm run export
-
-      - name: Debug - List generated files
-        run: |
-          echo "Contents after build:"
+          echo "📂 Checking build output..."
           ls -la
-          echo "Looking for out folder:"
-          ls -la out || echo "out folder not found!"
+          echo "🔍 Looking for out directory:"
+          if [ -d "out" ]; then
+            echo "✅ Found out directory with contents:"
+            ls -la out/
+          else
+            echo "❌ out directory not found!"
+            echo "Available directories:"
+            ls -la | grep ^d
+          fi
 
       - name: Sync Capacitor Android
         run: npx cap sync android
