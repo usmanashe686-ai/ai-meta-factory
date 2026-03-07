@@ -10,26 +10,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout the repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
 
-      # 3️⃣ Clean previous builds
-      - name: Clean previous builds
-        run: rm -rf www out android
-
-      # 4️⃣ Install dependencies
       - name: Install dependencies
         run: npm ci
 
-      # 5️⃣ Build Next.js static export
       - name: Build Next.js static export
         env:
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
@@ -37,15 +29,13 @@ jobs:
           NEXT_PUBLIC_BUILD_SERVICE_URL: ${{ secrets.NEXT_PUBLIC_BUILD_SERVICE_URL }}
           NEXT_PUBLIC_REAL_TIME_URL: ${{ secrets.NEXT_PUBLIC_REAL_TIME_URL }}
           NEXT_AUTH_URL: ${{ secrets.NEXT_AUTH_URL }}
-        run: npm run build && npm run export
+        run: npm run build
 
-      # 6️⃣ Debug - List out folder
       - name: Debug - List out folder
         run: |
           echo "Contents of out folder:"
           ls -la out/ || echo "out folder not found"
 
-      # 7️⃣ Debug - Show Capacitor config
       - name: Debug - Show Capacitor config
         run: |
           echo "=== capacitor.config.js ==="
@@ -53,25 +43,21 @@ jobs:
           echo "=== capacitor.config.ts (if exists) ==="
           cat capacitor.config.ts 2>/dev/null || echo "No .ts file"
 
-      # 8️⃣ Sync Capacitor Android
       - name: Sync Capacitor Android
         run: npx cap sync android
 
-      # 9️⃣ Setup Java
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: 21
 
-      # 🔟 Build APK
       - name: Build APK
         working-directory: ./android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      # 1️⃣1️⃣ Upload APK artifact
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
