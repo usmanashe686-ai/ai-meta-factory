@@ -10,18 +10,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2️⃣ Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
 
+      # 3️⃣ Install dependencies
       - name: Install dependencies
         run: npm ci
 
+      # 4️⃣ Build Next.js app (this generates the web assets for Capacitor)
       - name: Build Next.js static export
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
@@ -29,23 +33,29 @@ jobs:
           NEXT_PUBLIC_BUILD_SERVICE_URL: ${{ secrets.NEXT_PUBLIC_BUILD_SERVICE_URL }}
           NEXT_PUBLIC_REAL_TIME_URL: ${{ secrets.NEXT_PUBLIC_REAL_TIME_URL }}
           NEXT_AUTH_URL: ${{ secrets.NEXT_AUTH_URL }}
-        run: npm run build
+        run: |
+          npm run build
+          npm run export
 
+      # 5️⃣ Sync Capacitor with the Android project
       - name: Sync Capacitor Android
         run: npx cap sync android
 
+      # 6️⃣ Setup Java for Android build
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: 21
 
+      # 7️⃣ Build the APK
       - name: Build APK
         working-directory: ./android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
 
+      # 8️⃣ Upload APK artifact
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
