@@ -20,6 +20,7 @@ export interface LocalAIState {
   currentModel: AIModel | null;
   isLoading: boolean;
   error: string | null;
+
   fetchAvailableModels: () => Promise<void>;
   loadModel: (modelId: string) => Promise<boolean>;
   unloadModel: () => Promise<void>;
@@ -106,12 +107,10 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
           temperature: options?.temperature || 0.7,
         }),
       });
-
       if (!response.ok) {
         const err = await response.json();
         throw new Error(err.error || `HTTP ${response.status}`);
       }
-
       const data = await response.json();
       return data.text || data.generated_text || '';
     } catch (error) {
