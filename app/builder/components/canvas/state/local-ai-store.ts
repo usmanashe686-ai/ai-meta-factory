@@ -20,7 +20,6 @@ export interface LocalAIState {
   currentModel: AIModel | null;
   isLoading: boolean;
   error: string | null;
-
   fetchAvailableModels: () => Promise<void>;
   loadModel: (modelId: string) => Promise<boolean>;
   unloadModel: () => Promise<void>;
@@ -50,7 +49,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
 
   fetchAvailableModels: async () => {
     try {
-      const res = await fetch('${API_BASE_URL}/models');
+      const res = await fetch(`${API_BASE_URL}/models`);
       if (res.ok) {
         const data = await res.json();
         const models = data.map((m: any) => ({
@@ -76,7 +75,6 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
     const model = get().availableModels.find(m => m.id === modelId);
     if (!model) return false;
     set({ currentModel: model });
-    // Update session store
     useSessionStore.getState().setSelectedModelId(modelId);
     return true;
   },
@@ -98,7 +96,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
     const { currentModel } = get();
     const modelId = currentModel?.id || 'tinyllama-1.1b';
     try {
-      const response = await fetch('${API_BASE_URL}/generate', {
+      const response = await fetch(`${API_BASE_URL}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -108,10 +106,12 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
           temperature: options?.temperature || 0.7,
         }),
       });
+
       if (!response.ok) {
         const err = await response.json();
         throw new Error(err.error || `HTTP ${response.status}`);
       }
+
       const data = await response.json();
       return data.text || data.generated_text || '';
     } catch (error) {
@@ -125,7 +125,6 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
     if (sessionModelId) {
       await get().loadModel(sessionModelId);
     } else if (get().availableModels.length > 0) {
-      // Default to first available model
       await get().loadModel(get().availableModels[0].id);
     }
   },
