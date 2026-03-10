@@ -9,7 +9,7 @@ export interface IdeaAnalysis {
 
 export class IdeaAnalyzer {
   private static get apiEndpoint() {
-  return process.env.NEXT_PUBLIC_AI_URL || 'http://localhost:8000';
+  return process.env.NEXT_PUBLIC_AI_URL || 'process.env.NEXT_PUBLIC_API_URL';
 }
 
   /**

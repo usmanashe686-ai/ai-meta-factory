@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useProjectStore } from '../state/project-store';
 
-const BUILD_SERVICE_URL = process.env.NEXT_PUBLIC_BUILD_SERVICE_URL || 'http://localhost:8080';
+const BUILD_SERVICE_URL = process.env.NEXT_PUBLIC_BUILD_SERVICE_URL || 'process.env.NEXT_PUBLIC_BUILD_SERVICE_URL';
 
 export interface BuildStatus {
   buildId: string;

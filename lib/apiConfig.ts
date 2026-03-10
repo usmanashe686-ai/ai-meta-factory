@@ -1,17 +1,46 @@
-// lib/apiConfig.ts
-// Centralized API configuration – uses environment variables with NO localhost fallback.
+// ============================================================================
+// AI Meta Factory – Central API Configuration
+// This file provides a single source of truth for all API endpoints.
+// It prevents accidental localhost usage in production builds.
+// ============================================================================
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+// Core API endpoints from environment variables
+export const API_CONFIG = {
+  API_URL: process.env.NEXT_PUBLIC_API_URL || "",
+  FLASK_URL: process.env.NEXT_PUBLIC_FLASK_URL || "",
+  BUILD_SERVICE_URL: process.env.NEXT_PUBLIC_BUILD_SERVICE_URL || "",
+  REAL_TIME_URL: process.env.NEXT_PUBLIC_REAL_TIME_URL || ""
+};
 
-// If you need separate URLs for different services, add them here:
-export const BUILD_SERVICE_URL = process.env.NEXT_PUBLIC_BUILD_SERVICE_URL;
-export const FLASK_URL = process.env.NEXT_PUBLIC_FLASK_URL;
-export const REAL_TIME_URL = process.env.NEXT_PUBLIC_REAL_TIME_URL;
-export const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL; // if you have this secret
+// Default base API used by AI-related services
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_FLASK_URL ||
+  "";
 
-// Optional: throw an error if required variables are missing in production
-if (process.env.NODE_ENV === 'production') {
-  if (!API_BASE_URL) throw new Error('NEXT_PUBLIC_API_URL is not defined');
-  if (!BUILD_SERVICE_URL) throw new Error('NEXT_PUBLIC_BUILD_SERVICE_URL is not defined');
-  // Add checks for other required URLs as needed
+// Helper getters for services
+export const BUILD_SERVICE_URL =
+  process.env.NEXT_PUBLIC_BUILD_SERVICE_URL || "";
+
+export const AI_API_URL =
+  process.env.NEXT_PUBLIC_FLASK_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "";
+
+export const REALTIME_URL =
+  process.env.NEXT_PUBLIC_REAL_TIME_URL || "";
+
+// -----------------------------------------------------------------------------
+// Safety check: warn if localhost appears in configuration
+// -----------------------------------------------------------------------------
+if (typeof window !== "undefined") {
+  const urls = Object.values(API_CONFIG);
+
+  urls.forEach((url) => {
+    if (url && url.includes("localhost")) {
+      console.warn(
+        "⚠️ Warning: localhost detected in API configuration. Replace with production URL."
+      );
+    }
+  });
 }

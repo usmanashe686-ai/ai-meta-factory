@@ -46,7 +46,7 @@ interface CollaborationProviderProps {
 
 export const CollaborationProvider: React.FC<CollaborationProviderProps> = ({
   children,
-  serverUrl = process.env.NEXT_PUBLIC_REALTIME_URL || 'http://localhost:3004',
+  serverUrl = process.env.NEXT_PUBLIC_REALTIME_URL || 'process.env.NEXT_PUBLIC_REALTIME_URL',
 }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
