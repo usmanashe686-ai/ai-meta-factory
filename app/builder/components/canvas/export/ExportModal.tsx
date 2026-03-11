@@ -3,7 +3,9 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { UniversalExporter, ProjectFile } from './UniversalExporter';
 import { useProjectStore } from '../state/project-store';
+import apiClient from "@/lib/apiClient";
 import { apiFetch } from "@/lib/apiClient";
+
 
 interface ExportModalProps {
   isOpen: boolean;

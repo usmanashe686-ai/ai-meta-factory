@@ -1,6 +1,7 @@
 'use client';
 
 import { apiFetch } from "@/lib/apiClient";
+import apiClient from '@/lib/apiClient';
 import { useState, useEffect } from 'react';
 import UserManagement from './components/UserManagement';
 

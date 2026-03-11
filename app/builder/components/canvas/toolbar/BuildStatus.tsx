@@ -1,6 +1,8 @@
+"use client";
+import { apiFetch } from "@/lib/apiClient";
 'use client';
 
-import { apiFetch } from "@/lib/apiClient";
+import apiClient from '@/lib/apiClient';
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Loader2, Clock } from 'lucide-react';
 
