@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      - run: npm ci
+      - run: npm install --legacy-peer-deps --no-audit
       - run: npm run lint
       - run: npm run typecheck
         continue-on-error: true
@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      - run: npm ci
+      - run: npm install --legacy-peer-deps --no-audit
       - run: npm test -- --coverage
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -48,7 +48,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      - run: npm ci
+      - run: npm install --legacy-peer-deps --no-audit
       - run: npm run build
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -67,11 +67,11 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      - run: npm ci
+      - run: npm install --legacy-peer-deps --no-audit
       - name: Install optimization tools
         run: |
-          npm install -g @next/bundle-analyzer
-          npm install sharp postcss cssnano terser --no-save
+          npm install --legacy-peer-deps --no-audit -g @next/bundle-analyzer
+          npm install --legacy-peer-deps --no-audit sharp postcss cssnano terser --no-save
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:

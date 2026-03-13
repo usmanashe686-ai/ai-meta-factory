@@ -15,11 +15,11 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      - run: npm ci
+      - run: npm install --legacy-peer-deps --no-audit
       - run: npm run build
       - name: Run Lighthouse CI
         run: |
-          npm install -g @lhci/cli
+          npm install --legacy-peer-deps --no-audit -g @lhci/cli
           lhci autorun
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}

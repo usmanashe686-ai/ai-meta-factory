@@ -63,7 +63,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --legacy-peer-deps --no-audit
         working-directory: ./backend/services/api-gateway  # or where your prisma is located
 
       - name: Run Prisma Migrations
