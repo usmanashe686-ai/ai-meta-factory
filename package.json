@@ -47,6 +47,7 @@
     "lodash": "^4.17.23",
     "lucide-react": "^0.564.0",
     "minio": "^8.0.6",
+    "monaco-editor": "^0.55.1",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "nanoid": "^5.1.6",
