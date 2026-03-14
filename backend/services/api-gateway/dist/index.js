@@ -35,7 +35,7 @@ if (process.env.NODE_ENV !== 'production') {
 // Global middleware
 app.use((0, helmet_1.default)());
 app.use((0, cors_1.default)({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL || 'https://ai-meta-factory.onrender.com',
     credentials: true,
 }));
 app.use((0, compression_1.default)());
@@ -169,7 +169,7 @@ app.use('/api/builds', auth_1.authMiddleware, http_proxy_middleware_1.createProx
     pathRewrite: { '^/api/builds': '/' },
 }));
 app.use('/api/ai', auth_1.authMiddleware, http_proxy_middleware_1.createProxyMiddleware({
-    target: process.env.AI_SERVICE_URL || 'http://localhost:8000',
+    target: process.env.AI_SERVICE_URL || 'http://ai-meta-factory.onrender.com',
     changeOrigin: true,
     pathRewrite: { '^/api/ai': '/' },
 }));
@@ -192,6 +192,6 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
     logger.info(`🚀 API Gateway running on port ${PORT}`);
     logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-    logger.info(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+    logger.info(`Frontend URL: ${process.env.FRONTEND_URL || 'https://ai-meta-factory.onrender.com'}`);
 });
 exports.default = app;

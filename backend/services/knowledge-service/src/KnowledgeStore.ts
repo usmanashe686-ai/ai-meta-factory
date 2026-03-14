@@ -15,7 +15,7 @@ export class KnowledgeStore {
 
   constructor(collectionName: string = 'project-knowledge') {
     this.collectionName = collectionName;
-    // ChromaDB client defaults to http://localhost:8000 (the default server port)
+    // ChromaDB client defaults to http://ai-meta-factory.onrender.com (the default server port)
     this.client = new ChromaClient();
   }
 

@@ -7,7 +7,7 @@ const SERVICES = {
   auth: process.env.AUTH_SERVICE_URL || 'http://localhost:3002',
   project: process.env.PROJECT_SERVICE_URL || 'http://localhost:3003',
   build: process.env.BUILD_SERVICE_URL || 'http://localhost:8080',
-  ai: process.env.AI_SERVICE_URL || 'http://localhost:8000',
+  ai: process.env.AI_SERVICE_URL || 'http://ai-meta-factory.onrender.com',
   realtime: process.env.REALTIME_SERVICE_URL || 'http://localhost:3004', // if needed
 };
 

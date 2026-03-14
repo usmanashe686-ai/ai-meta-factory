@@ -40,7 +40,7 @@ if (process.env.NODE_ENV !== 'production') {
 // ----------------------------------------------------------------------------
 app.use(helmet());
 app.use(cors({
-  origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  origin: process.env.NEXT_PUBLIC_APP_URL || 'https://ai-meta-factory.onrender.com',
   credentials: true,
 }));
 
@@ -101,7 +101,7 @@ const serviceProxy = {
   }),
   
   ai: createProxyMiddleware({
-    target: process.env.AI_SERVICE_URL || 'http://localhost:8000',
+    target: process.env.AI_SERVICE_URL || 'http://ai-meta-factory.onrender.com',
     changeOrigin: true,
     pathRewrite: { '^/api/ai': '/' },
     onProxyReq: (proxyReq, req, res) => {
@@ -149,7 +149,7 @@ app.use((err: any, req: Request, res: Response, next: any) => {
 app.listen(PORT, () => {
   logger.info(`🚀 API Gateway running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+  logger.info(`Frontend URL: ${process.env.FRONTEND_URL || 'https://ai-meta-factory.onrender.com'}`);
 });
 
 export default app;

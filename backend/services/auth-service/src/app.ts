@@ -8,7 +8,7 @@ import { authenticate } from './middleware/auth.middleware';
 const app = express();
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || 'http://localhost:3000',
+  origin: process.env.CORS_ORIGIN?.split(',') || 'https://ai-meta-factory.onrender.com',
   credentials: true,
 }));
 app.use(express.json());

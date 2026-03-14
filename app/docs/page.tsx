@@ -207,7 +207,7 @@ export default function DocsPage() {
             </div>
           </div>
           <p className="mt-4 text-sm opacity-80">
-            The AI server runs on <code className="bg-black/30 px-2 py-1 rounded">localhost:8000</code> and communicates with the frontend. You can use any GGUF model – just place it in the models directory.
+            The AI server runs on <code className="bg-black/30 px-2 py-1 rounded">ai-meta-factory.onrender.com</code> and communicates with the frontend. You can use any GGUF model – just place it in the models directory.
           </p>
         </div>
 

@@ -1,6 +1,6 @@
 const fetch = require('node-fetch');
 
-const API_URL = 'http://localhost:8000';
+const API_URL = 'http://ai-meta-factory.onrender.com';
 
 async function testModels() {
   console.log('🔍 Testing AI Model Inference\n');

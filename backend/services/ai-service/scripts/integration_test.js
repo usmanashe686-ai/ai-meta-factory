@@ -1,6 +1,6 @@
 const fetch = require('node-fetch');
 
-const API_URL = 'http://localhost:8000';
+const API_URL = 'http://ai-meta-factory.onrender.com';
 const GENERATE_ENDPOINT = `${API_URL}/generate`;
 
 async function callGenerate(prompt, model = 'tinyllama-1.1b', maxTokens = 300, temperature = 0.3) {

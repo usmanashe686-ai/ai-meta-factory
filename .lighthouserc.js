@@ -1,7 +1,7 @@
 module.exports = {
   ci: {
     collect: {
-      url: ['http://localhost:3000/'],
+      url: ['https://ai-meta-factory.onrender.com/'],
       numberOfRuns: 3,
       settings: {
         preset: 'desktop',
