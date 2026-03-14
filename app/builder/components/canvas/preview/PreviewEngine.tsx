@@ -131,7 +131,7 @@ export function PreviewEngine() {
             <div className="p-4 border-b border-gray-800">
               <div className="flex items-center gap-2 text-sm text-gray-400">
                 {getStatusIcon()}
-                <span>Preview running on localhost:3000</span>
+                <span>Preview running on ai-meta-factory.onrender.com</span>
               </div>
             </div>
             <div className="flex-1 p-4">

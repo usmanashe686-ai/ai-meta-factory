@@ -171,8 +171,8 @@ yarn-error.log*
     
     const dbVars = envVars[config.database] || [];
     const stackVars = config.stack === 'nextjs' ? [
-      'NEXT_PUBLIC_APP_URL=http://localhost:3000',
-      'NEXT_PUBLIC_API_URL=http://localhost:3000/api'
+      'NEXT_PUBLIC_APP_URL=https://ai-meta-factory.onrender.com',
+      'NEXT_PUBLIC_API_URL=https://ai-meta-factory.onrender.com/api'
     ] : [];
     
     return [...stackVars, ...dbVars, ''].join('\n');
