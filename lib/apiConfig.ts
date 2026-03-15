@@ -1,7 +1,7 @@
 // ============================================================================
 // AI Meta Factory – Central API Configuration
 // This file provides a single source of truth for all API endpoints.
-// It prevents accidental localhost usage in production builds.
+// It prevents accidental ai-meta-factory.onrender.com usage in production builds.
 // ============================================================================
 
 // Core API endpoints from environment variables
@@ -31,15 +31,15 @@ export const REALTIME_URL =
   process.env.NEXT_PUBLIC_REAL_TIME_URL || "";
 
 // -----------------------------------------------------------------------------
-// Safety check: warn if localhost appears in configuration
+// Safety check: warn if ai-meta-factory.onrender.com appears in configuration
 // -----------------------------------------------------------------------------
 if (typeof window !== "undefined") {
   const urls = Object.values(API_CONFIG);
 
   urls.forEach((url) => {
-    if (url && url.includes("localhost")) {
+    if (url && url.includes("ai-meta-factory.onrender.com")) {
       console.warn(
-        "⚠️ Warning: localhost detected in API configuration. Replace with production URL."
+        "⚠️ Warning: ai-meta-factory.onrender.com detected in API configuration. Replace with production URL."
       );
     }
   });
