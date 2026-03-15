@@ -1,7 +1,7 @@
 // ============================================================================
 // AI Meta Factory – Central API Configuration
 // This file provides a single source of truth for all API endpoints.
-// It prevents accidental ai-meta-factory.onrender.com usage in production builds.
+// It prevents accidental ai-meta-factory-api.onrender.com usage in production builds.
 // ============================================================================
 
 // Core API endpoints from environment variables
@@ -9,7 +9,7 @@ export const API_CONFIG = {
   API_URL: process.env.NEXT_PUBLIC_API_URL || "",
   FLASK_URL: process.env.NEXT_PUBLIC_FLASK_URL || "",
   BUILD_SERVICE_URL: process.env.NEXT_PUBLIC_BUILD_SERVICE_URL || "",
-  REAL_TIME_URL: process.env.NEXT_PUBLIC_REAL_TIME_URL || ""
+  REAL_TIME_URL: process.env.NEXT_PUBLIC_REALTIME_URL || ""
 };
 
 // Default base API used by AI-related services
@@ -28,18 +28,18 @@ export const AI_API_URL =
   "";
 
 export const REALTIME_URL =
-  process.env.NEXT_PUBLIC_REAL_TIME_URL || "";
+  process.env.NEXT_PUBLIC_REALTIME_URL || "";
 
 // -----------------------------------------------------------------------------
-// Safety check: warn if ai-meta-factory.onrender.com appears in configuration
+// Safety check: warn if ai-meta-factory-api.onrender.com appears in configuration
 // -----------------------------------------------------------------------------
 if (typeof window !== "undefined") {
   const urls = Object.values(API_CONFIG);
 
   urls.forEach((url) => {
-    if (url && url.includes("ai-meta-factory.onrender.com")) {
+    if (url && url.includes("ai-meta-factory-api.onrender.com")) {
       console.warn(
-        "⚠️ Warning: ai-meta-factory.onrender.com detected in API configuration. Replace with production URL."
+        "⚠️ Warning: ai-meta-factory-api.onrender.com detected in API configuration. Replace with production URL."
       );
     }
   });
