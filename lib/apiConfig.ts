@@ -1,46 +1,34 @@
-// ============================================================================
-// AI Meta Factory – Central API Configuration
-// This file provides a single source of truth for all API endpoints.
-// It prevents accidental ai-meta-factory-api.onrender.com usage in production builds.
-// ============================================================================
+// lib/apiConfig.ts
 
-// Core API endpoints from environment variables
-export const API_CONFIG = {
-  API_URL: process.env.NEXT_PUBLIC_API_URL || "",
-  FLASK_URL: process.env.NEXT_PUBLIC_FLASK_URL || "",
-  BUILD_SERVICE_URL: process.env.NEXT_PUBLIC_BUILD_SERVICE_URL || "",
-  REAL_TIME_URL: process.env.NEXT_PUBLIC_REALTIME_URL || ""
+const API_CONFIG = {
+  apiUrl:
+    process.env.NEXT_PUBLIC_API_URL ||
+    'https://ai-meta-factory-api.onrender.com/api',
+
+  buildServiceUrl:
+    process.env.NEXT_PUBLIC_BUILD_SERVICE_URL ||
+    'https://ai-meta-factory-api.onrender.com/build',
+
+  realtimeUrl:
+    process.env.NEXT_PUBLIC_REALTIME_URL ||
+    'wss://ai-meta-factory-api.onrender.com/ws',
+
+  appUrl:
+    process.env.NEXT_PUBLIC_APP_URL ||
+    'https://ai-meta-factory.vercel.app',
 };
 
-// Default base API used by AI-related services
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_FLASK_URL ||
-  "";
-
-// Helper getters for services
-export const BUILD_SERVICE_URL =
-  process.env.NEXT_PUBLIC_BUILD_SERVICE_URL || "";
-
-export const AI_API_URL =
-  process.env.NEXT_PUBLIC_FLASK_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  "";
-
-export const REALTIME_URL =
-  process.env.NEXT_PUBLIC_REALTIME_URL || "";
-
-// -----------------------------------------------------------------------------
-// Safety check: warn if ai-meta-factory-api.onrender.com appears in configuration
-// -----------------------------------------------------------------------------
-if (typeof window !== "undefined") {
+// Safety check – development only
+if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
   const urls = Object.values(API_CONFIG);
 
   urls.forEach((url) => {
-    if (url && url.includes("ai-meta-factory-api.onrender.com")) {
+    if (url && url.includes('localhost')) {
       console.warn(
-        "⚠️ Warning: ai-meta-factory-api.onrender.com detected in API configuration. Replace with production URL."
+        '⚠️ Warning: localhost detected in API configuration.'
       );
     }
   });
 }
+
+export default API_CONFIG;
