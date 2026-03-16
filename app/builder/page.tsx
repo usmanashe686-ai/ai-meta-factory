@@ -2,9 +2,9 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 
-// 1. Optimized Heavy Imports
+// 1. Correct paths found from your ls command
 const AIChatSidebar = dynamic(
-  () => import("@/components/builder/sidebar/ai-chat-sidebar").then(mod => mod.AIChatSidebar),
+  () => import("./components/canvas/ai/AIChatSidebar").then(mod => mod.AIChatSidebar),
   { ssr: false, loading: () => <div className="w-64 animate-pulse bg-gray-800" /> }
 );
 
@@ -14,17 +14,14 @@ const EnhancedCanvasPanel = dynamic(
 );
 
 const EditorPanel = dynamic(
-  () => import("@/components/builder/editor/editor-panel").then(mod => mod.EditorPanel),
+  () => import("./components/canvas/editor/EnhancedCodeEditor").then(mod => mod.EnhancedCodeEditor),
   { ssr: false, loading: () => <div className="h-full w-full bg-black" /> }
 );
 
 export default function BuilderPage() {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-black text-white">
-      {/* Left Side: AI Tools */}
       <AIChatSidebar />
-
-      {/* Center & Right: The Workspace */}
       <main className="flex flex-1 flex-col relative">
         <div className="flex flex-1 h-full w-full">
           <EnhancedCanvasPanel />
