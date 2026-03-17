@@ -211,6 +211,6 @@ export const EnhancedCodeEditor: React.FC<EnhancedCodeEditorProps> = ({ fileId }
     </div>
   );
 };
-EOF
+
 
 
