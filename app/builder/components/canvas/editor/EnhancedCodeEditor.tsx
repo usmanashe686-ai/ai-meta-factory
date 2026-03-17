@@ -1,9 +1,11 @@
-"use client";
+
+'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
 import Editor, { OnMount, BeforeMount, Monaco } from '@monaco-editor/react';
 import { useProjectStore } from '../state/project-store';
 import { FileNode } from '../types/project.types';
+import * as monaco from 'monaco-editor';
 
 // Map file extensions to Monaco language IDs
 const extensionToLanguage: Record<string, string> = {
@@ -38,29 +40,35 @@ const extensionToLanguage: Record<string, string> = {
   zsh: 'shell',
 };
 
+// Determine language from file name
 function getLanguageFromFileName(fileName: string): string {
   const ext = fileName.split('.').pop()?.toLowerCase() || '';
   return extensionToLanguage[ext] || 'plaintext';
 }
 
 interface EnhancedCodeEditorProps {
+  // Optional: allow overriding file or other props
   fileId?: string;
 }
 
 export const EnhancedCodeEditor: React.FC<EnhancedCodeEditorProps> = ({ fileId }) => {
-  const { files, activeFileId, updateFileContent } = useProjectStore();
+  const { files, activeFileId, updateFileContent, openFile } = useProjectStore();
   const [activeFile, setActiveFile] = useState<FileNode | null>(null);
   const [editorLanguage, setEditorLanguage] = useState<string>('plaintext');
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
 
+  // Determine which file to display: either provided fileId or activeFileId
   const targetFileId = fileId || activeFileId;
 
+  // Find the active file whenever files or targetFileId changes
   useEffect(() => {
     if (!targetFileId) {
       setActiveFile(null);
       return;
     }
 
+    // Recursive search in file tree
     const findFile = (nodes: FileNode[], id: string): FileNode | null => {
       for (const node of nodes) {
         if (node.id === id) return node;
@@ -79,196 +87,106 @@ export const EnhancedCodeEditor: React.FC<EnhancedCodeEditorProps> = ({ fileId }
     }
   }, [files, targetFileId]);
 
+  // Handle editor mount
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
 
+    // Configure editor settings
+    editor.updateOptions({
+      fontSize: 14,
+      fontFamily: 'JetBrains Mono, Fira Code, Consolas, monospace',
+      lineNumbers: 'on',
+      minimap: { enabled: true },
+      automaticLayout: true,
+      scrollBeyondLastLine: false,
+      wordWrap: 'on',
+      wrappingIndent: 'same',
+      tabSize: 2,
+      insertSpaces: true,
+      renderWhitespace: 'selection',
+      bracketPairColorization: { enabled: true },
+      guides: {
+        bracketPairs: true,
+        indentation: true,
+      },
+    });
+
+    // Add custom themes or configure existing ones
     monaco.editor.defineTheme('custom-dark', {
       base: 'vs-dark',
       inherit: true,
       rules: [],
       colors: {
-        'editor.background': '#111827', // Matches Tailwind gray-900
-        'editor.lineHighlightBackground': '#1f2937',
+        'editor.background': '#1e1e2e',
+        'editor.lineHighlightBackground': '#2a2a3a',
+        'editor.selectionBackground': '#3a3a4a',
       },
     });
 
     monaco.editor.setTheme('custom-dark');
   };
 
+  // Handle editor content change
   const handleEditorChange = (value: string | undefined) => {
     if (activeFile && value !== undefined) {
       updateFileContent(activeFile.id, value);
     }
   };
 
+  // Before editor mounts, configure TypeScript/JavaScript defaults
   const handleEditorWillMount: BeforeMount = (monaco) => {
+    monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+      target: monaco.languages.typescript.ScriptTarget.ES2020,
+      allowNonTsExtensions: true,
+      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+      module: monaco.languages.typescript.ModuleKind.CommonJS,
+      noEmit: true,
+      typeRoots: ['node_modules/@types'],
+    });
+
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.ES2020,
       allowNonTsExtensions: true,
-      jsx: monaco.languages.typescript.JsxEmit.React,
       moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-      allowJs: true,
+      module: monaco.languages.typescript.ModuleKind.CommonJS,
+      noEmit: true,
+      typeRoots: ['node_modules/@types'],
+      jsx: monaco.languages.typescript.JsxEmit.React,
     });
+
+    // Add custom types (e.g., React)
+    monaco.languages.typescript.typescriptDefaults.addExtraLib(
+      'declare const React: any;',
+      'global.d.ts'
+    );
   };
 
-  if (!activeFile) {
-    return (
-      <div className="h-full flex items-center justify-center bg-gray-900 text-gray-500">
-        <div className="text-center">
-          <p>No file open</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-full w-full bg-gray-900 overflow-hidden">
-      <Editor
-        height="100%"
-        language={editorLanguage}
-        value={activeFile.content || ''}
-        onChange={handleEditorChange}
-        onMount={handleEditorDidMount}
-        beforeMount={handleEditorWillMount}
-        options={{
-          fontSize: 14,
-          minimap: { enabled: true },
-          automaticLayout: true,
-          scrollBeyondLastLine: false,
-          wordWrap: 'on',
-          theme: 'custom-dark',
-          padding: { top: 16 },
-        }}
-      />
-    </div>
-  );
-};
-EOFcat << 'EOF' > app/builder/components/canvas/editor/EnhancedCodeEditor.tsx
-"use client";
-
-import React, { useEffect, useRef, useState } from 'react';
-import Editor, { OnMount, BeforeMount, Monaco } from '@monaco-editor/react';
-import { useProjectStore } from '../state/project-store';
-import { FileNode } from '../types/project.types';
-
-// Map file extensions to Monaco language IDs
-const extensionToLanguage: Record<string, string> = {
-  js: 'javascript',
-  jsx: 'javascript',
-  ts: 'typescript',
-  tsx: 'typescript',
-  html: 'html',
-  css: 'css',
-  scss: 'scss',
-  json: 'json',
-  md: 'markdown',
-  py: 'python',
-  rb: 'ruby',
-  go: 'go',
-  rs: 'rust',
-  java: 'java',
-  c: 'c',
-  cpp: 'cpp',
-  cs: 'csharp',
-  php: 'php',
-  swift: 'swift',
-  kt: 'kotlin',
-  dart: 'dart',
-  sql: 'sql',
-  xml: 'xml',
-  yaml: 'yaml',
-  yml: 'yaml',
-  toml: 'toml',
-  sh: 'shell',
-  bash: 'shell',
-  zsh: 'shell',
-};
-
-function getLanguageFromFileName(fileName: string): string {
-  const ext = fileName.split('.').pop()?.toLowerCase() || '';
-  return extensionToLanguage[ext] || 'plaintext';
-}
-
-interface EnhancedCodeEditorProps {
-  fileId?: string;
-}
-
-export const EnhancedCodeEditor: React.FC<EnhancedCodeEditorProps> = ({ fileId }) => {
-  const { files, activeFileId, updateFileContent } = useProjectStore();
-  const [activeFile, setActiveFile] = useState<FileNode | null>(null);
-  const [editorLanguage, setEditorLanguage] = useState<string>('plaintext');
-  const editorRef = useRef<any>(null);
-
-  const targetFileId = fileId || activeFileId;
-
+  // Auto-save effect (optional)
   useEffect(() => {
-    if (!targetFileId) {
-      setActiveFile(null);
-      return;
-    }
+    if (!editorRef.current || !activeFile) return;
 
-    const findFile = (nodes: FileNode[], id: string): FileNode | null => {
-      for (const node of nodes) {
-        if (node.id === id) return node;
-        if (node.children) {
-          const found = findFile(node.children, id);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
+    const saveInterval = setInterval(() => {
+      // You could call a save function here if needed
+      console.log('Auto-saving file:', activeFile.name);
+    }, 30000); // every 30 seconds
 
-    const file = findFile(files, targetFileId);
-    setActiveFile(file || null);
-    if (file) {
-      setEditorLanguage(getLanguageFromFileName(file.name));
-    }
-  }, [files, targetFileId]);
-
-  const handleEditorDidMount: OnMount = (editor, monaco) => {
-    editorRef.current = editor;
-
-    monaco.editor.defineTheme('custom-dark', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [],
-      colors: {
-        'editor.background': '#111827', // Matches Tailwind gray-900
-        'editor.lineHighlightBackground': '#1f2937',
-      },
-    });
-
-    monaco.editor.setTheme('custom-dark');
-  };
-
-  const handleEditorChange = (value: string | undefined) => {
-    if (activeFile && value !== undefined) {
-      updateFileContent(activeFile.id, value);
-    }
-  };
-
-  const handleEditorWillMount: BeforeMount = (monaco) => {
-    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
-      target: monaco.languages.typescript.ScriptTarget.ES2020,
-      allowNonTsExtensions: true,
-      jsx: monaco.languages.typescript.JsxEmit.React,
-      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-      allowJs: true,
-    });
-  };
+    return () => clearInterval(saveInterval);
+  }, [activeFile]);
 
   if (!activeFile) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-900 text-gray-500">
+      <div className="h-full flex items-center justify-center bg-gray-900 text-gray-400">
         <div className="text-center">
-          <p>No file open</p>
+          <p className="text-lg">No file selected</p>
+          <p className="text-sm mt-2">Select a file from the explorer to start editing</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full w-full bg-gray-900 overflow-hidden">
+    <div className="h-full w-full bg-gray-900">
       <Editor
         height="100%"
         language={editorLanguage}
@@ -277,15 +195,22 @@ export const EnhancedCodeEditor: React.FC<EnhancedCodeEditorProps> = ({ fileId }
         onMount={handleEditorDidMount}
         beforeMount={handleEditorWillMount}
         options={{
-          fontSize: 14,
           minimap: { enabled: true },
-          automaticLayout: true,
           scrollBeyondLastLine: false,
+          fontSize: 14,
+          fontFamily: 'JetBrains Mono, Fira Code, Consolas, monospace',
           wordWrap: 'on',
-          theme: 'custom-dark',
-          padding: { top: 16 },
+          wrappingIndent: 'same',
+          lineNumbers: 'on',
+          tabSize: 2,
+          insertSpaces: true,
+          automaticLayout: true,
+          theme: 'custom-dark', // will be overridden by custom theme
         }}
       />
     </div>
   );
 };
+EOF
+
+
