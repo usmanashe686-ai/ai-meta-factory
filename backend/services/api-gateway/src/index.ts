@@ -63,7 +63,7 @@ app.get('/health', (req: Request, res: Response) => {
 
 // Proxy to Auth Service
 app.use('/api/auth', (createProxyMiddleware as any)({
-  target: process.env.AUTH_SERVICE_URL || 'http://localhost:3002',
+  target: process.env.AUTH_SERVICE_URL || 'https://ai-meta-factory-auth.onrender.com',
   changeOrigin: true,
   pathRewrite: { '^/api/auth': '/' },
 }));
@@ -104,13 +104,13 @@ app.post('/api/projects', async (req: Request, res: Response) => {
 
 // Other service proxies
 app.use('/api/builds', authMiddleware, (createProxyMiddleware as any)({
-  target: process.env.BUILD_SERVICE_URL || 'http://localhost:8080',
+  target: process.env.BUILD_SERVICE_URL || 'https://ai-meta-factory-build.onrender.com',
   changeOrigin: true,
   pathRewrite: { '^/api/builds': '/' },
 }));
 
 app.use('/api/ai', authMiddleware, (createProxyMiddleware as any)({
-  target: process.env.AI_SERVICE_URL || 'http://localhost:8000',
+  target: process.env.AI_SERVICE_URL || 'https://ai-meta-factory-ai.onrender.com',
   changeOrigin: true,
   pathRewrite: { '^/api/ai': '/' },
 }));
