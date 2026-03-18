@@ -6,7 +6,7 @@ import { Request, Response, NextFunction } from 'express';
 const SERVICES = {
   auth: process.env.AUTH_SERVICE_URL || 'http://localhost:3002',
   project: process.env.PROJECT_SERVICE_URL || 'http://localhost:3003',
-  build: process.env.BUILD_SERVICE_URL || 'http://localhost:8080',
+  build: process.env.BUILD_SERVICE_URL || 'https://ai-meta-factory-api.onrender.com',
   ai: process.env.AI_SERVICE_URL || 'http://ai-meta-factory.onrender.com',
   realtime: process.env.REALTIME_SERVICE_URL || 'http://localhost:3004', // if needed
 };

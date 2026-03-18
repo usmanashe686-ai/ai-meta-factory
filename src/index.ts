@@ -92,7 +92,7 @@ const serviceProxy = {
   }),
   
   builds: createProxyMiddleware({
-    target: process.env.BUILD_SERVICE_URL || 'http://localhost:8080',
+    target: process.env.BUILD_SERVICE_URL || 'https://ai-meta-factory-api.onrender.com',
     changeOrigin: true,
     pathRewrite: { '^/api/builds': '/' },
     onProxyReq: (proxyReq, req, res) => {
