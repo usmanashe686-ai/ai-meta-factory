@@ -1,33 +1,32 @@
 "use client";
-import React from 'react';
+
+import React, { useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { useProjectStore } from './components/canvas/state/project-store';
 
-// 1. Correct paths found from your ls command
-const AIChatSidebar = dynamic(
-  () => import("./components/canvas/ai/AIChatSidebar").then(mod => mod.AIChatSidebar),
-  { ssr: false, loading: () => <div className="w-64 animate-pulse bg-gray-800" /> }
-);
-
+// Dynamically import the heavy canvas component to prevent hydration errors
 const EnhancedCanvasPanel = dynamic(
   () => import('./components/canvas/EnhancedCanvasPanel').then(mod => mod.EnhancedCanvasPanel),
-  { ssr: false, loading: () => <div className="flex-1 animate-pulse bg-gray-900" /> }
-);
-
-const EditorPanel = dynamic(
-  () => import("./components/canvas/editor/EnhancedCodeEditor").then(mod => mod.EnhancedCodeEditor),
-  { ssr: false, loading: () => <div className="h-full w-full bg-black" /> }
+  {
+    ssr: false,
+    loading: () => <div className="h-screen bg-gray-900 animate-pulse" />,
+  }
 );
 
 export default function BuilderPage() {
+  const { project, createBlankProject } = useProjectStore();
+
+  useEffect(() => {
+    // If no project is loaded in the store, create one automatically
+    // This ensures App.tsx is created and selected on the first visit
+    if (!project) {
+      createBlankProject("My First AI Project");
+    }
+  }, [project, createBlankProject]);
+
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-black text-white">
-      <AIChatSidebar />
-      <main className="flex flex-1 flex-col relative">
-        <div className="flex flex-1 h-full w-full">
-          <EnhancedCanvasPanel />
-          <EditorPanel />
-        </div>
-      </main>
+    <div className="h-screen bg-gray-900 overflow-hidden flex flex-col">
+      <EnhancedCanvasPanel />
     </div>
   );
 }
