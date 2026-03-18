@@ -20,7 +20,7 @@ export const EnhancedCodeEditor = () => {
 
   const activeFile = store.files?.find(f => f.id === store.activeFileId);
 
-  if (!activeFile) {
+  if (!activeFile || !activeFile.content) {
     return (
       <div className="h-full flex items-center justify-center text-gray-500">
         Select a file
