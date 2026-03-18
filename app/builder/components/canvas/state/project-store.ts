@@ -93,7 +93,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   project: null,
   files: [],
   openFiles: [],
-  activeFileId: null,
+  activeFileId: defaultFile.id,
   isSaving: false,
   console: [],
   envVars: {},
@@ -132,7 +132,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       project: { id: projectId, name },
       files: [defaultFile],
       openFiles: [],
-      activeFileId: null,
+      activeFileId: defaultFile.id,
       envVars: {},
     });
   },
