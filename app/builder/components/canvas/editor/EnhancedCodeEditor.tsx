@@ -1,56 +1,103 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import Editor, { OnMount, BeforeMount, Monaco } from '@monaco-editor/react';
 import { useProjectStore } from '../state/project-store';
+import { FileNode } from '../types/project.types';
 
-const Editor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
+// Map file extensions to Monaco language IDs
+const extensionToLanguage: Record<string, string> = {
+  js: 'javascript',
+  jsx: 'javascript',
+  ts: 'typescript',
+  tsx: 'typescript',
+  html: 'html',
+  css: 'css',
+  json: 'json',
+  md: 'markdown',
+  py: 'python',
+  dart: 'dart',
+  sh: 'shell',
+  yaml: 'yaml',
+};
 
-export const EnhancedCodeEditor = () => {
-  const store = useProjectStore();
+function getLanguageFromFileName(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  return extensionToLanguage[ext] || 'plaintext';
+}
+
+// Recursive file finder (handles nested folders)
+const findFile = (nodes: FileNode[], id: string): FileNode | null => {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    if (node.children) {
+      const found = findFile(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
+export const EnhancedCodeEditor: React.FC = () => {
+  const { files, activeFileId, updateFileContent } = useProjectStore();
   const [mounted, setMounted] = useState(false);
+  const editorRef = useRef<any>(null);
+  const monacoRef = useRef<Monaco | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  if (!mounted || !store) {
-    return <div className="h-full bg-gray-900 animate-pulse" />;
+  // Derive active file directly from store (no extra sync state)
+  const activeFile = useMemo(
+    () => (activeFileId ? findFile(files, activeFileId) : null),
+    [files, activeFileId]
+  );
+
+  const handleEditorDidMount: OnMount = (editor, monaco) => {
+    editorRef.current = editor;
+    monacoRef.current = monaco;
+
+    // Custom theme
+    monaco.editor.defineTheme('custom-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#1e1e2e',
+        'editor.lineHighlightBackground': '#2a2a3a',
+      },
+    });
+    monaco.editor.setTheme('custom-dark');
+  };
+
+  if (!mounted) {
+    return <div className="h-full w-full bg-gray-900" />;
   }
 
-  const activeFile = store.files?.find(f => f.id === store.activeFileId);
-
-  if (!activeFile || !activeFile.content) {
+  if (!activeFile) {
     return (
-      <div className="h-full flex items-center justify-center text-gray-500">
-        Select a file
+      <div className="h-full flex items-center justify-center bg-gray-900 text-gray-400">
+        <p>No file selected</p>
       </div>
     );
   }
 
-  const ext = activeFile.name.split('.').pop()?.toLowerCase() || '';
-  const languageMap: Record<string, string> = {
-    js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
-    html: 'html', css: 'css', json: 'json', md: 'markdown',
-    py: 'python', rb: 'ruby', go: 'go', rs: 'rust',
-  };
-  const language = languageMap[ext] || 'plaintext';
-
   return (
     <div className="h-full w-full bg-gray-900">
       <Editor
+        path={activeFile.id}
         height="100%"
-        theme="vs-dark"
-        language={language}
+        language={getLanguageFromFileName(activeFile.name)}
         value={activeFile.content || ''}
-        onChange={(val) => store.updateFileContent(activeFile.id, val || '')}
+        onChange={(val) => updateFileContent(activeFile.id, val || '')}
+        onMount={handleEditorDidMount}
         options={{
-          minimap: { enabled: true },
           fontSize: 14,
+          minimap: { enabled: true },
           automaticLayout: true,
-          wordWrap: 'on',
-          lineNumbers: 'on',
-          tabSize: 2,
+          scrollBeyondLastLine: false,
+          theme: 'custom-dark',
         }}
       />
     </div>
