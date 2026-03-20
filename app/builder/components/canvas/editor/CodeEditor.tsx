@@ -6,7 +6,6 @@ import { useProjectStore } from '../state/project-store';
 import { FileNode } from '../types/project.types';
 import * as monaco from 'monaco-editor';
 
-// Map file extensions to Monaco language IDs
 const extensionToLanguage: Record<string, string> = {
   js: 'javascript',
   jsx: 'javascript',
@@ -39,7 +38,6 @@ const extensionToLanguage: Record<string, string> = {
   zsh: 'shell',
 };
 
-// Determine language from file name
 function getLanguageFromFileName(fileName: string): string {
   const ext = fileName.split('.').pop()?.toLowerCase() || '';
   return extensionToLanguage[ext] || 'plaintext';
@@ -48,17 +46,16 @@ function getLanguageFromFileName(fileName: string): string {
 export function CodeEditor() {
   const { files, activeFileId, updateFileContent } = useProjectStore();
   const [activeFile, setActiveFile] = useState<FileNode | null>(null);
+  const [mounted, setMounted] = useState(false);
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
 
-  // Find the active file whenever files or activeFileId changes
   useEffect(() => {
-    if (!activeFileId) {
+    if (!activeFileId || !files) {
       setActiveFile(null);
+      setMounted(false);
       return;
     }
-
-    // Recursive search in file tree
     const findFile = (nodes: FileNode[], id: string): FileNode | null => {
       for (const node of nodes) {
         if (node.id === id) return node;
@@ -69,17 +66,14 @@ export function CodeEditor() {
       }
       return null;
     };
-
     const file = findFile(files, activeFileId);
     setActiveFile(file || null);
+    setMounted(true);
   }, [files, activeFileId]);
 
-  // Handle editor mount
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
-
-    // Configure editor settings
     editor.updateOptions({
       fontSize: 14,
       fontFamily: 'JetBrains Mono, Fira Code, Consolas, monospace',
@@ -92,30 +86,16 @@ export function CodeEditor() {
       tabSize: 2,
       insertSpaces: true,
     });
-
-    // Add custom themes or configure existing ones
     monaco.editor.defineTheme('custom-dark', {
       base: 'vs-dark',
       inherit: true,
       rules: [],
-      colors: {
-        'editor.background': '#1e1e2e',
-      },
+      colors: { 'editor.background': '#1e1e2e' },
     });
-
     monaco.editor.setTheme('custom-dark');
   };
 
-  // Handle editor content change
-  const handleEditorChange = (value: string | undefined) => {
-    if (activeFile && value !== undefined) {
-      updateFileContent(activeFile.path, value);
-    }
-  };
-
-  // Before editor mounts, we can add extra libraries or configure Monaco
   const handleEditorWillMount: BeforeMount = (monaco) => {
-    // Configure TypeScript/JavaScript defaults if needed
     monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.ES2020,
       allowNonTsExtensions: true,
@@ -124,7 +104,6 @@ export function CodeEditor() {
       noEmit: true,
       typeRoots: ['node_modules/@types'],
     });
-
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.ES2020,
       allowNonTsExtensions: true,
@@ -134,23 +113,14 @@ export function CodeEditor() {
       typeRoots: ['node_modules/@types'],
       jsx: monaco.languages.typescript.JsxEmit.React,
     });
-
-    // Add custom types (e.g., React)
     monaco.languages.typescript.typescriptDefaults.addExtraLib(
       'declare const React: any;',
       'global.d.ts'
     );
   };
 
-  if (!activeFile) {
-    return (
-      <div className="h-full flex items-center justify-center bg-gray-900 text-gray-400">
-        <div className="text-center">
-          <p className="text-lg">No file selected</p>
-          <p className="text-sm mt-2">Select a file from the explorer to start editing</p>
-        </div>
-      </div>
-    );
+  if (!mounted || !activeFile) {
+    return <div className="h-full bg-gray-900" />;
   }
 
   const language = getLanguageFromFileName(activeFile.name);
@@ -161,7 +131,11 @@ export function CodeEditor() {
         height="100%"
         language={language}
         value={activeFile.content || ''}
-        onChange={handleEditorChange}
+        onChange={(value) => {
+          if (activeFile && value !== undefined) {
+            updateFileContent(activeFile.path, value);
+          }
+        }}
         onMount={handleEditorDidMount}
         beforeMount={handleEditorWillMount}
         options={{
@@ -175,7 +149,7 @@ export function CodeEditor() {
           tabSize: 2,
           insertSpaces: true,
           automaticLayout: true,
-          theme: 'vs-dark', // will be overridden by custom theme
+          theme: 'vs-dark',
         }}
       />
     </div>

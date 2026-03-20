@@ -4,7 +4,7 @@ import { FileNode } from '../types/project.types';
 import { arrayMove } from '@dnd-kit/sortable';
 
 export interface ConsoleEntry {
-  type: 'command' | 'ai' | 'error' | 'info' | 'success'; // Added success for compatibility
+  type: 'command' | 'ai' | 'error' | 'info';
   message: string;
   timestamp?: Date;
 }
@@ -12,12 +12,10 @@ export interface ConsoleEntry {
 interface ProjectState {
   project: { id: string; name: string } | null;
   files: FileNode[];
-  openFiles: string[]; // This matches your FileTabs.tsx
-  openFileIds: string[]; // This satisfies components looking for IDs
+  openFiles: string[];
   activeFileId: string | null;
   isSaving: boolean;
   console: ConsoleEntry[];
-  consoleEntries: ConsoleEntry[]; // Alias for compatibility
   envVars: Record<string, string>;
 
   createProjectFromTemplate: (template: Template) => Promise<string>;
@@ -46,7 +44,7 @@ interface ProjectState {
   getEnvVars: () => Record<string, string>;
 }
 
-// Helper functions for recursive tree operations
+// Helper to find a node by ID recursively
 const findNodeById = (nodes: FileNode[], id: string): FileNode | null => {
   for (const node of nodes) {
     if (node.id === id) return node;
@@ -58,14 +56,20 @@ const findNodeById = (nodes: FileNode[], id: string): FileNode | null => {
   return null;
 };
 
+// Helper to update a node's content by ID (immutably)
 const updateNodeContent = (nodes: FileNode[], id: string, content: string): FileNode[] => {
   return nodes.map(node => {
-    if (node.id === id) return { ...node, content };
-    if (node.children) return { ...node, children: updateNodeContent(node.children, id, content) };
+    if (node.id === id) {
+      return { ...node, content };
+    }
+    if (node.children) {
+      return { ...node, children: updateNodeContent(node.children, id, content) };
+    }
     return node;
   });
 };
 
+// Helper to delete a node by ID
 const deleteNode = (nodes: FileNode[], id: string): FileNode[] => {
   return nodes.filter(node => {
     if (node.id === id) return false;
@@ -76,10 +80,15 @@ const deleteNode = (nodes: FileNode[], id: string): FileNode[] => {
   });
 };
 
+// Helper to rename a node
 const renameNode = (nodes: FileNode[], oldId: string, newId: string, newName: string): FileNode[] => {
   return nodes.map(node => {
-    if (node.id === oldId) return { ...node, id: newId, name: newName, path: newId };
-    if (node.children) return { ...node, children: renameNode(node.children, oldId, newId, newName) };
+    if (node.id === oldId) {
+      return { ...node, id: newId, name: newName, path: newId };
+    }
+    if (node.children) {
+      return { ...node, children: renameNode(node.children, oldId, newId, newName) };
+    }
     return node;
   });
 };
@@ -88,11 +97,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   project: null,
   files: [],
   openFiles: [],
-  openFileIds: [], // Keep in sync with openFiles
   activeFileId: null,
   isSaving: false,
   console: [],
-  consoleEntries: [], // Alias
   envVars: {},
 
   createProjectFromTemplate: async (template) => {
@@ -116,14 +123,20 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       name: 'App.tsx',
       type: 'file',
       path: 'src/App.tsx',
-      content: `export default function App() {\n  return <div>Hello AI Meta Factory</div>\n}`,
+      content: `export default function App() {
+  return (
+    <div className="p-8">
+      <h1 className="text-2xl font-bold">Hello, AI Meta Factory!</h1>
+      <p className="mt-4 text-gray-400">Start coding your project.</p>
+    </div>
+  );
+}`,
     };
     set({
       project: { id: projectId, name },
       files: [defaultFile],
-      openFiles: ['src/App.tsx'],
-      openFileIds: ['src/App.tsx'],
-      activeFileId: 'src/App.tsx',
+      openFiles: [],
+      activeFileId: null,
       envVars: {},
     });
   },
@@ -135,6 +148,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   createFile: (path, content, isFolder = false) => {
+    console.log('createFile called with path:', path);
     const { files } = get();
     const newFile: FileNode = {
       id: path,
@@ -157,7 +171,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const newFiles = deleteNode(files, fileId);
     const newOpenFiles = openFiles.filter(id => id !== fileId);
     const newActive = activeFileId === fileId ? null : activeFileId;
-    set({ files: newFiles, openFiles: newOpenFiles, openFileIds: newOpenFiles, activeFileId: newActive });
+    set({ files: newFiles, openFiles: newOpenFiles, activeFileId: newActive });
   },
 
   openFile: (fileId) => {
@@ -166,9 +180,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (!file || file.type === 'folder') return;
 
     if (!openFiles.includes(fileId)) {
-      set({ openFiles: [...openFiles, fileId], openFileIds: [...openFiles, fileId] });
+      set({ openFiles: [...openFiles, fileId] });
     }
-    set({ activeFileId: fileId });
+    if (activeFileId !== fileId) {
+      set({ activeFileId: fileId });
+    }
   },
 
   closeFile: (fileId) => {
@@ -178,7 +194,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (activeFileId === fileId) {
       newActive = newOpenFiles.length > 0 ? newOpenFiles[newOpenFiles.length - 1] : null;
     }
-    set({ openFiles: newOpenFiles, openFileIds: newOpenFiles, activeFileId: newActive });
+    set({ openFiles: newOpenFiles, activeFileId: newActive });
   },
 
   setActiveFileId: (id) => set({ activeFileId: id }),
@@ -186,18 +202,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   addToConsole: (entry) => {
     const { console } = get();
-    const newEntry = { ...entry, timestamp: new Date() };
-    set({ 
-        console: [...console, newEntry],
-        consoleEntries: [...console, newEntry]
+    set({
+      console: [...console, { ...entry, timestamp: new Date() }]
     });
   },
 
-  clearConsole: () => set({ console: [], consoleEntries: [] }),
+  clearConsole: () => set({ console: [] }),
 
-  saveCurrentFile: async () => { console.log('Saved'); },
-  formatCurrentFile: async () => { console.log('Formatted'); },
-  runPreview: async () => { console.log('Preview running'); },
+  saveCurrentFile: async () => console.log('saveCurrentFile called'),
+  formatCurrentFile: async () => console.log('formatCurrentFile called'),
+  runPreview: async () => console.log('runPreview called'),
 
   renameFile: (oldPath, newPath) => {
     const { files } = get();
@@ -209,7 +223,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const { files } = get();
     const node = findNodeById(files, path);
     if (node && node.type === 'file') {
-      const newPath = path.replace(/(\.[^/.]+$|$)/, '-copy$1');
+      const base = path.replace(/\.[^/.]+$/, '');
+      const ext = path.includes('.') ? path.substring(path.lastIndexOf('.')) : '';
+      let newPath = base + '-copy' + ext;
+      let counter = 1;
+      while (findNodeById(files, newPath)) {
+        newPath = base + '-copy' + (++counter) + ext;
+      }
       const newFile: FileNode = { ...node, id: newPath, name: newPath.split('/').pop() || newPath, path: newPath };
       set({ files: [...files, newFile] });
     }
@@ -235,20 +255,32 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const sourceIndex = files.findIndex(f => f.id === sourceId);
     const targetIndex = files.findIndex(f => f.id === targetId);
     if (sourceIndex === -1 || targetIndex === -1) return;
-    set({ files: arrayMove(files, sourceIndex, targetIndex) });
+    const newFiles = arrayMove(files, sourceIndex, targetIndex);
+    set({ files: newFiles });
   },
 
   setProjectName: (name) => {
     const { project } = get();
-    if (project) set({ project: { ...project, name } });
+    if (project) {
+      set({ project: { ...project, name } });
+    } else {
+      console.warn('No project to rename');
+    }
   },
 
   setFiles: (newFiles) => set({ files: newFiles }),
-  setEnvVar: (key, value) => set((state) => ({ envVars: { ...state.envVars, [key]: value } })),
-  removeEnvVar: (key) => set((state) => {
-    const next = { ...state.envVars };
-    delete next[key];
-    return { envVars: next };
-  }),
+
+  setEnvVar: (key, value) => {
+    const { envVars } = get();
+    set({ envVars: { ...envVars, [key]: value } });
+  },
+
+  removeEnvVar: (key) => {
+    const { envVars } = get();
+    const newEnvVars = { ...envVars };
+    delete newEnvVars[key];
+    set({ envVars: newEnvVars });
+  },
+
   getEnvVars: () => get().envVars,
 }));

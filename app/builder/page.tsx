@@ -10,10 +10,10 @@ const EnhancedCanvasLayout = lazy(() =>
 
 function LoadingFallback() {
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-[#0d1117] text-white">
+    <div className="flex h-screen w-full items-center justify-center bg-gray-900 text-white">
       <div className="text-center">
         <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
-        <p className="text-gray-400">Initializing Factory...</p>
+        <p className="text-gray-400">Loading workspace...</p>
       </div>
     </div>
   );
@@ -21,10 +21,8 @@ function LoadingFallback() {
 
 export default function BuilderPage() {
   return (
-    <main className="h-screen w-full overflow-hidden bg-[#0d1117]">
-      <Suspense fallback={<LoadingFallback />}>
-        <EnhancedCanvasLayout />
-      </Suspense>
-    </main>
+    <Suspense fallback={<LoadingFallback />}>
+      <EnhancedCanvasLayout />
+    </Suspense>
   );
 }
