@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 
 const openai = new OpenAI({
-  apiKey: "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" // <-- your API key here
+  apiKey: "process.env.OPENAI_API_KEY" // <-- your API key here
 });
 
 async function listModels() {
