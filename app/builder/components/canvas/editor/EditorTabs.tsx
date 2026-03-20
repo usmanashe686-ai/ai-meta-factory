@@ -1,15 +1,27 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 import { FileNode } from '../types/project.types';
 
 export function EditorTabs() {
-  const { files, openFileIds, activeFileId, closeFile, setActiveFile } = useProjectStore();
+  // Fixed: using openFiles to match project-store.ts
+  const { files, openFiles, activeFileId, closeFile, setActiveFile } = useProjectStore();
   const tabsRef = useRef<HTMLDivElement>(null);
 
-  // Scroll active tab into view when it changes
+  // Helper to find file in nested structure
+  const findFileById = (nodes: FileNode[], id: string): FileNode | null => {
+    for (const node of nodes) {
+      if (node.id === id) return node;
+      if (node.children) {
+        const found = findFileById(node.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
   useEffect(() => {
     if (activeFileId && tabsRef.current) {
       const activeTab = tabsRef.current.querySelector(`[data-file-id="${activeFileId}"]`);
@@ -22,7 +34,7 @@ export function EditorTabs() {
     closeFile(fileId);
   };
 
-  if (openFileIds.length === 0) {
+  if (!openFiles || openFiles.length === 0) {
     return (
       <div className="h-10 bg-gray-800 border-b border-gray-700 flex items-center px-4">
         <span className="text-sm text-gray-400">No open files</span>
@@ -31,17 +43,17 @@ export function EditorTabs() {
   }
 
   return (
-    <div className="h-10 bg-gray-800 border-b border-gray-700 flex items-center overflow-x-auto" ref={tabsRef}>
-      {openFileIds.map((fileId) => {
-        const file = files.find(f => f.id === fileId);
-        if (!file) return null; // file might be deleted but still in openFileIds? Should not happen, but handle gracefully
+    <div className="h-10 bg-gray-800 border-b border-gray-700 flex items-center overflow-x-auto no-scrollbar" ref={tabsRef}>
+      {openFiles.map((fileId) => {
+        const file = findFileById(files, fileId);
+        if (!file) return null;
+        
         return (
           <div
             key={file.id}
             data-file-id={file.id}
             onClick={() => setActiveFile(file.id)}
-            className={`
-              flex items-center h-full px-3 border-r border-gray-700 cursor-pointer
+            className={`flex items-center h-full px-3 border-r border-gray-700 cursor-pointer whitespace-nowrap transition-colors
               ${activeFileId === file.id ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'}
             `}
           >
