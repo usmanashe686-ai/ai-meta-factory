@@ -4,15 +4,15 @@ import { X } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 
 export function FileTabs() {
-  const { openFiles, activeFileId, setActiveFile, closeFile, files } = useProjectStore();
+  const { openFileIds, activeFileId, setActiveFile, closeFile, files } = useProjectStore();
 
-  if (openFiles.length === 0) {
+  if (openFileIds.length === 0) {
     return null;
   }
 
   return (
     <div className="flex items-center border-b border-gray-800 bg-gray-900/50 overflow-x-auto">
-      {openFiles.map((fileId) => {
+      {openFileIds.map((fileId) => {
         const file = files.find(f => f.id === fileId);
         if (!file) return null; // file might be deleted or not found
         const fileName = file.name;
