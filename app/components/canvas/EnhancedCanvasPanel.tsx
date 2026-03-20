@@ -62,7 +62,7 @@ export default function EnhancedCanvasPanel({
   const [editorLanguage, setEditorLanguage] = useState('typescript');
 
   const editorRef = useRef<any>(null);
-  const aiTimerRef = useRef<NodeJS.Timeout>();
+  const aiTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize from props
   useEffect(() => {
