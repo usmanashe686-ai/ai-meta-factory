@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useProjectStore } from './state/project-store';
 
-export const EnhancedFileTree = () => {
+export function EnhancedFileTree() { {
   const { files, openFile, activeFileId, closeFile } = useProjectStore();
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['src']));
 
