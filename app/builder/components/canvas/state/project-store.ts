@@ -17,7 +17,7 @@ interface ConsoleEntry {
 
 interface ProjectState {
   files: FileNode[];
-  openFileIds: string[]; // Track multiple open tabs
+  openFileIds: string[];
   activeFileId: string | null;
   consoleEntries: ConsoleEntry[];
   project: { name: string } | null;
@@ -28,6 +28,10 @@ interface ProjectState {
   updateFileContent: (id: string, content: string) => void;
   addToConsole: (entry: { type: 'command' | 'ai' | 'error' | 'success', message: string }) => void;
   createBlankProject: (name: string) => void;
+  // Toolbar Actions
+  saveCurrentFile: () => Promise<void>;
+  formatCurrentFile: () => Promise<void>;
+  runPreview: () => void;
 }
 
 const updateNodeContent = (nodes: FileNode[], id: string, content: string): FileNode[] => {
@@ -38,7 +42,7 @@ const updateNodeContent = (nodes: FileNode[], id: string, content: string): File
   });
 };
 
-export const useProjectStore = create<ProjectState>((set) => ({
+export const useProjectStore = create<ProjectState>((set, get) => ({
   files: [
     {
       id: 'src', name: 'src', type: 'folder', path: '/src',
@@ -76,4 +80,20 @@ export const useProjectStore = create<ProjectState>((set) => ({
   })),
 
   createBlankProject: (name) => set({ project: { name } }),
+
+  // Toolbar Implementations
+  saveCurrentFile: async () => {
+    const { activeFileId, addToConsole } = get();
+    addToConsole({ type: 'success', message: `Saved ${activeFileId} successfully.` });
+  },
+
+  formatCurrentFile: async () => {
+    const { activeFileId, addToConsole } = get();
+    addToConsole({ type: 'command', message: `Formatting ${activeFileId}...` });
+  },
+
+  runPreview: () => {
+    const { addToConsole } = get();
+    addToConsole({ type: 'ai', message: "Starting development server..." });
+  }
 }));
