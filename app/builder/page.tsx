@@ -1,40 +1,30 @@
 "use client";
 
-import React, { useEffect } from 'react';
-import dynamic from 'next/dynamic';
-import { useProjectStore } from './components/canvas/state/project-store';
-import { EnhancedFileTree } from './components/canvas/EnhancedFileTree';
+import { Suspense, lazy } from 'react';
 
-// Dynamically import to keep the build stable
-const EnhancedCanvasPanel = dynamic(
-  () => import('./components/canvas/EnhancedCanvasPanel').then(mod => mod.EnhancedCanvasPanel),
-  { 
-    ssr: false, 
-    loading: () => <div className="h-screen bg-gray-900 animate-pulse flex-1" /> 
-  }
+const EnhancedCanvasLayout = lazy(() =>
+  import('./components/canvas/layout/EnhancedCanvasLayout').then((mod) => ({
+    default: mod.EnhancedCanvasLayout,
+  }))
 );
 
-export default function BuilderPage() {
-  const { project, createBlankProject } = useProjectStore();
-
-  useEffect(() => {
-    // Auto-initialize project if empty
-    if (!project) {
-      createBlankProject("My First AI Project");
-    }
-  }, [project, createBlankProject]);
-
+function LoadingFallback() {
   return (
-    <div className="h-screen bg-[#0d0d0f] overflow-hidden flex">
-      {/* Sidebar - The Navigator */}
-      <aside className="w-64 flex-shrink-0 border-r border-white/5 bg-[#0d0d0f]">
-        <EnhancedFileTree />
-      </aside>
-
-      {/* Main Editor Area */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <EnhancedCanvasPanel />
-      </main>
+    <div className="flex h-screen w-full items-center justify-center bg-[#0d1117] text-white">
+      <div className="text-center">
+        <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+        <p className="text-gray-400">Initializing Factory...</p>
+      </div>
     </div>
+  );
+}
+
+export default function BuilderPage() {
+  return (
+    <main className="h-screen w-full overflow-hidden bg-[#0d1117]">
+      <Suspense fallback={<LoadingFallback />}>
+        <EnhancedCanvasLayout />
+      </Suspense>
+    </main>
   );
 }
