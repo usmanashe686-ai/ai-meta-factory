@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { useProjectStore } from './state/project-store';
-import { EnhancedCodeEditor } from './editor/EnhancedCodeEditor';
+import { CodeEditor as EnhancedCodeEditor } from './editor/CodeEditor';
 
 export const EnhancedCanvasPanel = () => {
   const store = useProjectStore();
