@@ -2,32 +2,45 @@
 
 import { X } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
+import { FileNode } from '../types/project.types';
 
 export function FileTabs() {
-  const { openFileIds, activeFileId, setActiveFile, closeFile, files } = useProjectStore();
+  // Fixed: openFileIds -> openFiles
+  const { openFiles, activeFileId, setActiveFile, closeFile, files } = useProjectStore();
 
-  if (openFileIds.length === 0) {
+  const findFileById = (nodes: FileNode[], id: string): FileNode | null => {
+    for (const node of nodes) {
+      if (node.id === id) return node;
+      if (node.children) {
+        const found = findFileById(node.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  if (!openFiles || openFiles.length === 0) {
     return null;
   }
 
   return (
-    <div className="flex items-center border-b border-gray-800 bg-gray-900/50 overflow-x-auto">
-      {openFileIds.map((fileId) => {
-        const file = files.find(f => f.id === fileId);
-        if (!file) return null; // file might be deleted or not found
-        const fileName = file.name;
+    <div className="flex items-center border-b border-gray-800 bg-gray-900/50 overflow-x-auto no-scrollbar">
+      {openFiles.map((fileId) => {
+        const file = findFileById(files, fileId);
+        if (!file) return null;
+
         const isActive = activeFileId === file.id;
 
         return (
           <div
             key={file.id}
-            className={`group flex items-center px-4 py-2 border-r border-gray-800 cursor-pointer whitespace-nowrap ${
+            className={`group flex items-center px-4 py-2 border-r border-gray-800 cursor-pointer whitespace-nowrap transition-colors ${
               isActive ? 'bg-gray-800' : 'bg-gray-900/30 hover:bg-gray-800/50'
             }`}
             onClick={() => setActiveFile(file.id)}
           >
             <span className="text-sm font-medium text-gray-300">
-              {fileName}
+              {file.name}
             </span>
             <button
               onClick={(e) => {
