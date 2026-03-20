@@ -5,20 +5,10 @@ import Editor, { OnMount, BeforeMount, Monaco } from '@monaco-editor/react';
 import { useProjectStore } from '../state/project-store';
 import { FileNode } from '../types/project.types';
 
-// Map file extensions to Monaco language IDs
 const extensionToLanguage: Record<string, string> = {
-  js: 'javascript',
-  jsx: 'javascript',
-  ts: 'typescript',
-  tsx: 'typescript',
-  html: 'html',
-  css: 'css',
-  json: 'json',
-  md: 'markdown',
-  py: 'python',
-  dart: 'dart',
-  sh: 'shell',
-  yaml: 'yaml',
+  js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
+  html: 'html', css: 'css', json: 'json', md: 'markdown', py: 'python',
+  dart: 'dart', sh: 'shell', yaml: 'yaml',
 };
 
 function getLanguageFromFileName(fileName: string): string {
@@ -26,7 +16,6 @@ function getLanguageFromFileName(fileName: string): string {
   return extensionToLanguage[ext] || 'plaintext';
 }
 
-// Recursive file finder (handles nested folders)
 const findFile = (nodes: FileNode[], id: string): FileNode | null => {
   for (const node of nodes) {
     if (node.id === id) return node;
@@ -38,27 +27,33 @@ const findFile = (nodes: FileNode[], id: string): FileNode | null => {
   return null;
 };
 
-export const EnhancedCodeEditor: React.FC = () => {
+export const EnhancedCodeEditor = () => {
   const { files, activeFileId, updateFileContent } = useProjectStore();
   const [mounted, setMounted] = useState(false);
   const editorRef = useRef<any>(null);
-  const monacoRef = useRef<Monaco | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Derive active file directly from store (no extra sync state)
   const activeFile = useMemo(
     () => (activeFileId ? findFile(files, activeFileId) : null),
     [files, activeFileId]
   );
 
+  const handleBeforeMount: BeforeMount = (monaco) => {
+    // 💡 This is the CRASH FIX: 
+    // If the model already exists from a previous session, we dispose of it 
+    // so Monaco can recreate it fresh with the new store content.
+    const uri = activeFile ? monaco.Uri.parse(activeFile.id) : null;
+    if (uri) {
+      const existingModel = monaco.editor.getModel(uri);
+      if (existingModel) existingModel.dispose();
+    }
+  };
+
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
-    monacoRef.current = monaco;
-
-    // Custom theme
     monaco.editor.defineTheme('custom-dark', {
       base: 'vs-dark',
       inherit: true,
@@ -71,9 +66,7 @@ export const EnhancedCodeEditor: React.FC = () => {
     monaco.editor.setTheme('custom-dark');
   };
 
-  if (!mounted) {
-    return <div className="h-full w-full bg-gray-900" />;
-  }
+  if (!mounted) return <div className="h-full w-full bg-gray-900" />;
 
   if (!activeFile) {
     return (
@@ -92,12 +85,15 @@ export const EnhancedCodeEditor: React.FC = () => {
         value={activeFile.content || ''}
         onChange={(val) => updateFileContent(activeFile.id, val || '')}
         onMount={handleEditorDidMount}
+        beforeMount={handleBeforeMount}
         options={{
           fontSize: 14,
           minimap: { enabled: true },
           automaticLayout: true,
           scrollBeyondLastLine: false,
           theme: 'custom-dark',
+          // 💡 Important for mobile: reduces memory usage
+          fixedOverflowWidgets: true,
         }}
       />
     </div>
