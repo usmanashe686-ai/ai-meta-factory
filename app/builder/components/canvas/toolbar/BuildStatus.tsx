@@ -1,9 +1,7 @@
 "use client";
-import { apiFetch } from "@/lib/apiClient";
-'use client';
 
-import apiClient from '@/lib/apiClient';
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from "@/lib/apiClient";
 import { CheckCircle, XCircle, Loader2, Clock } from 'lucide-react';
 
 interface Build {
@@ -23,7 +21,6 @@ export const BuildStatus: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Fetch recent builds (poll every 5 seconds)
   useEffect(() => {
     const fetchBuilds = async () => {
       try {
@@ -33,11 +30,7 @@ export const BuildStatus: React.FC = () => {
         setBuilds(data);
         setError(null);
       } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('An unknown error occurred');
-        }
+        setError(err instanceof Error ? err.message : 'An unknown error occurred');
       } finally {
         setLoading(false);
       }
@@ -50,14 +43,10 @@ export const BuildStatus: React.FC = () => {
 
   const getStatusIcon = (status: Build['status']) => {
     switch (status) {
-      case 'completed':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'failed':
-        return <XCircle className="w-4 h-4 text-red-500" />;
-      case 'processing':
-        return <Loader2 className="w-4 h-4 text-yellow-500 animate-spin" />;
-      default:
-        return <Clock className="w-4 h-4 text-gray-400" />;
+      case 'completed': return <CheckCircle className="w-4 h-4 text-green-500" />;
+      case 'failed': return <XCircle className="w-4 h-4 text-red-500" />;
+      case 'processing': return <Loader2 className="w-4 h-4 text-yellow-500 animate-spin" />;
+      default: return <Clock className="w-4 h-4 text-gray-400" />;
     }
   };
 
@@ -81,7 +70,7 @@ export const BuildStatus: React.FC = () => {
       {isOpen && (
         <div className="absolute right-0 mt-2 w-96 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">
           <div className="p-3 border-b border-gray-700 flex justify-between items-center">
-            <h3 className="font-semibold">Build Status</h3>
+            <h3 className="font-semibold text-white">Build Status</h3>
             <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white">✕</button>
           </div>
           <div className="max-h-96 overflow-y-auto p-2">
@@ -96,11 +85,11 @@ export const BuildStatus: React.FC = () => {
             ) : (
               builds.map((build) => (
                 <div key={build.id} className="border-b border-gray-700 last:border-0 py-3">
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3 px-2">
                     {getStatusIcon(build.status)}
                     <div className="flex-1">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium capitalize">{build.type}</span>
+                        <span className="text-sm font-medium capitalize text-white">{build.type}</span>
                         <span className="text-xs text-gray-400">{formatTime(build.createdAt)}</span>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
@@ -113,19 +102,12 @@ export const BuildStatus: React.FC = () => {
                           {build.status}
                         </span>
                         {build.artifactUrl && (
-                          <a
-                            href={build.artifactUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-400 hover:underline"
-                          >
+                          <a href={build.artifactUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">
                             Download
                           </a>
                         )}
                       </div>
-                      {build.error && (
-                        <div className="text-xs text-red-400 mt-1">{build.error}</div>
-                      )}
+                      {build.error && <div className="text-xs text-red-400 mt-1">{build.error}</div>}
                     </div>
                   </div>
                 </div>
