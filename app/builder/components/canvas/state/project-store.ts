@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 
-// Added 'path' to match project.types.ts requirements
 interface FileNode {
   id: string;
   name: string;
@@ -18,11 +17,14 @@ interface ConsoleEntry {
 
 interface ProjectState {
   files: FileNode[];
+  openFileIds: string[]; // Track multiple open tabs
   activeFileId: string | null;
   consoleEntries: ConsoleEntry[];
   project: { name: string } | null;
+  // Actions
   openFile: (id: string) => void;
   closeFile: (id: string) => void;
+  setActiveFile: (id: string) => void;
   updateFileContent: (id: string, content: string) => void;
   addToConsole: (entry: { type: 'command' | 'ai' | 'error' | 'success', message: string }) => void;
   createBlankProject: (name: string) => void;
@@ -39,34 +41,39 @@ const updateNodeContent = (nodes: FileNode[], id: string, content: string): File
 export const useProjectStore = create<ProjectState>((set) => ({
   files: [
     {
-      id: 'src',
-      name: 'src',
-      type: 'folder',
-      path: '/src',
+      id: 'src', name: 'src', type: 'folder', path: '/src',
       children: [
-        { 
-          id: 'src/App.tsx', 
-          name: 'App.tsx', 
-          type: 'file', 
-          path: '/src/App.tsx', 
-          content: '// Start building your AI app!' 
-        },
+        { id: 'src/App.tsx', name: 'App.tsx', type: 'file', path: '/src/App.tsx', content: '// AI Meta Factory Ready' },
       ],
     },
   ],
+  openFileIds: ['src/App.tsx'],
   activeFileId: 'src/App.tsx',
   consoleEntries: [],
   project: null,
-  openFile: (id) => set({ activeFileId: id }),
-  closeFile: (id) => set((state) => ({
-    files: state.files.filter(f => f.id !== id),
-    activeFileId: state.activeFileId === id ? null : state.activeFileId
+
+  openFile: (id) => set((state) => ({
+    openFileIds: state.openFileIds.includes(id) ? state.openFileIds : [...state.openFileIds, id],
+    activeFileId: id
   })),
+
+  setActiveFile: (id) => set({ activeFileId: id }),
+  
+  closeFile: (id) => set((state) => {
+    const newOpenFiles = state.openFileIds.filter(fid => fid !== id);
+    return {
+      openFileIds: newOpenFiles,
+      activeFileId: state.activeFileId === id ? (newOpenFiles[0] || null) : state.activeFileId
+    };
+  }),
+
   updateFileContent: (id, content) => set((state) => ({
     files: updateNodeContent(state.files, id, content)
   })),
+
   addToConsole: (entry) => set((state) => ({
     consoleEntries: [...state.consoleEntries, { ...entry, timestamp: new Date() }]
   })),
+
   createBlankProject: (name) => set({ project: { name } }),
 }));

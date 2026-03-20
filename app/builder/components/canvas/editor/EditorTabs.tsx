@@ -6,7 +6,7 @@ import { useProjectStore } from '../state/project-store';
 import { FileNode } from '../types/project.types';
 
 export function EditorTabs() {
-  const { files, openFiles, activeFileId, closeFile, setActiveFile } = useProjectStore();
+  const { files, openFileIds, activeFileId, closeFile, setActiveFile } = useProjectStore();
   const tabsRef = useRef<HTMLDivElement>(null);
 
   // Scroll active tab into view when it changes
@@ -22,7 +22,7 @@ export function EditorTabs() {
     closeFile(fileId);
   };
 
-  if (openFiles.length === 0) {
+  if (openFileIds.length === 0) {
     return (
       <div className="h-10 bg-gray-800 border-b border-gray-700 flex items-center px-4">
         <span className="text-sm text-gray-400">No open files</span>
@@ -32,9 +32,9 @@ export function EditorTabs() {
 
   return (
     <div className="h-10 bg-gray-800 border-b border-gray-700 flex items-center overflow-x-auto" ref={tabsRef}>
-      {openFiles.map((fileId) => {
+      {openFileIds.map((fileId) => {
         const file = files.find(f => f.id === fileId);
-        if (!file) return null; // file might be deleted but still in openFiles? Should not happen, but handle gracefully
+        if (!file) return null; // file might be deleted but still in openFileIds? Should not happen, but handle gracefully
         return (
           <div
             key={file.id}
