@@ -25,7 +25,7 @@ export const AIChatSidebar: React.FC = () => {
     {
       id: '1',
       role: 'assistant',
-      content: 'Hello! I\'m your local AI assistant. I can help you generate components, fix bugs, explain code, and build complete applications. I can also follow your project documents – just enable "Include Docs" below.',
+      content: 'Hello! I\'m your local AI assistant. I can help you generate components, fix bugs, and follow project docs.',
       timestamp: new Date(),
     },
   ]);
@@ -35,15 +35,11 @@ export const AIChatSidebar: React.FC = () => {
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
   const [selectedModel, setSelectedModel] = useState<ModelInfo | null>(null);
   const [includeDocs, setIncludeDocs] = useState(false);
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const projectFiles = useProjectStore((state) => state.files);
-  const { platform, stack } = usePlatformStore();
   const { docs, selectedDocId, loadDocs } = useDocsStore();
 
   const AI_API_URL = API_BASE_URL;
 
-  // Fetch available models on mount
   useEffect(() => {
     fetch(`${AI_API_URL}/models`)
       .then(res => res.json())
@@ -53,25 +49,20 @@ export const AIChatSidebar: React.FC = () => {
       })
       .catch(err => console.error('Failed to fetch models:', err));
     loadDocs();
-  }, []);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, [AI_API_URL, loadDocs]);
 
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isGenerating || !selectedModel) return;
 
-    // Build context from documents if enabled
     let contextPrompt = '';
     if (includeDocs && docs.length > 0) {
       const selectedDoc = docs.find(d => d.id === selectedDocId) || docs[0];
-      contextPrompt = `Project Documents:\nTitle: ${selectedDoc.title}\nTags: ${selectedDoc.tags.join(', ')}\nContent:\n${selectedDoc.content}\n\n`;
+      contextPrompt = `Project Documents:\nTitle: ${selectedDoc.title}\nContent:\n${selectedDoc.content}\n\n`;
     }
 
     const userMessage: Message = {
@@ -105,240 +96,79 @@ export const AIChatSidebar: React.FC = () => {
       const decoder = new TextDecoder();
       let accumulatedContent = '';
 
-      while (true) {
-        const { done, value } = await reader!.read();
+      while (reader) {
+        const { done, value } = await reader.read();
         if (done) break;
-
         const chunk = decoder.decode(value);
         const lines = chunk.split('\n\n');
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6));
-            if (data.token) {
-              accumulatedContent += data.token;
-              setMessages(prev => prev.map(msg =>
-                msg.id === assistantMessageId ? { ...msg, content: accumulatedContent } : msg
-              ));
-            }
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.token) {
+                accumulatedContent += data.token;
+                setMessages(prev => prev.map(msg =>
+                  msg.id === assistantMessageId ? { ...msg, content: accumulatedContent } : msg
+                ));
+              }
+            } catch (e) {}
           }
         }
       }
     } catch (error) {
-      console.error('Streaming failed:', error);
-      setMessages(prev => prev.filter(msg => msg.id !== assistantMessageId));
-      const errorMsg: Message = {
-        id: Date.now().toString(),
-        role: 'assistant',
-        content: 'Error connecting to local AI. Make sure your Flask server is running.',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMsg]);
+      setMessages(prev => [...prev, { id: 'err', role: 'assistant', content: 'Connection Error to Local AI.', timestamp: new Date() }]);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleCopy = (content: string, id: string) => {
-    navigator.clipboard.writeText(content);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleClearChat = () => {
-    setMessages([
-      {
-        id: '1',
-        role: 'assistant',
-        content: 'Hello! I\'m your local AI assistant. How can I help you today?',
-        timestamp: new Date(),
-      },
-    ]);
-  };
-
-  const quickPrompts = [
-    'Create a navbar component',
-    'Add authentication',
-    'Fix TypeScript errors',
-    'Generate API routes',
-    'Optimize performance',
-    'Add dark mode',
-  ];
-
   return (
-    <div className="h-full flex flex-col bg-gray-900 border-l border-gray-700">
-      <div className="p-4 border-b border-gray-700">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <Bot size={16} className="text-white" />
-            </div>
-            <div>
-              <h3 className="font-semibold">Local AI Assistant</h3>
-              <p className="text-xs text-gray-400">Running on your device</p>
-            </div>
-          </div>
-          <button
-            onClick={handleClearChat}
-            className="p-1.5 hover:bg-gray-700 rounded"
-            title="Clear chat"
-          >
-            <Trash2 size={14} />
-          </button>
-        </div>
-      </div>
-
-      {/* Model selector */}
-      <div className="p-3 border-b border-gray-700">
-        <select
+    <div className="h-full flex flex-col bg-[#0f0f0f]">
+      {/* Mini Model Picker */}
+      <div className="p-3 border-b border-zinc-800 flex items-center justify-between gap-2">
+        <select 
           value={selectedModel?.id}
-          onChange={(e) => {
-            const model = availableModels.find(m => m.id === e.target.value);
-            setSelectedModel(model || null);
-          }}
-          className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-sm"
+          onChange={(e) => setSelectedModel(availableModels.find(m => m.id === e.target.value) || null)}
+          className="flex-1 bg-zinc-900 border border-zinc-700 rounded p-1.5 text-xs text-zinc-300"
         >
-          {availableModels.map(model => (
-            <option key={model.id} value={model.id}>{model.name} ({model.size})</option>
-          ))}
+          {availableModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
+        <button onClick={() => setMessages([])} className="p-2 text-zinc-500 hover:text-red-400">
+          <Trash2 size={14} />
+        </button>
       </div>
 
-      {/* Include Docs toggle */}
-      <div className="p-3 border-b border-gray-700 flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="includeDocs"
-          checked={includeDocs}
-          onChange={(e) => setIncludeDocs(e.target.checked)}
-          className="rounded bg-gray-700"
-        />
-        <label htmlFor="includeDocs" className="text-sm flex items-center gap-1 cursor-pointer">
-          <FileText size={14} /> Include project documents as context
-        </label>
-      </div>
-
-      {/* Quick prompts */}
-      <div className="p-3 border-b border-gray-700">
-        <div className="flex flex-wrap gap-2">
-          {quickPrompts.map((prompt) => (
-            <button
-              key={prompt}
-              onClick={() => setInput(prompt)}
-              className="px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 rounded-full border border-gray-600"
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
-      </div>
-
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[85%] rounded-lg p-3 ${
-                message.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800 text-gray-100'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center space-x-2">
-                  {message.role === 'assistant' ? (
-                    <Bot size={12} className="text-green-400" />
-                  ) : (
-                    <User size={12} className="text-blue-300" />
-                  )}
-                  <span className="text-xs opacity-75">
-                    {message.role === 'assistant' ? 'AI Assistant' : 'You'}
-                  </span>
-                </div>
-                <button
-                  onClick={() => handleCopy(message.content, message.id)}
-                  className="p-1 hover:bg-black/20 rounded"
-                >
-                  {copiedId === message.id ? (
-                    <Check size={12} className="text-green-400" />
-                  ) : (
-                    <Copy size={12} />
-                  )}
-                </button>
-              </div>
-              <div className="text-sm whitespace-pre-wrap">
-                {message.content}
-              </div>
-              <div className="text-xs opacity-50 mt-2 text-right">
-                {message.timestamp.toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </div>
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[90%] p-3 rounded-2xl text-sm ${
+              msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-200 border border-zinc-700'
+            }`}>
+              <div className="whitespace-pre-wrap">{msg.content}</div>
             </div>
           </div>
         ))}
-
-        {isGenerating && (
-          <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-lg p-3 bg-gray-800">
-              <div className="flex items-center space-x-2">
-                <Bot size={12} className="text-green-400" />
-                <span className="text-xs">AI is thinking</span>
-                <div className="flex space-x-1">
-                  <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" />
-                  <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                  <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
+        {isGenerating && <div className="text-xs text-zinc-500 animate-pulse">AI is typing...</div>}
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 border-t border-gray-700">
-        <form onSubmit={handleSubmit} className="space-y-2">
-          <div className="relative">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Describe what you want to build..."
-              rows={3}
-              className="w-full px-4 py-3 pr-12 bg-gray-800 border border-gray-700 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSubmit(e);
-                }
-              }}
-            />
-            <button
-              type="submit"
-              disabled={isGenerating || !input.trim() || !selectedModel}
-              className={`absolute right-3 bottom-3 p-2 rounded-lg ${
-                isGenerating || !input.trim() || !selectedModel
-                  ? 'bg-gray-700 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90'
-              }`}
-            >
-              <Send size={16} />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between text-xs text-gray-400">
-            <div className="flex items-center space-x-1">
-              <Sparkles size={12} />
-              <span>Local AI – your data stays on device</span>
-            </div>
-            {includeDocs && (
-              <span className="text-green-400 flex items-center gap-1">
-                <FileText size={12} /> Docs included
-              </span>
-            )}
-          </div>
+      {/* Input Section */}
+      <div className="p-4 border-t border-zinc-800 bg-[#141414]">
+        <div className="flex items-center gap-2 mb-2">
+           <input type="checkbox" checked={includeDocs} onChange={(e) => setIncludeDocs(e.target.checked)} className="rounded bg-zinc-800" />
+           <span className="text-[10px] text-zinc-500">Include Docs</span>
+        </div>
+        <form onSubmit={handleSubmit} className="relative">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            className="w-full bg-[#0a0a0a] border border-zinc-700 rounded-xl p-3 pr-12 text-sm focus:outline-none focus:border-blue-500 min-h-[80px] resize-none"
+            placeholder="Ask anything..."
+          />
+          <button type="submit" className="absolute right-2 bottom-2 p-2 bg-blue-600 rounded-lg">
+            <Send size={18} />
+          </button>
         </form>
       </div>
     </div>
