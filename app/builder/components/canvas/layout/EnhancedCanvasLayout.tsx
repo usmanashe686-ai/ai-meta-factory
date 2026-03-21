@@ -1,65 +1,112 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useProjectStore } from '../state/project-store';
-import { CodeEditor } from '../editor/CodeEditor';
+import { ResizablePanels } from './ResizablePanels';
 import { FileExplorer } from '../explorer/FileExplorer';
-import { AIChatSidebar } from '../ai/AIChatSidebar';
+import { CodeEditor } from '../editor/CodeEditor';
 import { UniversalPreview } from '../preview/UniversalPreview';
-import { FileCode, Folder, MessageSquare, Play } from 'lucide-react';
+import { CanvasToolbar } from '../toolbar/CanvasToolbar';
+import { AIChatSidebar } from '../ai/AIChatSidebar';
+import { useProjectStore } from '../state/project-store';
+import { usePlatformStore } from '../state/platform-store';
+import { useUIStore } from '../state/ui-store';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useBackupStore } from '../state/backup-store';
+import { useSessionStore } from '../state/session-store';
+import { useLocalAIStore } from '../state/local-ai-store';
 
 export function EnhancedCanvasLayout() {
-  const { createBlankProject, files, activeFileId, setActiveFile } = useProjectStore();
-  const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'explorer' | 'editor' | 'ai' | 'preview'>('editor');
+  const { project, files, activeFileId, setActiveFile, createBlankProject, setFiles, setProjectName } = useProjectStore();
+  const { platform } = usePlatformStore();
+  const { isAIPanelOpen, activeTab } = useUIStore();
+  const { isAutoSaveEnabled, addBackup, loadBackups, restoreBackup } = useBackupStore();
+  const { lastOpenedBackupId } = useSessionStore();
+  const { loadSessionModel } = useLocalAIStore();
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
+  // Load backups and restore last opened project
   useEffect(() => {
-    setMounted(true);
-    if (!files || files.length === 0) createBlankProject();
-  }, [createBlankProject, files]);
+    const init = async () => {
+      await loadBackups();
+      if (lastOpenedBackupId) {
+        const backup = await restoreBackup(lastOpenedBackupId);
+        if (backup) {
+          setFiles(backup.files);
+          setProjectName(backup.projectName);
+        } else {
+          createBlankProject();
+        }
+      } else {
+        createBlankProject();
+      }
+      await loadSessionModel();
+    };
+    init();
+  }, []);
 
+  // Auto-select first file when files load and no file is active
   useEffect(() => {
-    if (files.length > 0 && !activeFileId) setActiveFile(files[0].id);
+    if (files.length > 0 && !activeFileId) {
+      setActiveFile(files[0].id);
+    }
   }, [files, activeFileId, setActiveFile]);
 
-  if (!mounted) return null;
+  // Auto-save every 60 seconds
+  useEffect(() => {
+    if (!isAutoSaveEnabled || !project || files.length === 0) return;
+    const interval = setInterval(() => {
+      addBackup(files, project.name, 'Auto-save');
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [isAutoSaveEnabled, project, files, addBackup]);
 
+  if (!project) {
+    return (
+      <div className="flex h-full items-center justify-center bg-gray-900 text-white">
+        <p className="text-xl">Creating blank workspace...</p>
+      </div>
+    );
+  }
+
+  // Mobile layout: stack panels vertically, only one visible at a time based on activeTab
+  if (isMobile) {
+    return (
+      <div className="flex h-screen flex-col bg-gray-900">
+        <CanvasToolbar />
+        <div className="flex-1 overflow-hidden">
+          {activeTab === 'files' && <FileExplorer />}
+          {activeTab === 'editor' && <CodeEditor />}
+          {activeTab === 'preview' && <UniversalPreview />}
+          {activeTab === 'ai' && <AIChatSidebar />}
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop layout with resizable panels and AI sidebar overlay
   return (
-    <div className="flex flex-col h-screen w-full bg-[#0a0a0a] text-white overflow-hidden">
-      {/* Top Header */}
-      <div className="h-12 border-b border-zinc-800 flex items-center px-4 bg-[#0f0f0f] justify-between">
-        <span className="text-sm font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-          AI META FACTORY
-        </span>
-        <span className="text-xs text-zinc-500 uppercase tracking-widest">{activeTab}</span>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 relative overflow-hidden">
-        {activeTab === 'explorer' && <div className="h-full w-full bg-[#0f0f0f]"><FileExplorer /></div>}
-        {activeTab === 'editor' && <div className="h-full w-full"><CodeEditor /></div>}
-        {activeTab === 'ai' && <div className="h-full w-full bg-[#0f0f0f]"><AIChatSidebar /></div>}
-        {activeTab === 'preview' && <div className="h-full w-full bg-white"><UniversalPreview /></div>}
-      </div>
-
-      {/* Mobile Bottom Navigation */}
-      <div className="h-16 border-t border-zinc-800 bg-[#0f0f0f] flex items-center justify-around px-2 pb-safe">
-        <button onClick={() => setActiveTab('explorer')} className={`flex flex-col items-center gap-1 ${activeTab === 'explorer' ? 'text-blue-500' : 'text-zinc-500'}`}>
-          <Folder size={20} />
-          <span className="text-[10px]">Files</span>
-        </button>
-        <button onClick={() => setActiveTab('editor')} className={`flex flex-col items-center gap-1 ${activeTab === 'editor' ? 'text-blue-500' : 'text-zinc-500'}`}>
-          <FileCode size={20} />
-          <span className="text-[10px]">Code</span>
-        </button>
-        <button onClick={() => setActiveTab('ai')} className={`flex flex-col items-center gap-1 ${activeTab === 'ai' ? 'text-blue-500' : 'text-zinc-500'}`}>
-          <MessageSquare size={20} />
-          <span className="text-[10px]">AI Chat</span>
-        </button>
-        <button onClick={() => setActiveTab('preview')} className={`flex flex-col items-center gap-1 ${activeTab === 'preview' ? 'text-blue-500' : 'text-zinc-500'}`}>
-          <Play size={20} />
-          <span className="text-[10px]">Run</span>
-        </button>
+    <div className="flex h-screen flex-col bg-gray-900">
+      <CanvasToolbar />
+      <div className="flex-1 overflow-hidden relative">
+        <ResizablePanels
+          left={leftCollapsed ? null : <FileExplorer />}
+          center={<CodeEditor />}
+          right={rightCollapsed ? null : <UniversalPreview />}
+          leftSize={leftCollapsed ? 0 : 18}
+          rightSize={rightCollapsed ? 0 : 35}
+          minLeftSize={leftCollapsed ? 0 : 15}
+          minRightSize={rightCollapsed ? 0 : 25}
+          onLeftToggle={() => setLeftCollapsed(!leftCollapsed)}
+          onRightToggle={() => setRightCollapsed(!rightCollapsed)}
+        />
+        {/* AI Sidebar Overlay */}
+        {isAIPanelOpen && (
+          <div className="absolute top-0 right-0 h-full w-80 bg-gray-900 border-l border-gray-700 shadow-xl z-20 overflow-hidden">
+            <AIChatSidebar />
+          </div>
+        )}
       </div>
     </div>
   );
