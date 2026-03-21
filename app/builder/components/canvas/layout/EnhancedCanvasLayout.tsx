@@ -11,35 +11,32 @@ export function EnhancedCanvasLayout() {
 
   useEffect(() => {
     setMounted(true);
+    // Only create a project if the store is empty
     if (!files || files.length === 0) {
       createBlankProject();
     }
-  }, []);
+  }, [createBlankProject, files]);
 
   useEffect(() => {
     if (files.length > 0 && !activeFileId) {
       setActiveFile(files[0].id);
     }
-  }, [files, activeFileId]);
+  }, [files, activeFileId, setActiveFile]);
 
-  if (!mounted || !files || files.length === 0 || !activeFileId) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-black text-white">
-        Loading Sidebar...
-      </div>
-    );
-  }
+  if (!mounted) return null;
 
   return (
-    <div className="flex h-screen w-full bg-black overflow-hidden text-white">
-      {/* Sidebar - Test if this causes crash */}
-      <div className="w-64 border-r border-zinc-800 hidden md:block">
+    <div className="flex h-screen w-full bg-[#0a0a0a] text-white overflow-hidden">
+      {/* Sidebar - Testing if FileExplorer is stable */}
+      <div className="w-64 border-r border-zinc-800 flex-shrink-0 bg-[#0f0f0f]">
         <FileExplorer />
       </div>
       
-      {/* Editor */}
-      <div className="flex-1 relative">
-        <CodeEditor />
+      {/* Main Editor Area */}
+      <div className="flex-1 flex flex-col relative min-w-0">
+        <div className="flex-1 overflow-hidden">
+          <CodeEditor />
+        </div>
       </div>
     </div>
   );
