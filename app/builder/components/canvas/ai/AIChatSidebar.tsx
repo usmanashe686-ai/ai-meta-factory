@@ -159,7 +159,7 @@ export const AIChatSidebar: React.FC = () => {
             createFile(path, content as string, false);
           }
         }
-        addToConsole({ type: 'success', message: `AI generated ${Object.keys(parsed.files).length} files` });
+        addToConsole({ type: 'info', message: `AI generated ${Object.keys(parsed.files).length} files` });
       } else if (parsed?.error) {
         addToConsole({ type: 'error', message: `AI error: ${parsed.error}` });
       } else if (accumulatedContent && !parsed) {

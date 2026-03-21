@@ -27,7 +27,7 @@ export interface LocalAIState {
   setCurrentModel: (model: AIModel | null) => void;
   clearError: () => void;
 
-  // ✅ UPDATED FUNCTION
+  // ✅ FIXED SIGNATURE
   generate: (prompt: string, provider?: string, options?: any) => Promise<string>;
 
   loadSessionModel: () => Promise<void>;
@@ -56,21 +56,21 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
       const res = await fetch(`${API_BASE_URL}/models`);
       if (res.ok) {
         const data = await res.json();
-        const models = data.map((m: any) => ({
-          id: m.id,
-          name: m.name,
-          size: m.size,
-          downloaded: true,
-          active: false,
-          type: 'llamacpp',
-          tags: [],
-        }));
-        set({ availableModels: models });
+        set({
+          availableModels: data.map((m: any) => ({
+            id: m.id,
+            name: m.name,
+            size: m.size,
+            downloaded: true,
+            active: false,
+            type: 'llamacpp',
+            tags: [],
+          }))
+        });
       } else {
         set({ availableModels: FALLBACK_MODELS });
       }
     } catch (error) {
-      console.error('Failed to fetch models, using fallback:', error);
       set({ availableModels: FALLBACK_MODELS });
     }
   },
@@ -100,7 +100,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 
-  // 🔥 UPDATED GENERATE (WITH PROVIDER)
+  // ✅ NOW FULLY COMPATIBLE WITH PROVIDER
   generate: async (prompt: string, provider: string = 'auto', options?: any) => {
     const { currentModel } = get();
     const modelId = currentModel?.id || 'tinyllama-1.1b';
@@ -112,7 +112,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
         body: JSON.stringify({
           prompt,
           model: modelId,
-          provider, // ✅ THIS IS THE KEY ADDITION
+          provider, // ✅ IMPORTANT
           max_tokens: options?.max_tokens || 300,
           temperature: options?.temperature || 0.7,
         }),
@@ -124,7 +124,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
       }
 
       const data = await response.json();
-      return data.result || data.text || data.generated_text || '';
+      return data.result || data.text || '';
     } catch (error) {
       console.error('Generate failed:', error);
       return 'Error generating response.';

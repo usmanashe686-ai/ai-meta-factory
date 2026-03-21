@@ -1,16 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { SandpackProvider, SandpackPreview } from '@codesandbox/sandpack-react';
+import { useState, useEffect, useMemo } from 'react';
+import { SandpackProvider, SandpackPreview, useSandpack } from '@codesandbox/sandpack-react';
 import { useProjectStore } from '../state/project-store';
 import { PreviewToolbar } from './PreviewToolbar';
 import { DeviceEmulator, DeviceType } from './DeviceEmulator';
 import { PreviewLogs, LogEntry } from './PreviewLogs';
-import { useSandpack } from '@codesandbox/sandpack-react';
 
-// Listener component that captures console logs from the sandbox
 function SandpackLogListener({ onLog }: { onLog: (log: LogEntry) => void }) {
   const { listen } = useSandpack();
+
   useEffect(() => {
     const stopListening = listen((msg) => {
       if (msg.type === 'console' && Array.isArray(msg.log)) {
@@ -19,91 +18,138 @@ function SandpackLogListener({ onLog }: { onLog: (log: LogEntry) => void }) {
           if (logItem.method === 'warn') type = 'warn';
           if (logItem.method === 'error') type = 'error';
           if (logItem.method === 'info') type = 'info';
+
           onLog({
             type,
-            message: logItem.data.join(' '),
+            message: Array.isArray(logItem.data)
+              ? logItem.data.join(' ')
+              : String(logItem.data),
             timestamp: Date.now(),
           });
         });
       }
     });
+
     return () => stopListening();
   }, [listen, onLog]);
 
   return null;
 }
 
-interface UniversalPreviewProps {
-  showLogsByDefault?: boolean;
-}
-
-export function UniversalPreview({ showLogsByDefault = false }: UniversalPreviewProps) {
-  const [device, setDevice] = useState<DeviceType>('desktop');
+export function UniversalPreview({ showLogsByDefault = false }: { showLogsByDefault?: boolean }) {
+  const [device, setDevice] = useState<DeviceType>('mobile');
   const [showLogs, setShowLogs] = useState(showLogsByDefault);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const { files, activeFileId } = useProjectStore();
 
-  // Filter out folders and only include file nodes with content
-  const sandpackFiles = files
-    .filter(file => file.type === 'file' && file.content !== undefined)
-    .reduce((acc, file) => {
-      const path = file.path.startsWith('/') ? file.path : `/${file.path}`;
-      acc[path] = { code: file.content ?? '' };
-      return acc;
-    }, {} as Record<string, { code: string }>);
+  const { files, addToConsole } = useProjectStore();
+
+  const sandpackFiles = useMemo(() => {
+    const fileMap: Record<string, { code: string }> = {};
+
+    files.forEach(file => {
+      if (file.type === 'file') {
+        const path = file.path.startsWith('/') ? file.path : `/${file.path}`;
+        fileMap[path] = { code: file.content || '' };
+      }
+    });
+
+    // ✅ Ensure App exists
+    if (!fileMap['/src/App.tsx'] && !fileMap['/App.tsx']) {
+      fileMap['/src/App.tsx'] = {
+        code: `
+export default function App() {
+  return <div style={{padding:20}}>No App.tsx found</div>;
+}`
+      };
+    }
+
+    // ✅ Ensure React entry point exists
+    if (!fileMap['/src/index.tsx']) {
+      fileMap['/src/index.tsx'] = {
+        code: `
+import React from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+
+const root = createRoot(document.getElementById("root")!);
+root.render(<App />);
+`
+      };
+    }
+
+    // ✅ Ensure HTML exists
+    if (!fileMap['/index.html']) {
+      fileMap['/index.html'] = {
+        code: `
+<!DOCTYPE html>
+<html>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+`
+      };
+    }
+
+    return fileMap;
+  }, [files]);
 
   const handleLog = (log: LogEntry) => {
     setLogs(prev => [...prev, log].slice(-50));
+
+    if (log.type === 'error') {
+      addToConsole({
+        type: 'error',
+        message: '[Preview] ' + log.message
+      });
+    }
   };
 
-  const clearLogs = () => setLogs([]);
-
-  const template = 'react-ts';
-
-  if (files.length === 0) {
+  if (Object.keys(sandpackFiles).length === 0) {
     return (
-      <div className="h-full w-full flex items-center justify-center text-gray-500">
+      <div className="h-full flex items-center justify-center text-gray-400">
         No files to preview
       </div>
     );
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-gray-100 dark:bg-gray-900">
+    <div className="h-full w-full flex flex-col bg-gray-900">
       <PreviewToolbar
         device={device}
         onDeviceChange={setDevice}
         onToggleLogs={() => setShowLogs(!showLogs)}
         showLogs={showLogs}
       />
-      <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex-1">
-          <SandpackProvider
-            template={template}
-            files={sandpackFiles}
-            options={{
-              activeFile: activeFileId && sandpackFiles[activeFileId] ? activeFileId : undefined,
-              autorun: true,
-            }}
-            customSetup={{
-              dependencies: {
-                "react": "^18.2.0",
-                "react-dom": "^18.2.0",
-              },
-            }}
-          >
-            <DeviceEmulator device={device}>
-              <SandpackPreview
-                showNavigator
-                showRefreshButton
-              />
-            </DeviceEmulator>
-            <SandpackLogListener onLog={handleLog} />
-          </SandpackProvider>
-        </div>
+
+      <div className="flex-1 relative">
+        <SandpackProvider
+          template="react-ts"
+          files={sandpackFiles}
+          options={{
+            autorun: true,
+            recompileMode: "immediate",
+            initMode: "immediate"
+          }}
+          customSetup={{
+            dependencies: {
+              "react": "^18.2.0",
+              "react-dom": "^18.2.0",
+              "lucide-react": "latest",
+              "framer-motion": "latest"
+            }
+          }}
+        >
+          <DeviceEmulator device={device}>
+            <SandpackPreview style={{ height: '100%' }} />
+          </DeviceEmulator>
+
+          <SandpackLogListener onLog={handleLog} />
+        </SandpackProvider>
+
         {showLogs && (
-          <div className="h-64 border-t border-gray-300 dark:border-gray-700">
-            <PreviewLogs logs={logs} onClear={clearLogs} />
+          <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-black border-t border-gray-700">
+            <PreviewLogs logs={logs} onClear={() => setLogs([])} />
           </div>
         )}
       </div>
