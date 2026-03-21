@@ -44,7 +44,7 @@ export const CanvasToolbar: React.FC = () => {
 
     try {
       triggerRefresh();
-      if (setActiveTab) setActiveTab('run');
+      if (setActiveTab) setActiveTab('Run');
       addToConsole({ type: 'info', message: 'Preview synchronized successfully.' });
     } catch (err) {
       addToConsole({ type: 'error', message: `Run failed: ${err instanceof Error ? err.message : 'Unknown error'}` });
