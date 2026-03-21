@@ -1,15 +1,22 @@
 import { create } from 'zustand';
 
+type TabType = 'editor' | 'ai' | 'preview';
+
 interface UIState {
   isAIPanelOpen: boolean;
-  theme: 'dark' | 'light';
+  activeTab: TabType;
+
   toggleAIPanel: () => void;
-  toggleTheme: () => void;
+  setActiveTab: (tab: TabType) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
   isAIPanelOpen: false,
-  theme: 'dark',
-  toggleAIPanel: () => set((state) => ({ isAIPanelOpen: !state.isAIPanelOpen })),
-  toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
+  activeTab: 'editor',
+
+  toggleAIPanel: () =>
+    set((state) => ({ isAIPanelOpen: !state.isAIPanelOpen })),
+
+  setActiveTab: (tab) =>
+    set({ activeTab: tab }),
 }));
