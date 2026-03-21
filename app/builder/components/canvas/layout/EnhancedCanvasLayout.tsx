@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useProjectStore } from '../state/project-store';
 import { CodeEditor } from '../editor/CodeEditor';
 import { FileExplorer } from '../explorer/FileExplorer';
-import { AIChatSidebar } from '../../ai/AIChatSidebar';
+// Using the path confirmed by your find command
+import { AIChatSidebar } from '../ai/AIChatSidebar';
 import { UniversalPreview } from '../preview/UniversalPreview';
 
 export function EnhancedCanvasLayout() {
@@ -29,7 +30,7 @@ export function EnhancedCanvasLayout() {
 
   return (
     <div className="flex h-screen w-full bg-[#0a0a0a] text-white overflow-hidden">
-      {/* Sidebar */}
+      {/* Sidebar - Visible on medium screens and up */}
       <div className="w-64 border-r border-zinc-800 flex-shrink-0 bg-[#0f0f0f] hidden md:block">
         <FileExplorer />
       </div>
@@ -47,7 +48,7 @@ export function EnhancedCanvasLayout() {
         </div>
         
         <div className="flex-1 flex overflow-hidden">
-          <div className={`${showPreview ? 'w-1/2' : 'w-full'} transition-all duration-300`}>
+          <div className={`${showPreview ? 'w-1/2' : 'w-full'} h-full transition-all duration-300`}>
             <CodeEditor />
           </div>
           
@@ -59,7 +60,7 @@ export function EnhancedCanvasLayout() {
         </div>
       </div>
 
-      {/* AI Sidebar */}
+      {/* AI Sidebar - Visible on large screens and up */}
       <div className="w-80 border-l border-zinc-800 flex-shrink-0 bg-[#0f0f0f] hidden lg:block">
         <AIChatSidebar />
       </div>
