@@ -26,7 +26,10 @@ export interface LocalAIState {
   unloadModel: () => Promise<void>;
   setCurrentModel: (model: AIModel | null) => void;
   clearError: () => void;
-  generate: (prompt: string, options?: any) => Promise<string>;
+
+  // ✅ UPDATED FUNCTION
+  generate: (prompt: string, provider?: string, options?: any) => Promise<string>;
+
   loadSessionModel: () => Promise<void>;
 }
 
@@ -75,6 +78,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
   loadModel: async (modelId: string) => {
     const model = get().availableModels.find(m => m.id === modelId);
     if (!model) return false;
+
     set({ currentModel: model });
     useSessionStore.getState().setSelectedModelId(modelId);
     return true;
@@ -87,32 +91,40 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
 
   setCurrentModel: (model) => {
     set({ currentModel: model });
-    if (model) useSessionStore.getState().setSelectedModelId(model.id);
-    else useSessionStore.getState().setSelectedModelId(null);
+    if (model) {
+      useSessionStore.getState().setSelectedModelId(model.id);
+    } else {
+      useSessionStore.getState().setSelectedModelId(null);
+    }
   },
 
   clearError: () => set({ error: null }),
 
-  generate: async (prompt: string, options?: any) => {
+  // 🔥 UPDATED GENERATE (WITH PROVIDER)
+  generate: async (prompt: string, provider: string = 'auto', options?: any) => {
     const { currentModel } = get();
     const modelId = currentModel?.id || 'tinyllama-1.1b';
+
     try {
-      const response = await fetch(`${API_BASE_URL}/generate`, {
+      const response = await fetch(`${API_BASE_URL}/ai/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt,
           model: modelId,
+          provider, // ✅ THIS IS THE KEY ADDITION
           max_tokens: options?.max_tokens || 300,
           temperature: options?.temperature || 0.7,
         }),
       });
+
       if (!response.ok) {
         const err = await response.json();
         throw new Error(err.error || `HTTP ${response.status}`);
       }
+
       const data = await response.json();
-      return data.text || data.generated_text || '';
+      return data.result || data.text || data.generated_text || '';
     } catch (error) {
       console.error('Generate failed:', error);
       return 'Error generating response.';
@@ -121,6 +133,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
 
   loadSessionModel: async () => {
     const sessionModelId = useSessionStore.getState().selectedModelId;
+
     if (sessionModelId) {
       await get().loadModel(sessionModelId);
     } else if (get().availableModels.length > 0) {
