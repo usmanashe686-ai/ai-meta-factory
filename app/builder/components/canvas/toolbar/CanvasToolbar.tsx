@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  Save, Download, Upload, GitBranch, Play, Settings, Brain, 
-  Zap, Globe, Users, Sparkles, Clock, FileText, Key 
+import {
+  Save, Download, Upload, GitBranch, Play, Settings, Brain,
+  Zap, Globe, Users, Sparkles, Clock, FileText, Key, Folder
 } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 import { usePlatformStore } from '../state/platform-store';
@@ -31,7 +31,7 @@ export const CanvasToolbar: React.FC = () => {
 
   const { project, saveProject, setProjectName, activeFileId, addToConsole } = useProjectStore();
   const { platform, stack } = usePlatformStore();
-  const { toggleAIPanel, setActiveTab } = useUIStore();
+  const { toggleAIPanel, setActiveTab, activeTab } = useUIStore();
   const { triggerRefresh } = usePreviewStore();
 
   const handleRun = () => {
@@ -44,7 +44,8 @@ export const CanvasToolbar: React.FC = () => {
 
     try {
       triggerRefresh();
-      if (setActiveTab) setActiveTab('Run');
+      // Changed 'Run' to 'preview' to match TabType
+      if (setActiveTab) setActiveTab('preview');
       addToConsole({ type: 'info', message: 'Preview synchronized successfully.' });
     } catch (err) {
       addToConsole({ type: 'error', message: `Run failed: ${err instanceof Error ? err.message : 'Unknown error'}` });
@@ -64,6 +65,8 @@ export const CanvasToolbar: React.FC = () => {
     if (setActiveTab) setActiveTab('ai');
     toggleAIPanel();
   };
+
+  const isTabActive = (tab: string) => activeTab === tab;
 
   return (
     <>
@@ -87,6 +90,28 @@ export const CanvasToolbar: React.FC = () => {
               {stack || platform}
             </span>
           </div>
+        </div>
+
+        {/* View Mode Tabs */}
+        <div className="flex items-center space-x-1 bg-gray-900/50 rounded-lg p-1 mx-4">
+          <button 
+            onClick={() => setActiveTab('files')}
+            className={`p-1.5 rounded transition-colors ${isTabActive('files') ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+          >
+            <Folder size={16} />
+          </button>
+          <button 
+            onClick={() => setActiveTab('editor')}
+            className={`p-1.5 rounded transition-colors ${isTabActive('editor') ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+          >
+            <FileText size={16} />
+          </button>
+          <button 
+            onClick={() => setActiveTab('preview')}
+            className={`p-1.5 rounded transition-colors ${isTabActive('preview') ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+          >
+            <Globe size={16} />
+          </button>
         </div>
 
         <div className="flex items-center space-x-2 ml-4">
