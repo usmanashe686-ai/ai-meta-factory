@@ -15,18 +15,27 @@ interface Suggestion {
   line?: number;
 }
 
-interface AIPairProgrammingProps {
-  onClose?: () => void;
+function safeParseAI(text: string): any | null {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) return null;
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      return null;
+    }
+  }
 }
 
-export const AIPairProgramming: React.FC<AIPairProgrammingProps> = ({ onClose }) => {
+export const AIPairProgramming: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
   const [enabled, setEnabled] = useState(true);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const { files, activeFileId, updateFileContent } = useProjectStore();
   const { availableModels, currentModel, setCurrentModel, generate, fetchAvailableModels } = useLocalAIStore();
 
-  // Fetch models and set default if none selected
   useEffect(() => {
     fetchAvailableModels();
   }, []);
@@ -39,7 +48,6 @@ export const AIPairProgramming: React.FC<AIPairProgrammingProps> = ({ onClose })
 
   const activeFile = files.find(f => f.id === activeFileId);
   const currentCode = activeFile?.content || '';
-
   const [debouncedCode] = useDebounce(currentCode, 1000);
 
   useEffect(() => {
@@ -53,9 +61,8 @@ export const AIPairProgramming: React.FC<AIPairProgrammingProps> = ({ onClose })
     try {
       const prompt = `You are an AI pair programmer. Analyze the following code and provide up to 3 helpful suggestions (completions, improvements, bug fixes). Output JSON array with objects having "type", "title", "description", and optional "code".\n\nCode:\n\`\`\`\n${code}\n\`\`\``;
       const rawText = await generate(prompt);
-      const jsonMatch = rawText.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = safeParseAI(rawText);
+      if (Array.isArray(parsed)) {
         const validTypes = ['completion', 'refactor', 'fix', 'doc'];
         const validated = parsed.map((s: any, idx: number) => ({
           ...s,
@@ -64,12 +71,7 @@ export const AIPairProgramming: React.FC<AIPairProgrammingProps> = ({ onClose })
         }));
         setSuggestions(validated);
       } else {
-        setSuggestions([{ 
-          id: 'raw', 
-          type: 'doc', 
-          title: 'AI Suggestion', 
-          description: rawText 
-        }]);
+        setSuggestions([{ id: 'raw', type: 'doc', title: 'AI Suggestion', description: rawText }]);
       }
     } catch (error) {
       console.error('Failed to generate suggestions:', error);
@@ -86,7 +88,6 @@ export const AIPairProgramming: React.FC<AIPairProgrammingProps> = ({ onClose })
 
   const insertBelowCursor = useCallback((suggestion: Suggestion) => {
     if (!suggestion.code || !activeFileId || !activeFile) return;
-    // Simple: append at end (replace with proper cursor position later)
     const newContent = activeFile.content + '\n\n' + suggestion.code;
     updateFileContent(activeFileId, newContent);
     setSuggestions(prev => prev.filter(s => s.id !== suggestion.id));
