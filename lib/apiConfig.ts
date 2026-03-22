@@ -1,11 +1,11 @@
-// AI Meta Factory - Unified API Configuration
-export const API_BASE_URL = "https://ai-meta-factory-api.onrender.com/api";
+// AI Meta Factory - Unified Local API Configuration
+export const API_BASE_URL = "http://192.168.100.76:8000/api";
 
 export const API_CONFIG = {
   apiUrl: API_BASE_URL,
-  aiUrl: "https://ai-meta-factory-api.onrender.com",
-  wsUrl: "wss://ai-meta-factory-api.onrender.com/ws",
-  buildUrl: "https://ai-meta-factory-api.onrender.com/build"
+  aiUrl: "http://192.168.100.76:8000",
+  wsUrl: "ws://192.168.100.76:8000/ws",
+  buildUrl: "http://192.168.100.76:8000/build"
 };
 
 export default API_CONFIG;
