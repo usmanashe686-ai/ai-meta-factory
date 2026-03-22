@@ -1,4 +1,4 @@
-// AI Meta Factory - Unified Local API Configuration
+// AI Meta Factory - Local Bridge Configuration
 export const API_BASE_URL = "http://192.168.100.76:8000/api";
 
 export const API_CONFIG = {
