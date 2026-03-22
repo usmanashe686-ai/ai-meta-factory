@@ -265,3 +265,24 @@ def apply_edit():
 # ===============================
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=8000, debug=False)
+
+# ===============================
+# LOCAL AI (LLAMA.CPP)
+# ===============================
+def llama_completion(prompt, **kwargs):
+    payload = {
+        "prompt": prompt,
+        "n_predict": kwargs.get("max_new_tokens", 200),
+        "temperature": kwargs.get("temperature", 0.7),
+        "stream": False
+    }
+
+    resp = requests.post(
+        f"{LLAMA_URL}/completion",
+        json=payload,
+        timeout=120
+    )
+
+    resp.raise_for_status()
+    return resp.json()["content"].strip()
+

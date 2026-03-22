@@ -3,34 +3,61 @@
 import React from 'react';
 
 interface Props {
-  diff: string;
-  onAccept: () => void;
+  original: string;
+  suggested: string;
+  onAccept: (code: string) => void;
   onReject: () => void;
 }
 
-export const DiffViewer: React.FC<Props> = ({ diff, onAccept, onReject }) => {
+export const DiffViewer: React.FC<Props> = ({
+  original,
+  suggested,
+  onAccept,
+  onReject,
+}) => {
+  const originalLines = original.split('\n');
+  const newLines = suggested.split('\n');
+
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded p-4 text-sm">
-      <h3 className="text-white font-semibold mb-2">AI Suggested Changes</h3>
+    <div className="bg-slate-950 border border-blue-500/30 rounded-xl p-3 text-[11px] font-mono">
+      
+      <div className="flex justify-between mb-2">
+        <span className="text-blue-400">Live Diff</span>
 
-      <pre className="bg-black p-3 rounded text-green-400 overflow-x-auto max-h-64">
-        {diff}
-      </pre>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onAccept(suggested)}
+            className="bg-green-600 px-2 py-1 rounded"
+          >
+            Accept
+          </button>
+          <button
+            onClick={onReject}
+            className="bg-red-600 px-2 py-1 rounded"
+          >
+            Reject
+          </button>
+        </div>
+      </div>
 
-      <div className="flex gap-2 mt-3">
-        <button
-          onClick={onAccept}
-          className="bg-green-600 px-3 py-1 rounded hover:bg-green-700"
-        >
-          Accept
-        </button>
+      <div className="space-y-1 max-h-60 overflow-auto">
+        {newLines.map((line, i) => {
+          const oldLine = originalLines[i];
 
-        <button
-          onClick={onReject}
-          className="bg-red-600 px-3 py-1 rounded hover:bg-red-700"
-        >
-          Reject
-        </button>
+          const isChanged = line !== oldLine;
+
+          return (
+            <div
+              key={i}
+              className={`px-2 ${
+                isChanged ? 'bg-green-900/40 text-green-300' : ''
+              }`}
+            >
+              {isChanged ? '+' : ' '}
+              {line}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
