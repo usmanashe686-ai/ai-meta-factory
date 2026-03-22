@@ -1,388 +1,210 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles, Copy, Check, Trash2, FileText } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Bot, Sparkles, RefreshCw, Zap, 
+  History, FileText, Trash2, Check, 
+  X, Layers, AlertTriangle 
+} from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
-import { usePlatformStore } from '../state/platform-store';
-import { useDocsStore } from '../state/docs-store';
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
-
-interface ModelInfo {
-  id: string;
-  name: string;
-  size: string;
-}
-
-// Safe JSON extraction from AI responses
-function safeParseAI(text: string): any | null {
-  try {
-    return JSON.parse(text);
-  } catch {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return null;
-    try {
-      return JSON.parse(match[0]);
-    } catch {
-      return null;
-    }
-  }
-}
-
-// Validate file structure before applying changes
-function validateFileStructure(files: any): boolean {
-  if (!files || typeof files !== 'object') return false;
-  for (const [path, content] of Object.entries(files)) {
-    if (typeof path !== 'string' || typeof content !== 'string') return false;
-  }
-  return true;
-}
+import { useLocalAIStore } from '../state/local-ai-store';
+import { buildAIContext } from './context-builder';
+import { parseDiffIntoHunks, DiffHunk } from './diff-utils';
+import { HunkEditor } from './HunkEditor';
+import { applyPatch } from 'diff';
 
 export const AIChatSidebar: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'Hello! I\'m your local AI assistant. I can help you generate components, fix bugs, explain code, and build complete applications. I can also follow your project documents – just enable "Include Docs" below.',
-      timestamp: new Date(),
-    },
-  ]);
   const [input, setInput] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
-  const [selectedModel, setSelectedModel] = useState<ModelInfo | null>(null);
-  const [includeDocs, setIncludeDocs] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingDiff, setStreamingDiff] = useState('');
+  const [pendingHunks, setPendingHunks] = useState<DiffHunk[]>([]);
+  const [workingContent, setWorkingContent] = useState<string | null>(null);
+  const [recentFilePaths, setRecentFilePaths] = useState<string[]>([]);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const projectFiles = useProjectStore((state) => state.files);
-  const { platform, stack } = usePlatformStore();
-  const { docs, selectedDocId, loadDocs } = useDocsStore();
-  const { updateFileContent, createFile, addToConsole } = useProjectStore();
+  const { files, activeFileId, updateFileContent, addToConsole } = useProjectStore();
+  const { generate, isLoading, currentModel, fetchAvailableModels } = useLocalAIStore();
 
-  const AI_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const activeFile = files.find(f => f.id === activeFileId);
 
+  // 1. Fetch models on mount
   useEffect(() => {
-    fetch(`${AI_API_URL}/models`)
-      .then(res => res.json())
-      .then(data => {
-        setAvailableModels(data);
-        if (data.length > 0) setSelectedModel(data[0]);
-      })
-      .catch(err => console.error('Failed to fetch models:', err));
-    loadDocs();
+    fetchAvailableModels();
   }, []);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+  // 2. Track "Hot Files" for Context Awareness
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isGenerating || !selectedModel) return;
-
-    let contextPrompt = '';
-    if (includeDocs && docs.length > 0) {
-      const selectedDoc = docs.find(d => d.id === selectedDocId) || docs[0];
-      contextPrompt = `Project Documents:\nTitle: ${selectedDoc.title}\nTags: ${selectedDoc.tags.join(', ')}\nContent:\n${selectedDoc.content}\n\n`;
+    if (activeFile) {
+      setRecentFilePaths(prev => {
+        const filtered = prev.filter(p => p !== activeFile.path);
+        return [activeFile.path, ...filtered].slice(0, 4);
+      });
     }
+  }, [activeFileId]);
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input,
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
-    setInput('');
-    setIsGenerating(true);
+  // 3. Sequential Patching: Initialize local working copy when hunks arrive
+  useEffect(() => {
+    if (pendingHunks.length > 0 && activeFile && !workingContent) {
+      setWorkingContent(activeFile.content);
+    }
+    if (pendingHunks.length === 0) {
+      setWorkingContent(null);
+    }
+  }, [pendingHunks, activeFile]);
 
-    const assistantMessageId = (Date.now() + 1).toString();
-    setMessages((prev) => [...prev, { id: assistantMessageId, role: 'assistant', content: '', timestamp: new Date() }]);
+  const handleArchitectRequest = async () => {
+    if (!activeFile || !input.trim() || isLoading) return;
+    
+    setStreamingDiff('');
+    setIsStreaming(true);
+    setPendingHunks([]);
 
     try {
-      const fullPrompt = contextPrompt + `User: ${input}\n\nAssistant:`;
-      const response = await fetch(`${AI_API_URL}/generate-stream`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: fullPrompt,
-          model: selectedModel.id,
-          max_tokens: 500,
-          temperature: 0.7,
-        }),
+      // BUILD DETERMINISTIC CONTEXT (Imports + File Tree + Hot Files)
+      const richContext = buildAIContext({
+        activeFile,
+        allFiles: files,
+        recentFilePaths: recentFilePaths.slice(1) // Don't include active file twice
       });
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No response stream from AI server');
-
-      const decoder = new TextDecoder();
-      let accumulatedContent = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n\n');
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6));
-            if (data.token) {
-              accumulatedContent += data.token;
-              setMessages(prev => prev.map(msg =>
-                msg.id === assistantMessageId ? { ...msg, content: accumulatedContent } : msg
-              ));
-            }
-          }
-        }
+      // CALL ENGINE
+      const fullDiff = await generate(
+        richContext + "\nUser Request: " + input, 
+        'auto', 
+        { max_tokens: 2000 },
+        (token) => setStreamingDiff(prev => prev + token)
+      );
+      
+      const parsed = parseDiffIntoHunks(fullDiff);
+      
+      if (parsed.length === 0) {
+        addToConsole({ type: 'error', message: "AI returned invalid diff format." });
       }
 
-      // After stream ends, try to parse the whole accumulated content
-      const parsed = safeParseAI(accumulatedContent);
-      if (parsed?.files && validateFileStructure(parsed.files)) {
-        // Apply file changes
-        for (const [path, content] of Object.entries(parsed.files)) {
-          const existing = projectFiles.find(f => f.path === path);
-          if (existing) {
-            updateFileContent(existing.id, content as string);
-          } else {
-            createFile(path, content as string, false);
-          }
-        }
-        addToConsole({ type: 'info', message: `AI generated ${Object.keys(parsed.files).length} files` });
-      } else if (parsed?.error) {
-        addToConsole({ type: 'error', message: `AI error: ${parsed.error}` });
-      } else if (accumulatedContent && !parsed) {
-        // AI gave plain text, just keep it as message
-        // Already displayed, nothing to do
-      }
-
-    } catch (error) {
-      console.error('Streaming failed:', error);
-      setMessages(prev => prev.filter(msg => msg.id !== assistantMessageId));
-      const errorMsg: Message = {
-        id: Date.now().toString(),
-        role: 'assistant',
-        content: 'Error connecting to AI server. Make sure it is running.',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMsg]);
-      addToConsole({ type: 'error', message: 'AI connection failed' });
+      setPendingHunks(parsed);
+    } catch (err: any) {
+      addToConsole({ type: 'error', message: err.message });
     } finally {
-      setIsGenerating(false);
+      setIsStreaming(false);
+      setInput('');
     }
   };
 
-  const handleCopy = (content: string, id: string) => {
-    navigator.clipboard.writeText(content);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
+  const applyHunk = (hunk: DiffHunk) => {
+    const currentBase = workingContent || activeFile?.content;
+    if (!activeFile || !currentBase) return;
 
-  const handleClearChat = () => {
-    setMessages([
-      {
-        id: '1',
-        role: 'assistant',
-        content: 'Hello! I\'m your local AI assistant. How can I help you today?',
-        timestamp: new Date(),
-      },
-    ]);
+    // Create a standalone patch for this specific hunk
+    const hunkPatch = `--- a/${activeFile.path}\n+++ b/${activeFile.path}\n${hunk.content}`;
+    
+    try {
+      const patched = applyPatch(currentBase, hunkPatch);
+      
+      if (patched !== false) {
+        setWorkingContent(patched); // Update local sequence
+        updateFileContent(activeFile.id, patched); // Sync to global IDE state
+        setPendingHunks(prev => prev.filter(h => h.id !== hunk.id));
+        addToConsole({ type: 'success', message: `Hunk applied to ${activeFile.path}` });
+      } else {
+        throw new Error("Context mismatch. This hunk's line numbers are no longer valid.");
+      }
+    } catch (err: any) {
+      addToConsole({ type: 'error', message: err.message });
+    }
   };
-
-  const quickPrompts = [
-    'Create a navbar component',
-    'Add authentication',
-    'Fix TypeScript errors',
-    'Generate API routes',
-    'Optimize performance',
-    'Add dark mode',
-  ];
 
   return (
-    <div className="h-full flex flex-col bg-gray-900 border-l border-gray-700">
-      <div className="p-4 border-b border-gray-700">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <Bot size={16} className="text-white" />
-            </div>
-            <div>
-              <h3 className="font-semibold">Local AI Assistant</h3>
-              <p className="text-xs text-gray-400">Running on your device</p>
-            </div>
-          </div>
-          <button
-            onClick={handleClearChat}
-            className="p-1.5 hover:bg-gray-700 rounded"
-            title="Clear chat"
+    <div className="h-full flex flex-col bg-[#0b0f1a] text-slate-300 border-l border-slate-800 shadow-2xl">
+      
+      {/* HEADER */}
+      <div className="p-4 border-b border-slate-800 bg-[#161b2a] flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Zap size={16} className="text-amber-400 fill-amber-400/20" />
+          <span className="font-bold text-[10px] tracking-widest uppercase text-slate-400">
+            {currentModel?.name || 'Local Architect'}
+          </span>
+        </div>
+        {pendingHunks.length > 0 && (
+          <button 
+            onClick={() => setPendingHunks([])}
+            className="p-1 hover:bg-red-500/10 text-slate-500 hover:text-red-400 rounded transition-colors"
           >
             <Trash2 size={14} />
+          </button>
+        )}
+      </div>
+
+      {/* WORKSPACE */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+        
+        {/* BREADCRUMBS: The "Hot Files" context view */}
+        <div className="flex gap-2 overflow-x-auto pb-2 border-b border-slate-800/50 mb-2">
+          {recentFilePaths.map(path => (
+            <div key={path} className="flex items-center gap-1 px-2 py-1 bg-slate-900/50 rounded border border-slate-800 text-[9px] text-slate-500 whitespace-nowrap">
+              <FileText size={10} /> {path.split('/').pop()}
+            </div>
+          ))}
+        </div>
+
+        {/* STREAMING FEEDBACK */}
+        {isStreaming && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-[10px] text-emerald-500 font-mono">
+              <RefreshCw size={12} className="animate-spin" /> GENERATING UNIFIED DIFF...
+            </div>
+            <pre className="p-3 bg-black/40 rounded-lg border border-emerald-500/20 text-[10px] font-mono text-emerald-500/60 whitespace-pre-wrap overflow-hidden">
+              {streamingDiff || "Awaiting first token..."}
+            </pre>
+          </div>
+        )}
+
+        {/* HUNK QUEUE */}
+        {pendingHunks.length > 0 && !isStreaming ? (
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Proposed Changes ({pendingHunks.length})
+              </span>
+            </div>
+            <HunkEditor 
+              hunks={pendingHunks} 
+              onApplyHunk={applyHunk}
+              onDiscardHunk={(id) => setPendingHunks(prev => prev.filter(h => h.id !== id))}
+            />
+          </div>
+        ) : !isStreaming && (
+          <div className="h-full flex flex-col items-center justify-center text-center opacity-20 py-20">
+            <Layers size={48} className="mb-4" />
+            <p className="text-xs font-medium">No pending changes</p>
+            <p className="text-[10px]">Describe a change below to start refactoring</p>
+          </div>
+        )}
+      </div>
+
+      {/* INPUT AREA */}
+      <div className="p-4 bg-[#161b2a] border-t border-slate-800">
+        {!activeFile && (
+          <div className="mb-2 flex items-center gap-2 text-[10px] text-amber-500 bg-amber-500/10 p-2 rounded border border-amber-500/20">
+            <AlertTriangle size={12} /> Select a file to edit
+          </div>
+        )}
+        <div className="relative group">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={isLoading || !activeFile}
+            placeholder="e.g. 'Add a new method to handle user login...'"
+            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 pr-12 text-sm focus:ring-1 focus:ring-amber-500/50 outline-none resize-none h-28 transition-all disabled:opacity-50"
+          />
+          <button 
+            onClick={handleArchitectRequest}
+            disabled={isLoading || !input.trim() || !activeFile}
+            className="absolute right-3 bottom-3 p-2 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white rounded-lg transition-all active:scale-90 shadow-xl"
+          >
+            {isLoading ? <RefreshCw size={18} className="animate-spin" /> : <Sparkles size={18} />}
           </button>
         </div>
       </div>
 
-      <div className="p-3 border-b border-gray-700">
-        <select
-          value={selectedModel?.id}
-          onChange={(e) => {
-            const model = availableModels.find(m => m.id === e.target.value);
-            setSelectedModel(model || null);
-          }}
-          className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-sm"
-        >
-          {availableModels.map(model => (
-            <option key={model.id} value={model.id}>{model.name} ({model.size})</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="p-3 border-b border-gray-700 flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="includeDocs"
-          checked={includeDocs}
-          onChange={(e) => setIncludeDocs(e.target.checked)}
-          className="rounded bg-gray-700"
-        />
-        <label htmlFor="includeDocs" className="text-sm flex items-center gap-1 cursor-pointer">
-          <FileText size={14} /> Include project documents as context
-        </label>
-      </div>
-
-      <div className="p-3 border-b border-gray-700">
-        <div className="flex flex-wrap gap-2">
-          {quickPrompts.map((prompt) => (
-            <button
-              key={prompt}
-              onClick={() => setInput(prompt)}
-              className="px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 rounded-full border border-gray-600"
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[85%] rounded-lg p-3 ${
-                message.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800 text-gray-100'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center space-x-2">
-                  {message.role === 'assistant' ? (
-                    <Bot size={12} className="text-green-400" />
-                  ) : (
-                    <User size={12} className="text-blue-300" />
-                  )}
-                  <span className="text-xs opacity-75">
-                    {message.role === 'assistant' ? 'AI Assistant' : 'You'}
-                  </span>
-                </div>
-                <button
-                  onClick={() => handleCopy(message.content, message.id)}
-                  className="p-1 hover:bg-black/20 rounded"
-                >
-                  {copiedId === message.id ? (
-                    <Check size={12} className="text-green-400" />
-                  ) : (
-                    <Copy size={12} />
-                  )}
-                </button>
-              </div>
-              <div className="text-sm whitespace-pre-wrap">
-                {message.content}
-              </div>
-              <div className="text-xs opacity-50 mt-2 text-right">
-                {message.timestamp.toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {isGenerating && (
-          <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-lg p-3 bg-gray-800">
-              <div className="flex items-center space-x-2">
-                <Bot size={12} className="text-green-400" />
-                <span className="text-xs">AI is thinking</span>
-                <div className="flex space-x-1">
-                  <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" />
-                  <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                  <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      <div className="p-4 border-t border-gray-700">
-        <form onSubmit={handleSubmit} className="space-y-2">
-          <div className="relative">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Describe what you want to build..."
-              rows={3}
-              className="w-full px-4 py-3 pr-12 bg-gray-800 border border-gray-700 rounded-lg resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSubmit(e);
-                }
-              }}
-            />
-            <button
-              type="submit"
-              disabled={isGenerating || !input.trim() || !selectedModel}
-              className={`absolute right-3 bottom-3 p-2 rounded-lg ${
-                isGenerating || !input.trim() || !selectedModel
-                  ? 'bg-gray-700 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90'
-              }`}
-            >
-              <Send size={16} />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between text-xs text-gray-400">
-            <div className="flex items-center space-x-1">
-              <Sparkles size={12} />
-              <span>Local AI – your data stays on device</span>
-            </div>
-            {includeDocs && (
-              <span className="text-green-400 flex items-center gap-1">
-                <FileText size={12} /> Docs included
-              </span>
-            )}
-          </div>
-        </form>
-      </div>
     </div>
   );
 };
