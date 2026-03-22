@@ -27,8 +27,13 @@ export interface LocalAIState {
   setCurrentModel: (model: AIModel | null) => void;
   clearError: () => void;
 
-  // ✅ FIXED SIGNATURE
-  generate: (prompt: string, provider?: string, options?: any) => Promise<string>;
+  // ✅ UPGRADED: Added onToken callback for real-time streaming
+  generate: (
+    prompt: string, 
+    provider?: string, 
+    options?: any, 
+    onToken?: (token: string) => void
+  ) => Promise<string>;
 
   loadSessionModel: () => Promise<void>;
 }
@@ -100,10 +105,12 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 
-  // ✅ NOW FULLY COMPATIBLE WITH PROVIDER
-  generate: async (prompt: string, provider: string = 'auto', options?: any) => {
+  // ✅ UPGRADED GENERATE: Supports standard JSON and Streaming
+  generate: async (prompt: string, provider: string = 'auto', options?: any, onToken?: (token: string) => void) => {
     const { currentModel } = get();
     const modelId = currentModel?.id || 'tinyllama-1.1b';
+    
+    set({ isLoading: true, error: null });
 
     try {
       const response = await fetch(`${API_BASE_URL}/ai/generate`, {
@@ -112,9 +119,10 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
         body: JSON.stringify({
           prompt,
           model: modelId,
-          provider, // ✅ IMPORTANT
-          max_tokens: options?.max_tokens || 300,
-          temperature: options?.temperature || 0.7,
+          provider,
+          stream: !!onToken, // Request stream if callback is provided
+          max_tokens: options?.max_tokens || 1000,
+          temperature: options?.temperature || 0.2, // Lower temp for precise diffs
         }),
       });
 
@@ -123,11 +131,34 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
         throw new Error(err.error || `HTTP ${response.status}`);
       }
 
+      // Handle Streaming
+      if (onToken && response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          // Assume backend sends server-sent events or raw text chunks
+          fullText += chunk;
+          onToken(chunk);
+        }
+        set({ isLoading: false });
+        return fullText;
+      }
+
+      // Handle Standard JSON
       const data = await response.json();
+      set({ isLoading: false });
       return data.result || data.text || '';
-    } catch (error) {
+
+    } catch (error: any) {
       console.error('Generate failed:', error);
-      return 'Error generating response.';
+      set({ isLoading: false, error: error.message });
+      return '';
     }
   },
 
