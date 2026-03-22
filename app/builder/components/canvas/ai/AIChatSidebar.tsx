@@ -19,18 +19,10 @@ export const AIChatSidebar: React.FC = () => {
   
   const activeFile = files.find(f => f.id === activeFileId);
 
-  // ✅ THE ARCHITECT'S FIX: Explicit State Consistency
   useEffect(() => {
-    if (fileDiffs.length > 0 && activeFile) {
-      // Content is string | undefined, State is string | null
-      // We explicitly map undefined -> null to maintain the "No Content" state
-      const content = activeFile.content ?? null;
-      
-      if (workingContent === null) {
-        setWorkingContent(content);
-      }
+    if (fileDiffs.length > 0 && activeFile && workingContent === null) {
+      setWorkingContent(activeFile.content ?? '');
     }
-    
     if (fileDiffs.length === 0) {
       setWorkingContent(null);
     }
@@ -40,44 +32,61 @@ export const AIChatSidebar: React.FC = () => {
     if (!input.trim() || isLoading) return;
     
     setIsStreaming(true);
-    // Safe guard: Use activeFile, fallback to first file, or null.
-    const targetFile = activeFile ?? files[0] ?? null;
+    
+    // ✅ PRODUCTION-GRADE SELECTION: User Focus -> Meaningful Content -> Null
+    const targetFile = activeFile ?? 
+                       files.find(f => f.content && f.content.trim().length > 0) ?? 
+                       null;
     
     if (!targetFile) {
-      addToConsole({ type: 'error', message: "No active file found for context." });
+      addToConsole({ type: 'error', message: "No meaningful source context found." });
       setIsStreaming(false);
       return;
     }
 
+    // This is the V1 "Token Bomb" mapping - we are about to replace this logic
     const richContext = buildAIContext({
-      activeFile: targetFile,
-      allFiles: files
+      activeFile: {
+        path: targetFile.path,
+        content: targetFile.content ?? ''
+      },
+      allFiles: files.map(f => ({
+        path: f.path,
+        content: f.content ?? ''
+      }))
     });
 
     try {
       await generate(input, 'auto', { context: richContext });
     } catch (err: any) {
-      console.error("Architect error:", err);
+      console.error("Architect Engine Error:", err);
     } finally {
       setIsStreaming(false);
     }
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#0b0f1a] p-4">
-       <div className="text-emerald-400 text-[10px] font-bold mb-4 uppercase tracking-widest">Architect Mode</div>
+    <div className="h-full flex flex-col bg-[#0b0f1a] p-4 border-l border-slate-800">
+       <div className="flex items-center justify-between mb-4">
+         <div className="flex items-center gap-2">
+           <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.6)]" />
+           <span className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">Architect v2.2</span>
+         </div>
+       </div>
+       
        <textarea 
          value={input} 
          onChange={(e) => setInput(e.target.value)}
-         className="w-full bg-slate-900 text-slate-200 text-sm p-3 rounded border border-slate-800 h-32 focus:border-blue-500 outline-none"
-         placeholder="e.g., 'Refactor the theme logic to use CSS variables'..."
+         className="w-full bg-[#0d1117] text-slate-200 text-sm p-3 rounded-lg border border-slate-800 h-44 focus:border-blue-500/50 outline-none resize-none transition-all shadow-inner"
+         placeholder="What are we building today?"
        />
+       
        <button 
          onClick={handleArchitectRequest}
          disabled={isLoading || isStreaming}
-         className="mt-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 p-2 rounded text-xs font-bold text-white transition-colors"
+         className="mt-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 p-2.5 rounded-lg text-xs font-bold text-white shadow-lg active:scale-95 transition-all"
        >
-         {isStreaming ? 'Thinking...' : 'Generate Patch'}
+         {isStreaming ? 'Thinking...' : 'Run Architect'}
        </button>
     </div>
   );

@@ -1,33 +1,41 @@
-interface ContextOptions {
-  activeFile: { path: string; content: string };
-  allFiles: Array<{ path: string; content: string }>;
-  recentFilePaths?: string[];
-}
+import { estimateTokens } from './context-engine/tokenizer';
+import { scoreFiles } from './context-engine/relevance';
 
-export const buildAIContext = (options: ContextOptions): string => {
-  const { activeFile, allFiles, recentFilePaths = [] } = options;
+const MAX_TOKENS = 3500; // Adjusted for local LLM comfort
 
-  // 1. File Tree Summary (helps AI understand project structure)
-  const fileTree = allFiles.map(f => `- ${f.path}`).join('\n');
+export const buildAIContext = (options: { activeFile: any, allFiles: any[] }): string => {
+  const { activeFile, allFiles } = options;
+  const scored = scoreFiles(activeFile.path, allFiles);
+  
+  let currentTokens = 0;
+  let contextParts: string[] = [];
 
-  // 2. Focused Context (Active File + Recent Files)
-  const relatedFiles = allFiles
-    .filter(f => recentFilePaths.includes(f.path) && f.path !== activeFile.path)
-    .map(f => `File: ${f.path}\nContent:\n${f.content}\n---`)
-    .join('\n\n');
+  // Add Project Map (High level overview)
+  const map = `PROJECT STRUCTURE:\n${allFiles.map(f => f.path).join('\n')}\n\n`;
+  contextParts.push(map);
+  currentTokens += estimateTokens(map);
 
-  return `
-PROJECT STRUCTURE:
-${fileTree}
+  for (const file of scored) {
+    const fileHeader = `--- FILE: ${file.path} ---\n`;
+    const content = file.content;
+    const fileTokens = estimateTokens(fileHeader + content);
 
-ACTIVE FILE (${activeFile.path}):
-${activeFile.content}
+    // If it's the active file, we MUST include it (or at least the first 2k tokens)
+    if (file.path === activeFile.path) {
+      contextParts.push(fileHeader + content);
+      currentTokens += fileTokens;
+      continue;
+    }
 
-RELATED CONTEXT:
-${relatedFiles}
+    // For other files, only include them if we have budget
+    if (currentTokens + fileTokens < MAX_TOKENS) {
+      contextParts.push(fileHeader + content);
+      currentTokens += fileTokens;
+    } else {
+      // 💡 Future upgrade: Skeletonize the file instead of skipping
+      console.log(`Skipping ${file.path} - Token budget exceeded.`);
+    }
+  }
 
-INSTRUCTION:
-You are an expert developer. Return ONLY a valid Unified Diff. 
-Do not include explanations outside the diff format.
-  `.trim();
+  return contextParts.join('\n');
 };
