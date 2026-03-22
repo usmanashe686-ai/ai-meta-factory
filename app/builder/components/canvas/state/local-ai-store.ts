@@ -2,13 +2,28 @@ import { API_BASE_URL } from "@/lib/apiConfig";
 import { create } from 'zustand';
 import { useSessionStore } from './session-store';
 
+export interface AIModel {
+  id: string;
+  name: string;
+  size: string;
+  downloaded: boolean;
+  active: boolean;
+  type: 'llamacpp' | 'transformers';
+  tags: string[];
+}
+
 export interface LocalAIState {
-  availableModels: any[];
-  currentModel: any | null;
+  availableModels: AIModel[];
+  currentModel: AIModel | null;
   isLoading: boolean;
   error: string | null;
+  fetchAvailableModels: () => Promise<void>;
+  loadModel: (modelId: string) => Promise<boolean>;
+  unloadModel: () => Promise<void>;
+  setCurrentModel: (model: AIModel | null) => void; // Maintained for UI compatibility but routes to internal logic
+  clearError: () => void;
   generate: (prompt: string, provider?: string, options?: any, onToken?: (token: string) => void) => Promise<string>;
-  // ... other existing signatures
+  loadSessionModel: () => Promise<void>;
 }
 
 export const useLocalAIStore = create<LocalAIState>((set, get) => ({
@@ -17,11 +32,51 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
   isLoading: false,
   error: null,
 
+  fetchAvailableModels: async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/models`);
+      if (res.ok) {
+        const data = await res.json();
+        set({ availableModels: data });
+      }
+    } catch (error) {
+      console.error("Failed to fetch models", error);
+    }
+  },
+
+  // ✅ CONSOLIDATED SOURCE OF TRUTH
+  loadModel: async (modelId: string) => {
+    const model = get().availableModels.find(m => m.id === modelId);
+    if (!model) return false;
+
+    set({ currentModel: model });
+    useSessionStore.getState().setSelectedModelId(modelId);
+    return true;
+  },
+
+  setCurrentModel: (model) => {
+    if (model) {
+      get().loadModel(model.id);
+    } else {
+      get().unloadModel();
+    }
+  },
+
+  unloadModel: async () => {
+    set({ currentModel: null });
+    useSessionStore.getState().setSelectedModelId(null);
+  },
+
+  clearError: () => set({ error: null }),
+
   generate: async (prompt, provider = 'auto', options, onToken) => {
     const { currentModel } = get();
     const modelId = currentModel?.id || 'tinyllama-1.1b';
     
-    // 1. TIMEOUT & ABORT CONTROL
+    // Recursive Guard
+    const isRetry = options?._retryCount > 0;
+    const currentRetry = options?._retryCount || 0;
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), options?.timeout || 90000);
     
@@ -61,15 +116,13 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
-          buffer = lines.pop() || ""; // Keep partial line
+          buffer = lines.pop() || "";
 
           for (const line of lines) {
             const cleanLine = line.trim();
             if (!cleanLine.startsWith('data: ')) continue;
-            
             const rawData = cleanLine.replace('data: ', '');
             
-            // 2. CLEAN TERMINATION
             if (rawData === '[DONE]') {
               isDone = true;
               reader.cancel();
@@ -87,17 +140,17 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
           }
         }
 
-        // 3. FINAL BUFFER FLUSH (Critical for trailing code)
+        // Final Buffer Flush
         if (buffer.startsWith('data: ')) {
-          const rawData = buffer.replace('data: ', '');
-          if (rawData !== '[DONE]') {
-            try {
+          try {
+            const rawData = buffer.replace('data: ', '');
+            if (rawData !== '[DONE]') {
               const parsed = JSON.parse(rawData);
               const token = parsed.token || parsed.content || parsed.text || "";
               fullContent += token;
               onToken(token);
-            } catch {}
-          }
+            }
+          } catch {}
         }
 
         return fullContent;
@@ -107,12 +160,16 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
       return data.result || data.text || '';
 
     } catch (err: any) {
-      // 4. SMART FALLBACK
+      // ✅ HARDENED FALLBACK WITH RECURSION GUARD
       if (err.name === 'AbortError') {
-        set({ error: "Request timed out. Try a smaller task." });
-      } else if (onToken) {
-        console.error("Streaming failed, attempting non-stream fallback...");
-        return await get().generate(prompt, provider, { ...options, timeout: 30000 });
+        set({ error: "Request timed out." });
+      } else if (onToken && currentRetry < 1) {
+        console.warn("Streaming failed, attempting single fallback...");
+        return await get().generate(prompt, provider, { 
+          ...options, 
+          timeout: 30000, 
+          _retryCount: currentRetry + 1 
+        });
       } else {
         set({ error: err.message });
       }
@@ -122,5 +179,9 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
       set({ isLoading: false });
     }
   },
-  // ... rest of implementation
+
+  loadSessionModel: async () => {
+    const sessionModelId = useSessionStore.getState().selectedModelId;
+    if (sessionModelId) await get().loadModel(sessionModelId);
+  },
 }));
