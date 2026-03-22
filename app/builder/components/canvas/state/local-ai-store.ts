@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "@/lib/apiConfig";
+import API_CONFIG from "@/lib/apiConfig";
 import { create } from 'zustand';
 import { useSessionStore } from './session-store';
 
@@ -20,7 +20,7 @@ export interface LocalAIState {
   fetchAvailableModels: () => Promise<void>;
   loadModel: (modelId: string) => Promise<boolean>;
   unloadModel: () => Promise<void>;
-  setCurrentModel: (model: AIModel | null) => void; // Maintained for UI compatibility but routes to internal logic
+  setCurrentModel: (model: AIModel | null) => void;
   clearError: () => void;
   generate: (prompt: string, provider?: string, options?: any, onToken?: (token: string) => void) => Promise<string>;
   loadSessionModel: () => Promise<void>;
@@ -34,7 +34,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
 
   fetchAvailableModels: async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/models`);
+      const res = await fetch(`${API_CONFIG.aiUrl}/models`);
       if (res.ok) {
         const data = await res.json();
         set({ availableModels: data });
@@ -44,11 +44,9 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
     }
   },
 
-  // ✅ CONSOLIDATED SOURCE OF TRUTH
   loadModel: async (modelId: string) => {
     const model = get().availableModels.find(m => m.id === modelId);
     if (!model) return false;
-
     set({ currentModel: model });
     useSessionStore.getState().setSelectedModelId(modelId);
     return true;
@@ -72,19 +70,15 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
   generate: async (prompt, provider = 'auto', options, onToken) => {
     const { currentModel } = get();
     const modelId = currentModel?.id || 'tinyllama-1.1b';
-    
-    // Recursive Guard
-    const isRetry = options?._retryCount > 0;
     const currentRetry = options?._retryCount || 0;
-
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), options?.timeout || 90000);
-    
+
     set({ isLoading: true, error: null });
 
-    const endpoint = onToken 
-      ? `${API_BASE_URL}/ai/generate-stream` 
-      : `${API_BASE_URL}/ai/generate`;
+    const endpoint = onToken
+      ? `${API_CONFIG.aiUrl}/ai/generate-stream`
+      : `${API_CONFIG.aiUrl}/ai/generate`;
 
     try {
       const response = await fetch(endpoint, {
@@ -108,9 +102,8 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
         const decoder = new TextDecoder();
         let buffer = "";
         let fullContent = "";
-        let isDone = false;
 
-        while (!isDone) {
+        while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
@@ -122,37 +115,22 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
             const cleanLine = line.trim();
             if (!cleanLine.startsWith('data: ')) continue;
             const rawData = cleanLine.replace('data: ', '');
-            
+
             if (rawData === '[DONE]') {
-              isDone = true;
               reader.cancel();
-              break;
+              return fullContent;
             }
 
             try {
               const parsed = JSON.parse(rawData);
-              const token = parsed.token || parsed.content || parsed.text || "";
+              const token = parsed.token || parsed.content || "";
               fullContent += token;
               onToken(token);
             } catch (e) {
-              console.warn("SSE Parse Error:", { line: cleanLine, error: e });
+              console.warn("SSE Parse Error", e);
             }
           }
         }
-
-        // Final Buffer Flush
-        if (buffer.startsWith('data: ')) {
-          try {
-            const rawData = buffer.replace('data: ', '');
-            if (rawData !== '[DONE]') {
-              const parsed = JSON.parse(rawData);
-              const token = parsed.token || parsed.content || parsed.text || "";
-              fullContent += token;
-              onToken(token);
-            }
-          } catch {}
-        }
-
         return fullContent;
       }
 
@@ -160,16 +138,10 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
       return data.result || data.text || '';
 
     } catch (err: any) {
-      // ✅ HARDENED FALLBACK WITH RECURSION GUARD
       if (err.name === 'AbortError') {
         set({ error: "Request timed out." });
       } else if (onToken && currentRetry < 1) {
-        console.warn("Streaming failed, attempting single fallback...");
-        return await get().generate(prompt, provider, { 
-          ...options, 
-          timeout: 30000, 
-          _retryCount: currentRetry + 1 
-        });
+        return await get().generate(prompt, provider, { ...options, _retryCount: currentRetry + 1 });
       } else {
         set({ error: err.message });
       }
