@@ -23,7 +23,7 @@ export const RunModel: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const runModel = async () => {
-    if (!currentModel?.path) {
+    if (!currentModel?.localPath) {
       alert('No model loaded');
       return;
     }
