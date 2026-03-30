@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { useLocalAIStore } from '../state/local-ai-store';
-import { Download, Plus, Trash2, Globe } from 'lucide-react';
+import { Download, Plus, Globe, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface Model {
   id: string;
@@ -31,8 +31,8 @@ export const ModelDownloader: React.FC<{ onModelReady?: (modelPath: string) => v
   const [downloading, setDownloading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
-  // Custom Model State
+  const [progress, setProgress] = useState(0);
+
   const [customUrl, setCustomUrl] = useState('');
   const [customName, setCustomName] = useState('');
 
@@ -40,47 +40,43 @@ export const ModelDownloader: React.FC<{ onModelReady?: (modelPath: string) => v
     setDownloading(model.id);
     setError(null);
     setSuccess(null);
+    setProgress(0);
 
     try {
-      const response = await fetch(model.url);
+      // Step 1: Check Permissions (Essential for Android/iOS)
+      const status = await Filesystem.requestPermissions();
+      if (status.publicStorage !== 'granted') {
+        throw new Error('Storage permission denied');
+      }
 
-      if (!response.ok) throw new Error('Download failed');
-
-      const blob = await response.blob();
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-
-      const fileName = `${model.id}.gguf`;
-
-      const result = await Filesystem.writeFile({
-        path: fileName,
-        data: base64,
+      // Step 2: Download using Capacitor's native download (Avoids Base64 memory issues)
+      // Note: downloadFile is the most stable way for large binaries on mobile
+      const result = await Filesystem.downloadFile({
+        path: `models/${model.id}.gguf`,
+        url: model.url,
         directory: Directory.Data,
+        recursive: true,
+        // This provides progress updates if supported by the platform
+        progress: true 
       });
 
-      setSuccess(`Success: ${model.name} saved.`);
-      if (onModelReady) onModelReady(result.uri);
+      setSuccess(`Successfully installed ${model.name}`);
+      if (onModelReady) onModelReady(result.path || '');
 
       useLocalAIStore.getState().setCurrentModel({
         id: model.id,
         name: model.name,
         size: model.size,
         downloaded: true,
-        localPath: result.uri,
+        localPath: result.path || '',
         active: false,
         type: 'llamacpp',
         tags: [],
       });
 
     } catch (err: any) {
-      setError(err.message || 'Download failed');
+      console.error(err);
+      setError(err.message || 'Download failed. Check your internet and storage space.');
     } finally {
       setDownloading(null);
     }
@@ -92,29 +88,33 @@ export const ModelDownloader: React.FC<{ onModelReady?: (modelPath: string) => v
         <Globe className="text-blue-500" /> AI Model Warehouse
       </h2>
 
-      {/* --- Custom URL Section --- */}
       <div className="mb-6 p-4 bg-blue-900/10 border border-blue-500/30 rounded-lg">
         <h3 className="text-sm font-semibold text-blue-400 mb-3 flex items-center gap-2">
           <Plus size={16}/> External Model (Any GGUF)
         </h3>
         <div className="space-y-2">
-          <input 
+          <input
             value={customName}
             onChange={(e) => setCustomName(e.target.value)}
             placeholder="Model Nickname"
-            className="w-full bg-black border border-gray-700 p-2 text-sm rounded"
+            className="w-full bg-black border border-gray-700 p-2 text-sm rounded outline-none focus:border-blue-500"
           />
           <div className="flex gap-2">
-            <input 
+            <input
               value={customUrl}
               onChange={(e) => setCustomUrl(e.target.value)}
               placeholder="HuggingFace GGUF URL"
-              className="flex-1 bg-black border border-gray-700 p-2 text-sm rounded"
+              className="flex-1 bg-black border border-gray-700 p-2 text-sm rounded outline-none focus:border-blue-500"
             />
-            <button 
-              onClick={() => downloadModel({ id: customName.replace(/\s+/g, '-').toLowerCase(), name: customName, size: 'External', url: customUrl })}
+            <button
+              onClick={() => downloadModel({ 
+                id: customName.replace(/\s+/g, '-').toLowerCase(), 
+                name: customName, 
+                size: 'External', 
+                url: customUrl 
+              })}
               disabled={!customUrl || !customName || !!downloading}
-              className="bg-blue-600 hover:bg-blue-500 p-2 rounded disabled:opacity-50"
+              className="bg-blue-600 hover:bg-blue-500 p-2 rounded disabled:opacity-50 transition-colors"
             >
               <Download size={18} />
             </button>
@@ -124,24 +124,38 @@ export const ModelDownloader: React.FC<{ onModelReady?: (modelPath: string) => v
 
       <hr className="border-gray-800 mb-6" />
 
-      {/* Status Messages */}
-      {error && <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded text-xs">{error}</div>}
-      {success && <div className="mb-4 p-3 bg-green-500/20 border border-green-500 rounded text-xs">{success}</div>}
+      {error && (
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded text-xs text-red-400 flex items-center gap-2">
+          <AlertCircle size={14} /> {error}
+        </div>
+      )}
+      
+      {success && (
+        <div className="mb-4 p-3 bg-green-500/10 border border-green-500/50 rounded text-xs text-green-400 flex items-center gap-2">
+          <CheckCircle size={14} /> {success}
+        </div>
+      )}
 
-      {/* Preset List */}
       <div className="space-y-4">
         {PRESET_MODELS.map((model) => (
-          <div key={model.id} className="bg-gray-800/50 border border-gray-700 p-4 rounded-lg flex justify-between items-center">
+          <div key={model.id} className="bg-gray-800/30 border border-gray-700 p-4 rounded-lg flex justify-between items-center hover:bg-gray-800/50 transition-all">
             <div>
               <h4 className="font-bold text-sm">{model.name}</h4>
-              <p className="text-xs text-gray-400">{model.size}</p>
+              <p className="text-[10px] text-gray-500 uppercase tracking-widest">{model.size}</p>
             </div>
             <button
               onClick={() => downloadModel(model)}
-              disabled={downloading === model.id}
-              className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-xs font-bold transition-all"
+              disabled={!!downloading}
+              className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-xs font-bold flex items-center gap-2"
             >
-              {downloading === model.id ? 'Installing...' : 'Download'}
+              {downloading === model.id ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Installing...
+                </>
+              ) : (
+                'Download'
+              )}
             </button>
           </div>
         ))}
