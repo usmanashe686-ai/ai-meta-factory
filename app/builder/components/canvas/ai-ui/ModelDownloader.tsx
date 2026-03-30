@@ -77,7 +77,7 @@ export const ModelDownloader: React.FC<{ onModelReady?: (modelPath: string) => v
         name: model.name,
         size: model.size,
         downloaded: true,
-        path: result.uri,
+        localPath: result.uri,
         active: false,
         type: 'llamacpp',
         tags: [],
