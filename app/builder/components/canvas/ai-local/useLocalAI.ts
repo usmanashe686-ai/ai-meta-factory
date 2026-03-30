@@ -1,41 +1,80 @@
-import { useState, useCallback } from 'react';
-import { apiFetch } from "@/lib/apiClient";
+import { useState, useEffect, useCallback } from 'react';
+import { AI_MODELS, AIModel } from './models.config';
 
 interface UseLocalAIReturn {
-  generate: (prompt: string, context?: string) => Promise<string>;
+  downloadingModel: string | null;
+  progress: number;
+  installedModels: string[];
+  downloadModel: (model: AIModel) => Promise<void>;
+  deleteModel: (id: string) => void;
+  generate: (prompt: string, modelId: string) => Promise<string>;
   isLoading: boolean;
-  error: string | null;
-  result: string | null;
-  source: string | null;
 }
 
 export function useLocalAI(): UseLocalAIReturn {
+  const [downloadingModel, setDownloadingModel] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [installedModels, setInstalledModels] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<string | null>(null);
-  const [source, setSource] = useState<string | null>(null);
 
-  const generate = useCallback(async (prompt: string, context?: string) => {
+  // Load saved models from local storage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('installed_ai_models');
+    if (saved) {
+      try {
+        setInstalledModels(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse installed models", e);
+      }
+    }
+  }, []);
+
+  const downloadModel = async (model: AIModel) => {
+    if (downloadingModel) return;
+    
+    setDownloadingModel(model.id);
+    setProgress(0);
+
+    // Simulation of a chunked download. 
+    // In production, this would use a fetch stream or axios onDownloadProgress
+    const totalSteps = 20;
+    for (let i = 1; i <= totalSteps; i++) {
+      await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network latency
+      const newProgress = Math.round((i / totalSteps) * 100);
+      setProgress(newProgress);
+    }
+
+    const updated = [...installedModels, model.id];
+    setInstalledModels(updated);
+    localStorage.setItem('installed_ai_models', JSON.stringify(updated));
+    setDownloadingModel(null);
+  };
+
+  const deleteModel = (id: string) => {
+    const updated = installedModels.filter(m => m !== id);
+    setInstalledModels(updated);
+    localStorage.setItem('installed_ai_models', JSON.stringify(updated));
+  };
+
+  const generate = useCallback(async (prompt: string, modelId: string) => {
     setIsLoading(true);
-    setError(null);
     try {
-      const res = await apiFetch('/api/ai/real-suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, context }),
-      });
-      if (!res.ok) throw new Error('AI request failed');
-      const data = await res.json();
-      setResult(data.suggestion);
-      setSource(data.source);
-      return data.suggestion;
-    } catch (err: any) {
-      setError(err.message);
-      return '';
+      console.log(`Running inference locally using ${modelId}...`);
+      // This is where you will eventually call your llama.cpp WASM or RPC bridge
+      await new Promise(resolve => setTimeout(resolve, 1500)); 
+      return "Local AI Response: Analysis complete.";
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  return { generate, isLoading, error, result, source };
+  return { 
+    downloadingModel, 
+    progress, 
+    installedModels, 
+    downloadModel, 
+    deleteModel,
+    generate,
+    isLoading 
+  };
 }

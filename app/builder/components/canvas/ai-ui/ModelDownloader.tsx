@@ -1,139 +1,156 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Download, X, CheckCircle } from 'lucide-react';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { CapacitorHttp } from '@capacitor/http';
+import { useLocalAIStore } from '../state/local-ai-store';
+import { Download, Plus, Trash2, Globe } from 'lucide-react';
 
-interface DownloadableModel {
+interface Model {
   id: string;
   name: string;
   size: string;
   url: string;
 }
 
-const models: DownloadableModel[] = [
+const PRESET_MODELS: Model[] = [
   {
     id: 'tinyllama',
     name: 'TinyLlama 1.1B',
-    size: '~590MB',
-    url: 'https://huggingface.co/TheBloke/TinyLlama-1.1B-GGUF/resolve/main/tinyllama-1.1b.Q4_K_M.gguf'
-  }
+    size: '590 MB',
+    url: 'https://huggingface.co/TheBloke/TinyLlama-1.1B-GGUF/resolve/main/tinyllama-1.1b.Q4_K_M.gguf',
+  },
+  {
+    id: 'qwen2',
+    name: 'Qwen2 0.5B',
+    size: '350 MB',
+    url: 'https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0.5b-instruct-q4_k_m.gguf',
+  },
 ];
 
-interface Props {
-  onClose: () => void;
-  onModelDownloaded?: () => void;
-  apiBaseUrl?: string;
-}
+export const ModelDownloader: React.FC<{ onModelReady?: (modelPath: string) => void }> = ({ onModelReady }) => {
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  
+  // Custom Model State
+  const [customUrl, setCustomUrl] = useState('');
+  const [customName, setCustomName] = useState('');
 
-export default function ModelDownloader({
-  onClose,
-  onModelDownloaded,
-  apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-}: Props) {
+  const downloadModel = async (model: Model) => {
+    setDownloading(model.id);
+    setError(null);
+    setSuccess(null);
 
-  const [progress, setProgress] = useState<Record<string, number>>({});
-  const [done, setDone] = useState<Set<string>>(new Set());
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const download = async (model: DownloadableModel) => {
     try {
-      const res = await fetch(`${apiBaseUrl}/api/models/download`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: model.url,
-          name: model.id + '.gguf'
-        })
+      const response = await CapacitorHttp.request({
+        method: 'GET',
+        url: model.url,
+        responseType: 'blob',
       });
 
-      if (!res.ok) throw new Error('Download failed');
+      if (!response || !response.data) throw new Error('Download failed');
 
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
+      const blob = response.data as Blob;
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
 
-      while (true) {
-        const { done: streamDone, value } = await reader!.read();
-        if (streamDone) break;
+      const fileName = `${model.id}.gguf`;
 
-        const chunk = decoder.decode(value);
-        const parts = chunk.split('\n\n');
+      const result = await Filesystem.writeFile({
+        path: fileName,
+        data: base64,
+        directory: Directory.Data,
+      });
 
-        for (const part of parts) {
-          if (!part.startsWith('data: ')) continue;
+      setSuccess(`Success: ${model.name} saved.`);
+      if (onModelReady) onModelReady(result.uri);
 
-          try {
-            const data = JSON.parse(part.slice(6));
-
-            if (data.progress) {
-              setProgress(prev => ({ ...prev, [model.id]: data.progress }));
-            }
-
-            if (data.status === 'completed') {
-              setDone(prev => new Set(prev).add(model.id));
-              onModelDownloaded?.();
-            }
-
-            if (data.error) throw new Error(data.error);
-
-          } catch {
-            // ignore bad chunks
-          }
-        }
-      }
+      useLocalAIStore.getState().setCurrentModel({
+        id: model.id,
+        name: model.name,
+        size: model.size,
+        downloaded: true,
+        path: result.uri,
+        active: false,
+        type: 'llamacpp',
+        tags: [],
+      });
 
     } catch (err: any) {
-      setErrors(prev => ({ ...prev, [model.id]: err.message }));
+      setError(err.message || 'Download failed');
+    } finally {
+      setDownloading(null);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-gray-800 w-[500px] p-4 rounded-lg">
-        
-        <div className="flex justify-between mb-3">
-          <h2 className="font-bold">Model Store</h2>
-          <button onClick={onClose}><X /></button>
+    <div className="p-6 bg-[#0d1117] text-white rounded-xl border border-gray-800 max-w-lg mx-auto shadow-2xl">
+      <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+        <Globe className="text-blue-500" /> AI Model Warehouse
+      </h2>
+
+      {/* --- Custom URL Section --- */}
+      <div className="mb-6 p-4 bg-blue-900/10 border border-blue-500/30 rounded-lg">
+        <h3 className="text-sm font-semibold text-blue-400 mb-3 flex items-center gap-2">
+          <Plus size={16}/> External Model (Any GGUF)
+        </h3>
+        <div className="space-y-2">
+          <input 
+            value={customName}
+            onChange={(e) => setCustomName(e.target.value)}
+            placeholder="Model Nickname"
+            className="w-full bg-black border border-gray-700 p-2 text-sm rounded"
+          />
+          <div className="flex gap-2">
+            <input 
+              value={customUrl}
+              onChange={(e) => setCustomUrl(e.target.value)}
+              placeholder="HuggingFace GGUF URL"
+              className="flex-1 bg-black border border-gray-700 p-2 text-sm rounded"
+            />
+            <button 
+              onClick={() => downloadModel({ id: customName.replace(/\s+/g, '-').toLowerCase(), name: customName, size: 'External', url: customUrl })}
+              disabled={!customUrl || !customName || !!downloading}
+              className="bg-blue-600 hover:bg-blue-500 p-2 rounded disabled:opacity-50"
+            >
+              <Download size={18} />
+            </button>
+          </div>
         </div>
+      </div>
 
-        {models.map(m => {
-          const p = progress[m.id];
+      <hr className="border-gray-800 mb-6" />
 
-          return (
-            <div key={m.id} className="mb-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p>{m.name}</p>
-                  <p className="text-xs text-gray-400">{m.size}</p>
-                </div>
+      {/* Status Messages */}
+      {error && <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded text-xs">{error}</div>}
+      {success && <div className="mb-4 p-3 bg-green-500/20 border border-green-500 rounded text-xs">{success}</div>}
 
-                {done.has(m.id) ? (
-                  <CheckCircle className="text-green-400" />
-                ) : p !== undefined ? (
-                  <span>{Math.round(p)}%</span>
-                ) : (
-                  <button onClick={() => download(m)}>
-                    <Download size={16} />
-                  </button>
-                )}
-              </div>
-
-              {p !== undefined && (
-                <div className="h-2 bg-gray-600 mt-2">
-                  <div
-                    className="h-full bg-blue-500"
-                    style={{ width: `${p}%` }}
-                  />
-                </div>
-              )}
-
-              {errors[m.id] && (
-                <p className="text-red-400 text-xs">{errors[m.id]}</p>
-              )}
+      {/* Preset List */}
+      <div className="space-y-4">
+        {PRESET_MODELS.map((model) => (
+          <div key={model.id} className="bg-gray-800/50 border border-gray-700 p-4 rounded-lg flex justify-between items-center">
+            <div>
+              <h4 className="font-bold text-sm">{model.name}</h4>
+              <p className="text-xs text-gray-400">{model.size}</p>
             </div>
-          );
-        })}
-
+            <button
+              onClick={() => downloadModel(model)}
+              disabled={downloading === model.id}
+              className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-xs font-bold transition-all"
+            >
+              {downloading === model.id ? 'Installing...' : 'Download'}
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
-}
+};

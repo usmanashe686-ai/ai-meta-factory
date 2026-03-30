@@ -1,6 +1,9 @@
+import { ModelDownloader } from '../ai-ui/ModelDownloader';
+import { RunModel } from '../ai-ui/RunModel';
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ResizablePanels } from './ResizablePanels';
 import { FileExplorer } from '../explorer/FileExplorer';
 import { CodeEditor } from '../editor/CodeEditor';
 import { UniversalPreview } from '../preview/UniversalPreview';
@@ -13,22 +16,21 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useBackupStore } from '../state/backup-store';
 import { useSessionStore } from '../state/session-store';
 import { useLocalAIStore } from '../state/local-ai-store';
-import { Folder, FileCode, MessageSquare, Play } from 'lucide-react';
 
 export function EnhancedCanvasLayout() {
   const { project, files, activeFileId, setActiveFile, createBlankProject, setFiles, setProjectName } = useProjectStore();
   const { platform } = usePlatformStore();
-  const { isAIPanelOpen, activeTab, setActiveTab } = useUIStore();
+  const { isAIPanelOpen, activeTab } = useUIStore();
   const { isAutoSaveEnabled, addBackup, loadBackups, restoreBackup } = useBackupStore();
   const { lastOpenedBackupId } = useSessionStore();
   const { loadSessionModel } = useLocalAIStore();
-  const [mounted, setMounted] = useState(false);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   // Load backups and restore last opened project
   useEffect(() => {
     const init = async () => {
-      setMounted(true);
       await loadBackups();
       if (lastOpenedBackupId) {
         const backup = await restoreBackup(lastOpenedBackupId);
@@ -62,7 +64,7 @@ export function EnhancedCanvasLayout() {
     return () => clearInterval(interval);
   }, [isAutoSaveEnabled, project, files, addBackup]);
 
-  if (!mounted || !project) {
+  if (!project) {
     return (
       <div className="flex h-full items-center justify-center bg-gray-900 text-white">
         <p className="text-xl">Creating blank workspace...</p>
@@ -70,61 +72,64 @@ export function EnhancedCanvasLayout() {
     );
   }
 
-  return (
-    <div className="flex h-screen flex-col bg-gray-900 text-white overflow-hidden">
-      <CanvasToolbar />
-      
-      <div className="flex-1 overflow-hidden relative">
-        {/* Main Content Area controlled by activeTab */}
-        <div className="h-full w-full">
+  // Mobile layout: stack panels vertically, only one visible at a time based on activeTab
+  if (isMobile) {
+    return (
+      <div className="flex h-screen flex-col bg-gray-900">
+        <CanvasToolbar />
+        <div className="flex-1 overflow-hidden">
           {activeTab === 'files' && <FileExplorer />}
           {activeTab === 'editor' && <CodeEditor />}
           {activeTab === 'preview' && <UniversalPreview />}
           {activeTab === 'ai' && <AIChatSidebar />}
         </div>
-
-        {/* AI Sidebar Overlay for Desktop (when panel is toggled) */}
-        {!isMobile && isAIPanelOpen && activeTab !== 'ai' && (
-          <div className="absolute top-0 right-0 h-full w-80 bg-gray-900 border-l border-gray-700 shadow-xl z-20 overflow-hidden">
-            <AIChatSidebar />
-          </div>
-        )}
       </div>
+    );
+  }
 
-      {/* Fixed Bottom Navigation for Mobile */}
-      {isMobile && (
-        <div className="h-16 border-t border-gray-800 bg-gray-900 flex items-center justify-around px-2 pb-safe shrink-0">
-          <button 
-            onClick={() => setActiveTab('files')} 
-            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'files' ? 'text-blue-500' : 'text-gray-500'}`}
-          >
-            <Folder size={20} />
-            <span className="text-[10px]">Files</span>
-          </button>
-          
-          <button 
-            onClick={() => setActiveTab('editor')} 
-            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'editor' ? 'text-blue-500' : 'text-gray-500'}`}
-          >
-            <FileCode size={20} />
-            <span className="text-[10px]">Code</span>
-          </button>
-          
-          <button 
-            onClick={() => setActiveTab('ai')} 
-            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'ai' ? 'text-blue-500' : 'text-gray-500'}`}
-          >
-            <MessageSquare size={20} />
-            <span className="text-[10px]">AI Chat</span>
-          </button>
-          
-          <button 
-            onClick={() => setActiveTab('preview')} 
-            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'preview' ? 'text-blue-500' : 'text-gray-500'}`}
-          >
-            <Play size={20} />
-            <span className="text-[10px]">Run</span>
-          </button>
+
+  const { currentModel } = useLocalAIStore();
+
+  // Desktop layout with Local AI integration
+  return (
+    <div className="flex h-screen flex-col bg-gray-900">
+      <CanvasToolbar />
+
+      {/* If no model → show downloader */}
+      {!currentModel && (
+        <div className="flex-1 flex items-center justify-center">
+          <ModelDownloader />
+        </div>
+      )}
+
+      {/* If model exists → show full IDE + AI */}
+      {currentModel && (
+        <div className="flex-1 overflow-hidden relative">
+          <ResizablePanels
+            left={leftCollapsed ? null : <FileExplorer />}
+            center={
+              <div className="h-full flex flex-col">
+                <CodeEditor />
+                <div className="border-t border-gray-700">
+                  <RunModel />
+                </div>
+              </div>
+            }
+            right={rightCollapsed ? null : <UniversalPreview />}
+            leftSize={leftCollapsed ? 0 : 18}
+            rightSize={rightCollapsed ? 0 : 35}
+            minLeftSize={leftCollapsed ? 0 : 15}
+            minRightSize={rightCollapsed ? 0 : 25}
+            onLeftToggle={() => setLeftCollapsed(!leftCollapsed)}
+            onRightToggle={() => setRightCollapsed(!rightCollapsed)}
+          />
+
+          {/* AI Sidebar */}
+          {isAIPanelOpen && (
+            <div className="absolute top-0 right-0 h-full w-80 bg-gray-900 border-l border-gray-700 shadow-xl z-20 overflow-hidden">
+              <AIChatSidebar />
+            </div>
+          )}
         </div>
       )}
     </div>
