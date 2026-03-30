@@ -20,6 +20,7 @@ import { useLocalAIStore } from '../state/local-ai-store';
 
 export function EnhancedCanvasLayout() {
   const { project, files, activeFileId, setActiveFile, createBlankProject, setFiles, setProjectName } = useProjectStore();
+  const { platform } = usePlatformStore();
   const { isAIPanelOpen, activeTab, setActiveTab } = useUIStore();
   const { isAutoSaveEnabled, addBackup, loadBackups, restoreBackup } = useBackupStore();
   const { lastOpenedBackupId } = useSessionStore();
@@ -53,32 +54,39 @@ export function EnhancedCanvasLayout() {
     }
   }, [files, activeFileId, setActiveFile]);
 
-  useEffect(() => {
-    if (!isAutoSaveEnabled || !project || files.length === 0) return;
-    const interval = setInterval(() => {
-      addBackup(files, project.name, 'Auto-save');
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [isAutoSaveEnabled, project, files, addBackup]);
-
   if (!project) {
     return (
       <div className="flex h-full items-center justify-center bg-gray-900 text-white">
-        <p className="text-xl">Creating blank workspace...</p>
+        <p className="text-xl">Initializing Workspace...</p>
       </div>
     );
   }
 
-  // MOBILE LAYOUT WITH NAVIGATION BAR
   if (isMobile) {
     return (
       <div className="flex h-screen flex-col bg-[#0f172a] text-white">
         <CanvasToolbar />
+        
         <div className="flex-1 overflow-hidden pb-16">
-          {activeTab === 'files' && <FileExplorer />}
-          {activeTab === 'editor' && <CodeEditor />}
-          {activeTab === 'preview' && <UniversalPreview />}
-          {activeTab === 'ai' && <AIChatSidebar />}
+          {!currentModel ? (
+            <div className="h-full flex items-center justify-center p-4">
+              <ModelDownloader />
+            </div>
+          ) : (
+            <>
+              {activeTab === 'files' && <FileExplorer />}
+              {activeTab === 'editor' && (
+                <div className="h-full flex flex-col">
+                  <CodeEditor />
+                  <div className="border-t border-gray-700 bg-[#1e293b]">
+                    <RunModel />
+                  </div>
+                </div>
+              )}
+              {activeTab === 'preview' && <UniversalPreview />}
+              {activeTab === 'ai' && <AIChatSidebar />}
+            </>
+          )}
         </div>
 
         <div className="fixed bottom-0 left-0 right-0 h-16 bg-[#1e293b] border-t border-gray-700 flex items-center justify-around px-2 z-50">
@@ -99,7 +107,6 @@ export function EnhancedCanvasLayout() {
     );
   }
 
-  // DESKTOP LAYOUT
   return (
     <div className="flex h-screen flex-col bg-gray-900 text-white">
       <CanvasToolbar />
