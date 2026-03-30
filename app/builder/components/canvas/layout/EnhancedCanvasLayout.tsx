@@ -2,8 +2,8 @@
 
 import { ModelDownloader } from '../ai-ui/ModelDownloader';
 import { RunModel } from '../ai-ui/RunModel';
-
 import { useEffect, useState } from 'react';
+import { Folder, FileText, Brain, Globe } from 'lucide-react';
 import { ResizablePanels } from './ResizablePanels';
 import { FileExplorer } from '../explorer/FileExplorer';
 import { CodeEditor } from '../editor/CodeEditor';
@@ -20,16 +20,14 @@ import { useLocalAIStore } from '../state/local-ai-store';
 
 export function EnhancedCanvasLayout() {
   const { project, files, activeFileId, setActiveFile, createBlankProject, setFiles, setProjectName } = useProjectStore();
-  const { platform } = usePlatformStore();
-  const { isAIPanelOpen, activeTab } = useUIStore();
+  const { isAIPanelOpen, activeTab, setActiveTab } = useUIStore();
   const { isAutoSaveEnabled, addBackup, loadBackups, restoreBackup } = useBackupStore();
   const { lastOpenedBackupId } = useSessionStore();
-  const { loadSessionModel } = useLocalAIStore();
+  const { loadSessionModel, currentModel } = useLocalAIStore();
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
 
-  // Load backups and restore last opened project
   useEffect(() => {
     const init = async () => {
       await loadBackups();
@@ -49,14 +47,12 @@ export function EnhancedCanvasLayout() {
     init();
   }, []);
 
-  // Auto-select first file when files load and no file is active
   useEffect(() => {
     if (files.length > 0 && !activeFileId) {
       setActiveFile(files[0].id);
     }
   }, [files, activeFileId, setActiveFile]);
 
-  // Auto-save every 60 seconds
   useEffect(() => {
     if (!isAutoSaveEnabled || !project || files.length === 0) return;
     const interval = setInterval(() => {
@@ -73,38 +69,45 @@ export function EnhancedCanvasLayout() {
     );
   }
 
-  // Mobile layout: stack panels vertically, only one visible at a time based on activeTab
+  // MOBILE LAYOUT WITH NAVIGATION BAR
   if (isMobile) {
     return (
-      <div className="flex h-screen flex-col bg-gray-900">
+      <div className="flex h-screen flex-col bg-[#0f172a] text-white">
         <CanvasToolbar />
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden pb-16">
           {activeTab === 'files' && <FileExplorer />}
           {activeTab === 'editor' && <CodeEditor />}
           {activeTab === 'preview' && <UniversalPreview />}
           {activeTab === 'ai' && <AIChatSidebar />}
         </div>
+
+        <div className="fixed bottom-0 left-0 right-0 h-16 bg-[#1e293b] border-t border-gray-700 flex items-center justify-around px-2 z-50">
+          <button onClick={() => setActiveTab('files')} className={`flex flex-col items-center flex-1 ${activeTab === 'files' ? 'text-blue-500' : 'text-gray-400'}`}>
+            <Folder size={20} /><span className="text-[10px] mt-1">Files</span>
+          </button>
+          <button onClick={() => setActiveTab('editor')} className={`flex flex-col items-center flex-1 ${activeTab === 'editor' ? 'text-blue-500' : 'text-gray-400'}`}>
+            <FileText size={20} /><span className="text-[10px] mt-1">Code</span>
+          </button>
+          <button onClick={() => setActiveTab('ai')} className={`flex flex-col items-center flex-1 ${activeTab === 'ai' ? 'text-blue-500' : 'text-gray-400'}`}>
+            <Brain size={20} /><span className="text-[10px] mt-1">AI Chat</span>
+          </button>
+          <button onClick={() => setActiveTab('preview')} className={`flex flex-col items-center flex-1 ${activeTab === 'preview' ? 'text-blue-500' : 'text-gray-400'}`}>
+            <Globe size={20} /><span className="text-[10px] mt-1">Run</span>
+          </button>
+        </div>
       </div>
     );
   }
 
-
-  const { currentModel } = useLocalAIStore();
-
-  // Desktop layout with Local AI integration
+  // DESKTOP LAYOUT
   return (
-    <div className="flex h-screen flex-col bg-gray-900">
+    <div className="flex h-screen flex-col bg-gray-900 text-white">
       <CanvasToolbar />
-
-      {/* If no model → show downloader */}
-      {!currentModel && (
+      {!currentModel ? (
         <div className="flex-1 flex items-center justify-center">
           <ModelDownloader />
         </div>
-      )}
-
-      {/* If model exists → show full IDE + AI */}
-      {currentModel && (
+      ) : (
         <div className="flex-1 overflow-hidden relative">
           <ResizablePanels
             left={leftCollapsed ? null : <FileExplorer />}
@@ -119,13 +122,9 @@ export function EnhancedCanvasLayout() {
             right={rightCollapsed ? null : <UniversalPreview />}
             leftSize={leftCollapsed ? 0 : 18}
             rightSize={rightCollapsed ? 0 : 35}
-            minLeftSize={leftCollapsed ? 0 : 15}
-            minRightSize={rightCollapsed ? 0 : 25}
             onLeftToggle={() => setLeftCollapsed(!leftCollapsed)}
             onRightToggle={() => setRightCollapsed(!rightCollapsed)}
           />
-
-          {/* AI Sidebar */}
           {isAIPanelOpen && (
             <div className="absolute top-0 right-0 h-full w-80 bg-gray-900 border-l border-gray-700 shadow-xl z-20 overflow-hidden">
               <AIChatSidebar />
