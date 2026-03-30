@@ -3,6 +3,7 @@ export type AIProvider = 'openai' | 'anthropic' | 'google' | 'azure' | 'local' |
 
 // AI Model Types
 export interface AIModel {
+  localPath?: string;
   id: string;
   provider: AIProvider;
   name: string;

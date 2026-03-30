@@ -1,4 +1,5 @@
 export interface AIModel {
+  localPath?: string;
   id: string;
   name: string;
   size: string;

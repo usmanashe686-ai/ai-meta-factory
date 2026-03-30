@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { useSessionStore } from './session-store';
 
 export interface AIModel {
+  localPath?: string;
   id: string;
   name: string;
   size: string;
