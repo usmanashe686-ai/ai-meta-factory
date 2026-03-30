@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Http } from '@capacitor/http';
 import { useLocalAIStore } from '../state/local-ai-store';
 import { Download, Plus, Trash2, Globe } from 'lucide-react';
 
@@ -43,7 +42,7 @@ export const ModelDownloader: React.FC<{ onModelReady?: (modelPath: string) => v
     setSuccess(null);
 
     try {
-      const response = await Http.request({
+      const response = await fetch(model.url);
         method: 'GET',
         url: model.url,
       });
