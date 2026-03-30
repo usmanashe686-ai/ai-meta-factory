@@ -46,7 +46,7 @@ export const ModelDownloader: React.FC<{ onModelReady?: (modelPath: string) => v
 
       if (!response.ok) throw new Error('Download failed');
 
-      const blob = response.data as Blob;
+      const blob = await response.blob();
       const reader = new FileReader();
       const base64 = await new Promise<string>((resolve, reject) => {
         reader.onloadend = () => {
