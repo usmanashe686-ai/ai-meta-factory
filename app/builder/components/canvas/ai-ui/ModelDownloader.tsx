@@ -46,7 +46,6 @@ export const ModelDownloader: React.FC<{ onModelReady?: (modelPath: string) => v
       const response = await Http.request({
         method: 'GET',
         url: model.url,
-        responseType: 'blob',
       });
 
       if (!response || !response.data) throw new Error('Download failed');
