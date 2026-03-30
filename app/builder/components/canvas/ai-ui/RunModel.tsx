@@ -35,7 +35,7 @@ export const RunModel: React.FC = () => {
       // Call native llama.cpp
       const result = await window.llama?.generate({
         prompt,
-        modelPath: currentModel.path.replace("file://", ""),
+        modelPath: currentModel.localPath.replace("file://", ""),
       });
 
       setOutput(result?.text || 'No response');
