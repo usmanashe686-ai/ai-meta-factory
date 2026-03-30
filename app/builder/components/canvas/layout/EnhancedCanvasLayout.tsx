@@ -54,13 +54,7 @@ export function EnhancedCanvasLayout() {
     }
   }, [files, activeFileId, setActiveFile]);
 
-  if (!project) {
-    return (
-      <div className="flex h-full items-center justify-center bg-gray-900 text-white">
-        <p className="text-xl">Initializing Workspace...</p>
-      </div>
-    );
-  }
+  if (!project) return <div className="h-full bg-gray-900 flex items-center justify-center text-white">Initializing...</div>;
 
   if (isMobile) {
     return (
@@ -68,27 +62,38 @@ export function EnhancedCanvasLayout() {
         <CanvasToolbar />
         
         <div className="flex-1 overflow-hidden pb-16">
-          {!currentModel ? (
-            <div className="h-full flex items-center justify-center p-4">
-              <ModelDownloader />
-            </div>
-          ) : (
-            <>
-              {activeTab === 'files' && <FileExplorer />}
-              {activeTab === 'editor' && (
-                <div className="h-full flex flex-col">
-                  <CodeEditor />
-                  <div className="border-t border-gray-700 bg-[#1e293b]">
-                    <RunModel />
-                  </div>
+          {/* 1. Files Tab - Always accessible */}
+          {activeTab === 'files' && <FileExplorer />}
+
+          {/* 2. Code Editor - Always accessible */}
+          {activeTab === 'editor' && (
+            <div className="h-full flex flex-col">
+              <CodeEditor />
+              {/* Only show AI Run status if a model is actually active */}
+              {currentModel && (
+                <div className="border-t border-gray-700 bg-[#1e293b]">
+                  <RunModel />
                 </div>
               )}
-              {activeTab === 'preview' && <UniversalPreview />}
-              {activeTab === 'ai' && <AIChatSidebar />}
-            </>
+            </div>
+          )}
+
+          {/* 3. Run (Project Preview) - Always accessible, independent of AI */}
+          {activeTab === 'preview' && <UniversalPreview />}
+
+          {/* 4. AI Chat - The ONLY place where the Model Warehouse appears */}
+          {activeTab === 'ai' && (
+            !currentModel ? (
+              <div className="h-full flex items-center justify-center p-4">
+                <ModelDownloader />
+              </div>
+            ) : (
+              <AIChatSidebar />
+            )
           )}
         </div>
 
+        {/* Bottom Navigation */}
         <div className="fixed bottom-0 left-0 right-0 h-16 bg-[#1e293b] border-t border-gray-700 flex items-center justify-around px-2 z-50">
           <button onClick={() => setActiveTab('files')} className={`flex flex-col items-center flex-1 ${activeTab === 'files' ? 'text-blue-500' : 'text-gray-400'}`}>
             <Folder size={20} /><span className="text-[10px] mt-1">Files</span>
@@ -107,38 +112,34 @@ export function EnhancedCanvasLayout() {
     );
   }
 
+  // Desktop layout logic
   return (
     <div className="flex h-screen flex-col bg-gray-900 text-white">
       <CanvasToolbar />
-      {!currentModel ? (
-        <div className="flex-1 flex items-center justify-center">
-          <ModelDownloader />
-        </div>
-      ) : (
-        <div className="flex-1 overflow-hidden relative">
-          <ResizablePanels
-            left={leftCollapsed ? null : <FileExplorer />}
-            center={
-              <div className="h-full flex flex-col">
-                <CodeEditor />
-                <div className="border-t border-gray-700">
-                  <RunModel />
-                </div>
+      <div className="flex-1 overflow-hidden relative">
+        <ResizablePanels
+          left={leftCollapsed ? null : <FileExplorer />}
+          center={
+            <div className="h-full flex flex-col">
+              <CodeEditor />
+              <div className="border-t border-gray-700">
+                {currentModel && <RunModel />}
               </div>
-            }
-            right={rightCollapsed ? null : <UniversalPreview />}
-            leftSize={leftCollapsed ? 0 : 18}
-            rightSize={rightCollapsed ? 0 : 35}
-            onLeftToggle={() => setLeftCollapsed(!leftCollapsed)}
-            onRightToggle={() => setRightCollapsed(!rightCollapsed)}
-          />
-          {isAIPanelOpen && (
-            <div className="absolute top-0 right-0 h-full w-80 bg-gray-900 border-l border-gray-700 shadow-xl z-20 overflow-hidden">
-              <AIChatSidebar />
             </div>
-          )}
-        </div>
-      )}
+          }
+          right={rightCollapsed ? null : <UniversalPreview />}
+          leftSize={18}
+          rightSize={35}
+          onLeftToggle={() => setLeftCollapsed(!leftCollapsed)}
+          onRightToggle={() => setRightCollapsed(!rightCollapsed)}
+        />
+        {/* Only show AI on desktop if panel is open and model exists */}
+        {isAIPanelOpen && (
+          <div className="absolute top-0 right-0 h-full w-80 bg-gray-900 border-l border-gray-700 shadow-xl z-20 overflow-hidden">
+            {!currentModel ? <ModelDownloader /> : <AIChatSidebar />}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
