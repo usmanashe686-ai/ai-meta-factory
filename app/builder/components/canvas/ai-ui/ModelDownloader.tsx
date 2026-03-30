@@ -1,5 +1,4 @@
 'use client';
-
 import React, { useState } from 'react';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { useLocalAIStore } from '../state/local-ai-store';
@@ -31,8 +30,6 @@ export const ModelDownloader: React.FC<{ onModelReady?: (modelPath: string) => v
   const [downloading, setDownloading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
-
   const [customUrl, setCustomUrl] = useState('');
   const [customName, setCustomName] = useState('');
 
@@ -40,27 +37,30 @@ export const ModelDownloader: React.FC<{ onModelReady?: (modelPath: string) => v
     setDownloading(model.id);
     setError(null);
     setSuccess(null);
-    setProgress(0);
 
     try {
-      // Step 1: Check Permissions (Essential for Android/iOS)
+      // 1. Request permissions for Documents storage
       const status = await Filesystem.requestPermissions();
       if (status.publicStorage !== 'granted') {
-        throw new Error('Storage permission denied');
+        throw new Error('Storage permission denied. Please allow in settings.');
       }
 
-      // Step 2: Download using Capacitor's native download (Avoids Base64 memory issues)
-      // Note: downloadFile is the most stable way for large binaries on mobile
+      // 2. Ensure the directory exists
+      await Filesystem.mkdir({
+        path: 'ai_models',
+        directory: Directory.Documents,
+        recursive: true
+      }).catch(() => {});
+
+      // 3. Download to Documents (where your 5GB free space is)
       const result = await Filesystem.downloadFile({
-        path: `models/${model.id}.gguf`,
+        path: `ai_models/${model.id}.gguf`,
         url: model.url,
-        directory: Directory.Data,
-        recursive: true,
-        // This provides progress updates if supported by the platform
-        progress: true 
+        directory: Directory.Documents,
+        progress: true
       });
 
-      setSuccess(`Successfully installed ${model.name}`);
+      setSuccess(`Installed ${model.name}!`);
       if (onModelReady) onModelReady(result.path || '');
 
       useLocalAIStore.getState().setCurrentModel({
@@ -76,18 +76,18 @@ export const ModelDownloader: React.FC<{ onModelReady?: (modelPath: string) => v
 
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Download failed. Check your internet and storage space.');
+      setError(err.message || 'Download failed. Check internet and storage.');
     } finally {
       setDownloading(null);
     }
   };
 
   return (
-    <div className="p-6 bg-[#0d1117] text-white rounded-xl border border-gray-800 max-w-lg mx-auto shadow-2xl">
+    <div className="p-6 bg-[#0d1117] text-white rounded-xl border border-gray-800 max-w-lg mx-auto">
       <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
         <Globe className="text-blue-500" /> AI Model Warehouse
       </h2>
-
+      
       <div className="mb-6 p-4 bg-blue-900/10 border border-blue-500/30 rounded-lg">
         <h3 className="text-sm font-semibold text-blue-400 mb-3 flex items-center gap-2">
           <Plus size={16}/> External Model (Any GGUF)
@@ -97,24 +97,24 @@ export const ModelDownloader: React.FC<{ onModelReady?: (modelPath: string) => v
             value={customName}
             onChange={(e) => setCustomName(e.target.value)}
             placeholder="Model Nickname"
-            className="w-full bg-black border border-gray-700 p-2 text-sm rounded outline-none focus:border-blue-500"
+            className="w-full bg-black border border-gray-700 p-2 text-sm rounded outline-none"
           />
           <div className="flex gap-2">
             <input
               value={customUrl}
               onChange={(e) => setCustomUrl(e.target.value)}
               placeholder="HuggingFace GGUF URL"
-              className="flex-1 bg-black border border-gray-700 p-2 text-sm rounded outline-none focus:border-blue-500"
+              className="flex-1 bg-black border border-gray-700 p-2 text-sm rounded outline-none"
             />
             <button
-              onClick={() => downloadModel({ 
-                id: customName.replace(/\s+/g, '-').toLowerCase(), 
-                name: customName, 
-                size: 'External', 
-                url: customUrl 
+              onClick={() => downloadModel({
+                id: customName.replace(/\s+/g, '-').toLowerCase(),
+                name: customName,
+                size: 'External',
+                url: customUrl
               })}
               disabled={!customUrl || !customName || !!downloading}
-              className="bg-blue-600 hover:bg-blue-500 p-2 rounded disabled:opacity-50 transition-colors"
+              className="bg-blue-600 hover:bg-blue-500 p-2 rounded disabled:opacity-50"
             >
               <Download size={18} />
             </button>
@@ -122,40 +122,22 @@ export const ModelDownloader: React.FC<{ onModelReady?: (modelPath: string) => v
         </div>
       </div>
 
-      <hr className="border-gray-800 mb-6" />
-
-      {error && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded text-xs text-red-400 flex items-center gap-2">
-          <AlertCircle size={14} /> {error}
-        </div>
-      )}
-      
-      {success && (
-        <div className="mb-4 p-3 bg-green-500/10 border border-green-500/50 rounded text-xs text-green-400 flex items-center gap-2">
-          <CheckCircle size={14} /> {success}
-        </div>
-      )}
+      {error && <div className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded text-xs text-red-400 flex items-center gap-2"><AlertCircle size={14} /> {error}</div>}
+      {success && <div className="mb-4 p-3 bg-green-500/10 border border-green-500/50 rounded text-xs text-green-400 flex items-center gap-2"><CheckCircle size={14} /> {success}</div>}
 
       <div className="space-y-4">
         {PRESET_MODELS.map((model) => (
-          <div key={model.id} className="bg-gray-800/30 border border-gray-700 p-4 rounded-lg flex justify-between items-center hover:bg-gray-800/50 transition-all">
+          <div key={model.id} className="bg-gray-800/30 border border-gray-700 p-4 rounded-lg flex justify-between items-center">
             <div>
               <h4 className="font-bold text-sm">{model.name}</h4>
-              <p className="text-[10px] text-gray-500 uppercase tracking-widest">{model.size}</p>
+              <p className="text-[10px] text-gray-500 uppercase">{model.size}</p>
             </div>
             <button
               onClick={() => downloadModel(model)}
               disabled={!!downloading}
               className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-xs font-bold flex items-center gap-2"
             >
-              {downloading === model.id ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  Installing...
-                </>
-              ) : (
-                'Download'
-              )}
+              {downloading === model.id ? <><Loader2 size={14} className="animate-spin" /> Installing...</> : 'Download'}
             </button>
           </div>
         ))}
