@@ -1,6 +1,7 @@
+'use client';
+
 import { ModelDownloader } from '../ai-ui/ModelDownloader';
 import { RunModel } from '../ai-ui/RunModel';
-'use client';
 
 import { useEffect, useState } from 'react';
 import { ResizablePanels } from './ResizablePanels';
