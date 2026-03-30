@@ -43,11 +43,8 @@ export const ModelDownloader: React.FC<{ onModelReady?: (modelPath: string) => v
 
     try {
       const response = await fetch(model.url);
-        method: 'GET',
-        url: model.url,
-      });
 
-      if (!response || !response.data) throw new Error('Download failed');
+      if (!response.ok) throw new Error('Download failed');
 
       const blob = response.data as Blob;
       const reader = new FileReader();
