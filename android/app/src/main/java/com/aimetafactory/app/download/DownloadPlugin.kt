@@ -12,31 +12,24 @@ import com.getcapacitor.annotation.CapacitorPlugin
 
 @CapacitorPlugin(name = "DownloadPlugin")
 class DownloadPlugin : Plugin() {
-
     @PluginMethod
     fun download(call: PluginCall) {
         val url = call.getString("url")
         val fileName = call.getString("fileName") ?: "model.gguf"
-
         if (url == null) {
             call.reject("URL is required")
             return
         }
-
         try {
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val request = DownloadManager.Request(Uri.parse(url))
-                .setTitle("AI Model: $fileName")
-                .setDescription("Downloading AI Model")
+                .setTitle("Downloading $fileName")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "ai_models/$fileName")
-
-            val id = dm.enqueue(request)
-            val ret = JSObject()
-            ret.put("downloadId", id)
-            call.resolve(ret)
+            dm.enqueue(request)
+            call.resolve()
         } catch (e: Exception) {
-            call.reject("Native Download Failed: ${e.message}")
+            call.reject(e.message)
         }
     }
 }
