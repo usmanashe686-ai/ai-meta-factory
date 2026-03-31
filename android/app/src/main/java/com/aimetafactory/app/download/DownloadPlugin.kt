@@ -5,10 +5,10 @@ import android.content.Context
 import android.net.Uri
 import android.os.Environment
 import com.getcapacitor.JSObject
+import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
-import com.getcapacitor.Plugin
 
 @CapacitorPlugin(name = "DownloadPlugin")
 class DownloadPlugin : Plugin() {
@@ -24,20 +24,21 @@ class DownloadPlugin : Plugin() {
         }
 
         try {
-            val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val request = DownloadManager.Request(Uri.parse(url))
                 .setTitle("AI Model: $fileName")
-                .setDescription("Downloading to AI Meta Factory")
+                .setDescription("Downloading AI Model")
+                .setMimeType("application/octet-stream")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setAllowedOverMetered(true)
                 .setAllowedOverRoaming(true)
-                .setDestinationInExternalPublicDir(
+                .setDestinationInExternalFilesDir(
+                    context,
                     Environment.DIRECTORY_DOWNLOADS,
                     "ai_models/$fileName"
                 )
 
-            val id = downloadManager.enqueue(request)
-            
+            val id = dm.enqueue(request)
             val ret = JSObject()
             ret.put("downloadId", id)
             call.resolve(ret)
