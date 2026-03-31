@@ -1,5 +1,4 @@
 name: Build Android APK
-
 on:
   push:
     branches: [ main ]
@@ -8,7 +7,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,25 +20,22 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps --no-audit
 
-      - name: Build Next.js static export
-        env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_FLASK_URL: ${{ secrets.NEXT_PUBLIC_FLASK_URL }}
-          NEXT_PUBLIC_BUILD_SERVICE_URL: ${{ secrets.NEXT_PUBLIC_BUILD_SERVICE_URL }}
-          NEXT_PUBLIC_REAL_TIME_URL: ${{ secrets.NEXT_PUBLIC_REAL_TIME_URL }}
-          NEXT_AUTH_URL: ${{ secrets.NEXT_AUTH_URL }}
+      - name: Build Next.js
         run: npm run build
 
-      - name: Sync Capacitor Android
+      - name: Sync Capacitor
         run: npx cap add android || npx cap sync android
-      - name: Inject Native Plugin
+
+      - name: Inject Production Bridge
         run: |
-          mkdir -p android/app/src/main/java/com/aimetafactory/app/download/
-          cp native-backups/android/com/aimetafactory/app/download/DownloadPlugin.java android/app/src/main/java/com/aimetafactory/app/download/
-      - name: Inject Native Files
-        run: |
+          # Create the correct package directory
           mkdir -p android/app/src/main/java/com/aimetafactory/app/
+          
+          # Move all native files (Plugin, Service, MainActivity) into the root package
           cp native-backups/android/*.java android/app/src/main/java/com/aimetafactory/app/
+          
+          # Register the Background Service in the Manifest automatically
+          sed -i '/<\/application>/i \    <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />' android/app/src/main/AndroidManifest.xml
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -54,8 +49,8 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Meta-Factory-APK
+          name: AI-Meta-Factory-v3
           path: android/app/build/outputs/apk/debug/app-debug.apk
