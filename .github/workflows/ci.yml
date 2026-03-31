@@ -51,7 +51,7 @@ jobs:
       - run: npm install --legacy-peer-deps --no-audit
       - run: npm run build
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-build
           path: .next
@@ -80,7 +80,7 @@ jobs:
       - name: Run bundle analysis
         run: npx @next/bundle-analyzer .next/server/chunks/*.js --json > bundle-stats.json
       - name: Upload bundle stats
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bundle-stats
           path: bundle-stats.json

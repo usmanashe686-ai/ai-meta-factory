@@ -24,7 +24,7 @@ jobs:
           flags: --out json=results.json
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: k6-results
           path: results.json
@@ -46,7 +46,7 @@ jobs:
   #     - run: npm install --legacy-peer-deps --no-audit -g artillery
   #     - run: artillery run load-test/artillery-test.yml --output report.json
   #     - name: Upload test results
-  #       uses: actions/upload-artifact@v4
+  #       uses: actions/upload-artifact@v7
   #       with:
   #         name: artillery-results
   #         path: report.json
