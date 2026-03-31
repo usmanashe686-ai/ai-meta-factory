@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (V4 Ultimate)
 on:
   push:
     branches: [ main ]
@@ -18,7 +18,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps --no-audit
+        run: npm ci --legacy-peer-deps
 
       - name: Build Next.js
         run: npm run build
@@ -26,16 +26,18 @@ jobs:
       - name: Sync Capacitor
         run: npx cap add android || npx cap sync android
 
-      - name: Inject Production Bridge
+      - name: Inject Native AI Engine
         run: |
-          # Create the correct package directory
+          # 1. Create package directory
           mkdir -p android/app/src/main/java/com/aimetafactory/app/
           
-          # Move all native files (Plugin, Service, MainActivity) into the root package
-          cp native-backups/android/*.java android/app/src/main/java/com/aimetafactory/app/
+          # 2. Inject all V4 Java files (Downloader, Worker, Registry)
+          cp -r native-backups/android/com/aimetafactory/app/* android/app/src/main/java/com/aimetafactory/app/
           
-          # Register the Background Service in the Manifest automatically
-          sed -i '/<\/application>/i \    <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />' android/app/src/main/AndroidManifest.xml
+          # 3. Register Service & Permissions in Manifest
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />' $MANIFEST
+          sed -i '/<\/application>/i \    <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />' $MANIFEST
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -52,5 +54,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Meta-Factory-v3
+          name: AI-Meta-Factory-V4
           path: android/app/build/outputs/apk/debug/app-debug.apk
