@@ -1,4 +1,4 @@
-package com.aimetafactory.app.download
+package com.aimetafactory.app
 
 import android.app.DownloadManager
 import android.content.Context
