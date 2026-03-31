@@ -28,15 +28,8 @@ class DownloadPlugin : Plugin() {
             val request = DownloadManager.Request(Uri.parse(url))
                 .setTitle("AI Model: $fileName")
                 .setDescription("Downloading AI Model")
-                .setMimeType("application/octet-stream")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setAllowedOverMetered(true)
-                .setAllowedOverRoaming(true)
-                .setDestinationInExternalFilesDir(
-                    context,
-                    Environment.DIRECTORY_DOWNLOADS,
-                    "ai_models/$fileName"
-                )
+                .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "ai_models/$fileName")
 
             val id = dm.enqueue(request)
             val ret = JSObject()
