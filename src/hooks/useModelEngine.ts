@@ -5,17 +5,16 @@ interface DownloadOptions {
   modelId: string;
 }
 
-// Register the custom Native Bridge
-const DownloadPlugin = registerPlugin<any>('DownloadPlugin');
+// Fixed: Must match the @CapacitorPlugin(name = "ModelDownloader") exactly
+const ModelDownloader = registerPlugin<any>('ModelDownloader');
 
 export const useModelEngine = () => {
   const startDownload = async (options: DownloadOptions) => {
     try {
-      // Calls the Java 'download' method in DownloadPlugin.java
-      await DownloadPlugin.download(options);
-      console.log(`Download for ${options.modelId} started via Native Engine.`);
+      console.log("📡 V4 Engine Handshake: Requesting", options.modelId);
+      await ModelDownloader.download(options);
     } catch (error) {
-      console.error("Native Bridge Error:", error);
+      console.error("❌ Bridge Handshake Failed:", error);
     }
   };
 
