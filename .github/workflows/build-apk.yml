@@ -33,6 +33,10 @@ jobs:
 
       - name: Sync Capacitor Android
         run: npx cap add android || npx cap sync android
+      - name: Inject Native Plugin
+        run: |
+          mkdir -p android/app/src/main/java/com/aimetafactory/app/download/
+          cp native-backups/android/com/aimetafactory/app/download/DownloadPlugin.java android/app/src/main/java/com/aimetafactory/app/download/
       - name: Inject Native Files
         run: |
           mkdir -p android/app/src/main/java/com/aimetafactory/app/
