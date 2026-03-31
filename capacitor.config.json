@@ -1,0 +1,6 @@
+{
+  "appId": "com.aimetafactory.app",
+  "appName": "ai-meta-factory",
+  "webDir": "out",
+  "bundledWebRuntime": false
+}
