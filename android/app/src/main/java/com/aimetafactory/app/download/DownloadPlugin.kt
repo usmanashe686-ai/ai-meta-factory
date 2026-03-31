@@ -1,4 +1,4 @@
-package com.assistant.ai.download
+package com.aimetafactory.app.download
 
 import android.app.DownloadManager
 import android.content.Context
