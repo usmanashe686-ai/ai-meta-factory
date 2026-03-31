@@ -2,89 +2,69 @@
 import React, { useState } from 'react';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { useLocalAIStore } from '../state/local-ai-store';
-import { Download, Plus, Globe, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
-
-interface Model {
-  id: string;
-  name: string;
-  size: string;
-  url: string;
-}
-
-const PRESET_MODELS: Model[] = [
-  {
-    id: 'tinyllama',
-    name: 'TinyLlama 1.1B',
-    size: '590 MB',
-    url: 'https://huggingface.co/TheBloke/TinyLlama-1.1B-GGUF/resolve/main/tinyllama-1.1b.Q4_K_M.gguf',
-  },
-  {
-    id: 'qwen2',
-    name: 'Qwen2 0.5B',
-    size: '350 MB',
-    url: 'https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF/resolve/main/qwen2-0.5b-instruct-q4_k_m.gguf',
-  },
-];
+import { Download, Plus, Globe, Loader2, AlertCircle, CheckCircle, FolderSearch, HardDrive } from 'lucide-react';
 
 export const ModelDownloader: React.FC = () => {
   const [downloading, setDownloading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
   const [customName, setCustomName] = useState('');
   const [customUrl, setCustomUrl] = useState('');
 
-  const startDownload = async (name: string, url: string, id: string) => {
-    if (!url.trim().startsWith('http')) {
-      setError("Please enter a valid URL starting with http");
-      return;
-    }
+  // 🔍 DIAGNOSTIC FUNCTION
+  const checkFilesystem = async () => {
+    setDebugInfo('Scanning...');
+    try {
+      // Check if folder exists
+      const folderContent = await Filesystem.readdir({
+        path: 'ai_models',
+        directory: Directory.Data
+      }).catch(() => ({ files: [] }));
 
+      // Check available space
+      const uri = await Filesystem.getUri({
+        path: '',
+        directory: Directory.Data
+      });
+
+      setDebugInfo(
+        `📁 Folder 'ai_models': ${folderContent.files.length} files found\n` +
+        `📍 Internal Path: ${uri.uri}\n` +
+        `📄 Files: ${folderContent.files.map(f => f.name).join(', ') || 'None'}`
+      );
+    } catch (err: any) {
+      setDebugInfo(`❌ Scan Error: ${err.message}`);
+    }
+  };
+
+  const startDownload = async (name: string, url: string, id: string) => {
     setDownloading(id);
     setError(null);
     setSuccess(null);
     const filePath = `ai_models/${id}.gguf`;
 
     try {
-      await Filesystem.mkdir({ path: 'ai_models', directory: Directory.Data, recursive: true }).catch(() => {});
+      await Filesystem.mkdir({
+        path: 'ai_models',
+        directory: Directory.Data,
+        recursive: true
+      }).catch(() => {});
 
-      let existingSize = 0;
-      try {
-        const stat = await Filesystem.stat({ path: filePath, directory: Directory.Data });
-        existingSize = stat.size || 0;
-      } catch {}
-
-      const downloadWithRetry = async (retries = 2): Promise<any> => {
-        try {
-          return await Filesystem.downloadFile({
-            url: encodeURI(url.trim()),
-            path: filePath,
-            directory: Directory.Data,
-            headers: {
-              'Accept': 'application/octet-stream',
-              'User-Agent': 'Mozilla/5.0',
-              ...(existingSize > 0 ? { 'Range': `bytes=${existingSize}-` } : {})
-            },
-            progress: true
-          });
-        } catch (err) {
-          if (retries <= 0) throw err;
-          return downloadWithRetry(retries - 1);
-        }
-      };
-
-      const result = await downloadWithRetry();
-      const finalStat = await Filesystem.stat({ path: filePath, directory: Directory.Data });
-
-      if (!finalStat.size || finalStat.size < 1000000) throw new Error("Download incomplete");
-
-      setSuccess(`✅ ${name} ready!`);
-      useLocalAIStore.getState().setCurrentModel({
-        id, name, size: `${Math.round(finalStat.size / (1024 * 1024))} MB`,
-        downloaded: true, localPath: result.path || '',
-        active: false, type: 'llamacpp', tags: [],
+      const result = await Filesystem.downloadFile({
+        url: encodeURI(url.trim()),
+        path: filePath,
+        directory: Directory.Data,
+        headers: {
+          'Accept': 'application/octet-stream',
+          'User-Agent': 'Mozilla/5.0'
+        },
+        progress: true
       });
+
+      setSuccess(`✅ SUCCESS: Saved ${name}`);
     } catch (err: any) {
-      setError(`❌ Failed. Network unstable or storage issue.`);
+      setError(`SYSTEM_ERROR: ${err.message || JSON.stringify(err)}`);
     } finally {
       setDownloading(null);
     }
@@ -96,10 +76,22 @@ export const ModelDownloader: React.FC = () => {
         <Globe className="text-blue-500" size={18} /> AI Model Warehouse
       </h2>
 
+      {/* 🛠️ DEBUG PANEL */}
+      <div className="mb-4 p-3 bg-black/50 border border-yellow-700/30 rounded-lg">
+        <button 
+          onClick={checkFilesystem}
+          className="flex items-center gap-2 text-[10px] bg-yellow-900/20 hover:bg-yellow-900/40 text-yellow-500 px-3 py-1 rounded border border-yellow-700/50 mb-2"
+        >
+          <FolderSearch size={12} /> Run Storage Diagnostic
+        </button>
+        {debugInfo && (
+          <pre className="text-[9px] text-gray-400 whitespace-pre-wrap leading-tight font-mono">
+            {debugInfo}
+          </pre>
+        )}
+      </div>
+
       <div className="mb-6 p-4 border border-blue-900/30 bg-blue-950/10 rounded-lg">
-        <h3 className="text-[10px] font-bold uppercase text-blue-400 mb-3 flex items-center gap-2">
-          <Plus size={12} /> External Model (Any GGUF)
-        </h3>
         <div className="space-y-2">
           <input 
             type="text" placeholder="Model Nickname"
@@ -115,7 +107,7 @@ export const ModelDownloader: React.FC = () => {
             <button 
               onClick={() => startDownload(customName || 'custom', customUrl, `custom-${Date.now()}`)}
               disabled={!customUrl || !!downloading}
-              className="bg-blue-600 p-2 rounded hover:bg-blue-500 disabled:opacity-50"
+              className="bg-blue-600 p-2 rounded hover:bg-blue-500"
             >
               <Download size={16} />
             </button>
@@ -123,26 +115,12 @@ export const ModelDownloader: React.FC = () => {
         </div>
       </div>
 
-      {error && <div className="mb-4 p-2 bg-red-900/20 border border-red-500 rounded text-[10px] text-red-400 flex items-center gap-2"><AlertCircle size={12} /> {error}</div>}
-      {success && <div className="mb-4 p-2 bg-green-900/20 border border-green-500 rounded text-[10px] text-green-400 flex items-center gap-2"><CheckCircle size={12} /> {success}</div>}
-
-      <div className="space-y-3">
-        {PRESET_MODELS.map((model) => (
-          <div key={model.id} className="bg-gray-800/20 border border-gray-700 p-3 rounded-lg flex justify-between items-center">
-            <div>
-              <h4 className="font-bold text-xs">{model.name}</h4>
-              <p className="text-[9px] text-gray-500">{model.size}</p>
-            </div>
-            <button
-              onClick={() => startDownload(model.name, model.url, model.id)}
-              disabled={!!downloading}
-              className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded text-[10px] font-bold disabled:opacity-50 min-w-[80px]"
-            >
-              {downloading === model.id ? <Loader2 size={12} className="animate-spin mx-auto" /> : 'Download'}
-            </button>
-          </div>
-        ))}
-      </div>
+      {error && (
+        <div className="mb-4 p-3 bg-red-900/30 border border-red-500 rounded text-[11px] text-red-300 break-all">
+          <AlertCircle size={14} className="inline mr-2" />
+          {error}
+        </div>
+      )}
     </div>
   );
 };
