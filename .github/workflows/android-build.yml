@@ -63,6 +63,11 @@ jobs:
             cp -r native-backups/android/com/aimetafactory/app/* android/app/src/main/java/com/aimetafactory/app/
           fi
 
+          # Rename the plugin to DownloadPlugin to match existing UI code
+          if [ -f "android/app/src/main/java/com/aimetafactory/app/ModelDownloaderPlugin.java" ]; then
+            sed -i 's/name = "ModelDownloaderPlugin"/name = "DownloadPlugin"/' android/app/src/main/java/com/aimetafactory/app/ModelDownloaderPlugin.java
+          fi
+
           # Write full AndroidManifest.xml with all permissions and service
           cat > android/app/src/main/AndroidManifest.xml << 'MANIFEST_EOF'
           <?xml version="1.0" encoding="utf-8"?>
@@ -103,11 +108,25 @@ jobs:
 
           # Add WorkManager dependency to app/build.gradle
           BUILD_GRADLE="android/app/build.gradle"
-          # Check if WorkManager already present
           if ! grep -q "work-runtime" $BUILD_GRADLE; then
-            # Insert after the dependencies { line
             sed -i '/dependencies {/a \    implementation "androidx.work:work-runtime:2.9.0"' $BUILD_GRADLE
           fi
+
+          # Write a correct MainActivity.java that registers DownloadPlugin
+          cat > android/app/src/main/java/com/aimetafactory/app/MainActivity.java << 'MAIN_ACTIVITY_EOF'
+          package com.aimetafactory.app;
+
+          import com.getcapacitor.BridgeActivity;
+          import android.os.Bundle;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  registerPlugin(DownloadPlugin.class);
+              }
+          }
+          MAIN_ACTIVITY_EOF
 
       - name: Setup Java
         uses: actions/setup-java@v4
