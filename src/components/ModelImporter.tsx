@@ -12,17 +12,26 @@ export const ModelImporter: React.FC = () => {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [permissionGranted, setPermissionGranted] = useState(false);
 
   const requestStoragePermission = async () => {
     if (Capacitor.getPlatform() === 'android') {
-      const Permissions = (Capacitor as any).Plugins.Permissions;
-      if (!Permissions) return true;
-      const { state } = await Permissions.query({ name: 'storage' });
-      if (state !== 'granted') {
-        const result = await Permissions.request({ name: 'storage' });
-        return result.state === 'granted';
+      try {
+        const Permissions = (Capacitor as any).Plugins.Permissions;
+        if (!Permissions) return true;
+        const { state } = await Permissions.query({ name: 'storage' });
+        if (state !== 'granted') {
+          const result = await Permissions.request({ name: 'storage' });
+          const granted = result.state === 'granted';
+          setPermissionGranted(granted);
+          return granted;
+        }
+        setPermissionGranted(true);
+        return true;
+      } catch (err) {
+        console.error('Permission error:', err);
+        return false;
       }
-      return true;
     }
     return true;
   };
@@ -31,20 +40,31 @@ export const ModelImporter: React.FC = () => {
     setLoading(true);
     const ok = await requestStoragePermission();
     if (!ok) {
-      setMessage('Storage permission required to access Downloads.');
+      setMessage('Storage permission required. Please grant in settings.');
       setLoading(false);
       return;
     }
     try {
-      const result = await Filesystem.readdir({
-        path: 'Download',
-        directory: Directory.ExternalStorage,
-      });
+      // Try to read from the Downloads folder using the standard Capacitor Downloads directory
+      let result;
+      try {
+        // On Android, Directory.Downloads is the correct one
+        result = await Filesystem.readdir({
+          path: '',
+          directory: Directory.Downloads,
+        });
+      } catch (e) {
+        // Fallback to external storage + Download
+        result = await Filesystem.readdir({
+          path: 'Download',
+          directory: Directory.ExternalStorage,
+        });
+      }
       const ggufFiles = result.files
         .filter(f => f.name.endsWith('.gguf'))
-        .map(f => ({ name: f.name, path: `Download/${f.name}`, size: f.size || 0 }));
+        .map(f => ({ name: f.name, path: f.uri || f.name, size: f.size || 0 }));
       setFiles(ggufFiles);
-      setMessage(`Found ${ggufFiles.length} GGUF files in Downloads.`);
+      setMessage(`Found ${ggufFiles.length} GGUF file(s) in Downloads.`);
     } catch (err: any) {
       console.error(err);
       setMessage(`Error reading Downloads: ${err.message}`);
@@ -56,24 +76,37 @@ export const ModelImporter: React.FC = () => {
   const moveToAppStorage = async (file: FileEntry) => {
     setLoading(true);
     try {
+      // Ensure models directory exists
       await Filesystem.mkdir({
         path: 'models',
         directory: Directory.Data,
         recursive: true,
       }).catch(() => {});
-      const result = await Filesystem.readFile({
-        path: file.path,
-        directory: Directory.ExternalStorage,
-      });
+
+      let fileData;
+      try {
+        // Try to read using uri if available
+        fileData = await Filesystem.readFile({
+          path: file.path,
+          directory: Directory.Downloads,
+        });
+      } catch {
+        // Fallback to external storage path
+        fileData = await Filesystem.readFile({
+          path: `Download/${file.name}`,
+          directory: Directory.ExternalStorage,
+        });
+      }
+
       const destPath = `models/${file.name}`;
       await Filesystem.writeFile({
         path: destPath,
-        data: result.data,
+        data: fileData.data,
         directory: Directory.Data,
         recursive: true,
       });
       setMessage(`✅ Moved ${file.name} to app storage.`);
-      listDownloads();
+      listDownloads(); // refresh
     } catch (err: any) {
       console.error(err);
       setMessage(`❌ Failed to move ${file.name}: ${err.message}`);
@@ -93,7 +126,7 @@ export const ModelImporter: React.FC = () => {
       <h3 className="text-sm font-semibold text-indigo-300 mb-2">Import Downloaded Models</h3>
       <p className="text-xs text-slate-400 mb-2">Move GGUF files from Downloads to app storage:</p>
       {files.length === 0 ? (
-        <p className="text-xs text-slate-500">No .gguf files found in Downloads.</p>
+        <p className="text-xs text-slate-500">No .gguf files found in Downloads. Download a model first.</p>
       ) : (
         <div className="space-y-2 max-h-48 overflow-y-auto">
           {files.map(file => (
