@@ -19,37 +19,28 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Build & Export Next.js
-        run: |
-          npm run build
-          # No 'npx cap export' needed if you use 'output: export' in next.config.js
-          ls -R out/
+      - name: Build Next.js
+        run: npm run build
 
-      - name: Prepare Capacitor Android
+      - name: Force Capacitor Android
         run: |
-          # Force clean platform addition to avoid "platform not added" error
-          rm -rf android
+          # We don't check, we just BUILD.
           npx cap add android
           npx cap sync android
 
-      - name: Inject Native Engine & Styles
+      - name: Inject Native Engine & Sync
         run: |
           TARGET_DIR="android/app/src/main/java/com/aimetafactory/app"
           mkdir -p $TARGET_DIR
           
-          # 1. Inject all V4 Java classes (Engine + Plugin + MainActivity)
+          # Inject V4 Java classes
           cp -r native-backups/android/com/aimetafactory/app/* $TARGET_DIR/
           
-          # 2. Inject Styles (Fixes Black Bars)
+          # Inject Styles (Fixes Black Bars/Keyboard bug)
           mkdir -p android/app/src/main/res/values/
           cp native-backups/android/res/values/styles.xml android/app/src/main/res/values/styles.xml || echo "Styles missing"
 
-          # 3. Inject Gradle Dependencies (WorkManager & OkHttp)
-          if ! grep -q "androidx.work" android/app/build.gradle; then
-            sed -i '/dependencies {/a \    implementation "androidx.work:work-runtime:2.9.0"\n    implementation "com.squareup.okhttp3:okhttp:4.12.0"' android/app/build.gradle
-          fi
-
-          # 4. Register Manifest Components
+          # Register Manifest Components
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />' $MANIFEST
           sed -i '/<\/application>/i \    <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />' $MANIFEST
