@@ -45,24 +45,14 @@ export const ModelImporter: React.FC = () => {
       return;
     }
     try {
-      // Try to read from the Downloads folder using the standard Capacitor Downloads directory
-      let result;
-      try {
-        // On Android, Directory.Downloads is the correct one
-        result = await Filesystem.readdir({
-          path: '',
-          directory: Directory.Downloads,
-        });
-      } catch (e) {
-        // Fallback to external storage + Download
-        result = await Filesystem.readdir({
-          path: 'Download',
-          directory: Directory.ExternalStorage,
-        });
-      }
+      // Use external storage + "Download" path (works on all Android versions)
+      const result = await Filesystem.readdir({
+        path: 'Download',
+        directory: Directory.ExternalStorage,
+      });
       const ggufFiles = result.files
         .filter(f => f.name.endsWith('.gguf'))
-        .map(f => ({ name: f.name, path: f.uri || f.name, size: f.size || 0 }));
+        .map(f => ({ name: f.name, path: `Download/${f.name}`, size: f.size || 0 }));
       setFiles(ggufFiles);
       setMessage(`Found ${ggufFiles.length} GGUF file(s) in Downloads.`);
     } catch (err: any) {
@@ -83,20 +73,10 @@ export const ModelImporter: React.FC = () => {
         recursive: true,
       }).catch(() => {});
 
-      let fileData;
-      try {
-        // Try to read using uri if available
-        fileData = await Filesystem.readFile({
-          path: file.path,
-          directory: Directory.Downloads,
-        });
-      } catch {
-        // Fallback to external storage path
-        fileData = await Filesystem.readFile({
-          path: `Download/${file.name}`,
-          directory: Directory.ExternalStorage,
-        });
-      }
+      const fileData = await Filesystem.readFile({
+        path: file.path,
+        directory: Directory.ExternalStorage,
+      });
 
       const destPath = `models/${file.name}`;
       await Filesystem.writeFile({
