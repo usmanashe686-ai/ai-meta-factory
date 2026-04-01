@@ -19,24 +19,29 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Build Next.js
-        run: npm run build
-
-      - name: Force Capacitor Android
+      - name: Build & Export Next.js
         run: |
-          # We don't check, we just BUILD.
+          npm run build
+          # Ensure the 'out' directory exists for Capacitor to hook into
+          mkdir -p out
+          touch out/.nojekyll
+
+      - name: Initialize & Add Android
+        run: |
+          # If config is missing, init it. Then force add the platform.
+          test -f capacitor.config.ts || npx cap init "AI Meta Factory" "com.aimetafactory.app" --web-dir=out
+          rm -rf android
           npx cap add android
           npx cap sync android
 
-      - name: Inject Native Engine & Sync
+      - name: Inject Native Engine
         run: |
           TARGET_DIR="android/app/src/main/java/com/aimetafactory/app"
           mkdir -p $TARGET_DIR
-          
-          # Inject V4 Java classes
+          # Inject your V4 Java classes from backups
           cp -r native-backups/android/com/aimetafactory/app/* $TARGET_DIR/
           
-          # Inject Styles (Fixes Black Bars/Keyboard bug)
+          # Inject Styles (Fixes the Black Line/Keyboard bug)
           mkdir -p android/app/src/main/res/values/
           cp native-backups/android/res/values/styles.xml android/app/src/main/res/values/styles.xml || echo "Styles missing"
 
@@ -60,5 +65,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Meta-Factory-V4-Ultimate
+          name: AI-Meta-Factory-V4-Final
           path: android/app/build/outputs/apk/debug/app-debug.apk
