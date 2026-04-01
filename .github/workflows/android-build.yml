@@ -63,7 +63,7 @@ jobs:
             cp -r native-backups/android/com/aimetafactory/app/* android/app/src/main/java/com/aimetafactory/app/
           fi
 
-          # Rename the plugin to DownloadPlugin to match existing UI code
+          # Rename the plugin to DownloadPlugin (keep class name ModelDownloaderPlugin)
           if [ -f "android/app/src/main/java/com/aimetafactory/app/ModelDownloaderPlugin.java" ]; then
             sed -i 's/name = "ModelDownloaderPlugin"/name = "DownloadPlugin"/' android/app/src/main/java/com/aimetafactory/app/ModelDownloaderPlugin.java
           fi
@@ -112,7 +112,7 @@ jobs:
             sed -i '/dependencies {/a \    implementation "androidx.work:work-runtime:2.9.0"' $BUILD_GRADLE
           fi
 
-          # Write a correct MainActivity.java that registers DownloadPlugin
+          # Write a correct MainActivity.java that registers ModelDownloaderPlugin (class name)
           cat > android/app/src/main/java/com/aimetafactory/app/MainActivity.java << 'MAIN_ACTIVITY_EOF'
           package com.aimetafactory.app;
 
@@ -123,7 +123,7 @@ jobs:
               @Override
               public void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  registerPlugin(DownloadPlugin.class);
+                  registerPlugin(ModelDownloaderPlugin.class);
               }
           }
           MAIN_ACTIVITY_EOF
