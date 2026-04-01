@@ -1,4 +1,4 @@
-import { registerPlugin, Permissions } from '@capacitor/core';
+import { registerPlugin, Capacitor } from '@capacitor/core';
 
 interface DownloadOptions {
   url: string;
@@ -12,6 +12,11 @@ export const useModelEngine = () => {
   const requestNotificationPermission = async (): Promise<boolean> => {
     if (Capacitor.getPlatform() === 'android') {
       try {
+        const Permissions = Capacitor.Plugins.Permissions;
+        if (!Permissions) {
+          console.warn('Permissions plugin not available');
+          return false;
+        }
         const { state } = await Permissions.query({ name: 'notifications' });
         if (state !== 'granted') {
           const result = await Permissions.request({ name: 'notifications' });
@@ -29,7 +34,6 @@ export const useModelEngine = () => {
   const startDownload = async (options: DownloadOptions) => {
     try {
       console.log("📡 V4 Handshake: Starting", options.modelId);
-      // Request permission before starting the download
       const ok = await requestNotificationPermission();
       if (!ok) {
         alert('Notification permission is required for background download.');
@@ -37,7 +41,7 @@ export const useModelEngine = () => {
       }
       await ModelDownloader.download(options);
     } catch (error) {
-      console.error("❌ Bridge Error (Check MainActivity registration):", error);
+      console.error("❌ Bridge Error:", error);
     }
   };
 
