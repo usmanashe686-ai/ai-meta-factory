@@ -101,6 +101,14 @@ jobs:
           </manifest>
           MANIFEST_EOF
 
+          # Add WorkManager dependency to app/build.gradle
+          BUILD_GRADLE="android/app/build.gradle"
+          # Check if WorkManager already present
+          if ! grep -q "work-runtime" $BUILD_GRADLE; then
+            # Insert after the dependencies { line
+            sed -i '/dependencies {/a \    implementation "androidx.work:work-runtime:2.9.0"' $BUILD_GRADLE
+          fi
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
