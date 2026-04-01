@@ -5,6 +5,7 @@ interface DownloadOptions {
   modelId: string;
 }
 
+// Register the native plugin – name must match Java @CapacitorPlugin(name = "ModelDownloaderPlugin")
 const ModelDownloader = registerPlugin<any>('ModelDownloaderPlugin');
 
 export const useModelEngine = () => {
@@ -41,32 +42,31 @@ export const useModelEngine = () => {
         return;
       }
 
-      // Call native plugin
+      // Call native plugin and capture the result
       const result = await ModelDownloader.download(options);
       console.log("Native plugin returned:", result);
-      alert("Download started! Check your notification tray.");
+      alert(`Download started! Returned: ${JSON.stringify(result)}`);
     } catch (error: any) {
       console.error("❌ Bridge Error:", error);
       alert(`Download failed: ${error.message || error}`);
     }
   };
 
-  // Test method to check if plugin is accessible
-  const testPlugin = async () => {
+  // Test method: try to call a simple method (if we had one) or just check plugin existence
+  const checkPlugin = async () => {
     try {
       console.log("Testing plugin existence...");
       if (!ModelDownloader) {
-        console.error("ModelDownloader is undefined");
-        alert("Plugin not registered");
+        alert("Plugin is undefined");
         return;
       }
       console.log("Plugin methods:", Object.keys(ModelDownloader));
-      alert("Plugin is available. Check console for methods.");
+      alert(`Plugin methods: ${Object.keys(ModelDownloader).join(', ')}`);
     } catch (err) {
-      console.error("Test error:", err);
-      alert("Error testing plugin");
+      console.error("Check error:", err);
+      alert("Error checking plugin");
     }
   };
 
-  return { startDownload, testPlugin };
+  return { startDownload, checkPlugin };
 };
