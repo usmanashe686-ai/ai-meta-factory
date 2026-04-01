@@ -16,7 +16,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useBackupStore } from '../state/backup-store';
 import { useSessionStore } from '../state/session-store';
 import { useLocalAIStore } from '../state/local-ai-store';
-import { ModelManager } from "../../../../src/components/ModelManager";
+import { ModelManager } from "../../../../../src/components/ModelManager";
 
 export function EnhancedCanvasLayout() {
   const { project, files, activeFileId, setActiveFile, createBlankProject, setFiles, setProjectName } = useProjectStore();
