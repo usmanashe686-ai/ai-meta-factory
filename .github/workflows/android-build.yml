@@ -43,8 +43,15 @@ jobs:
           echo "=== capacitor.config.ts (if exists) ==="
           cat capacitor.config.ts 2>/dev/null || echo "No .ts file"
 
-      - name: Sync Capacitor Android
-        run: npx cap sync android
+      - name: Init & Add Android (Stable JS Path)
+        run: |
+          # Initialize Capacitor (ignore if already initialized)
+          npx cap init "AI Meta Factory" "com.aimetafactory.app" --web-dir=out || true
+          # Force clean and add platform
+          rm -rf android
+          npx cap add android
+          # Sync web assets and plugins
+          npx cap sync android
 
       - name: Setup Java
         uses: actions/setup-java@v4
