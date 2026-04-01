@@ -12,7 +12,8 @@ export const useModelEngine = () => {
   const requestNotificationPermission = async (): Promise<boolean> => {
     if (Capacitor.getPlatform() === 'android') {
       try {
-        const Permissions = Capacitor.Plugins.Permissions;
+        // Access the built-in permissions plugin using type assertion
+        const Permissions = (Capacitor as any).Plugins.Permissions;
         if (!Permissions) {
           console.warn('Permissions plugin not available');
           return false;
