@@ -85,7 +85,7 @@ export function EnhancedCanvasLayout() {
           {activeTab === 'ai' && (
             !currentModel ? (
               <div className="h-full flex items-center justify-center p-4">
-                <ModelDownloader />
+                <ModelManager />
               </div>
             ) : (
               <AIChatSidebar />
@@ -136,7 +136,7 @@ export function EnhancedCanvasLayout() {
         {/* Only show AI on desktop if panel is open and model exists */}
         {isAIPanelOpen && (
           <div className="absolute top-0 right-0 h-full w-80 bg-gray-900 border-l border-gray-700 shadow-xl z-20 overflow-hidden">
-            {!currentModel ? <ModelDownloader /> : <AIChatSidebar />}
+            {!currentModel ? <ModelManager /> : <AIChatSidebar />}
           </div>
         )}
       </div>
