@@ -1,7 +1,12 @@
 /** @type {import('@capacitor/cli').CapacitorConfig} */
-module.exports = {
+const config = {
   appId: 'com.aimetafactory.app',
   appName: 'AI Meta Factory',
   webDir: 'out',
-  bundledWebRuntime: false
+  bundledWebRuntime: false,
+  server: {
+    androidScheme: 'https'
+  }
 };
+
+module.exports = config;

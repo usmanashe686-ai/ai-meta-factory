@@ -22,20 +22,19 @@ jobs:
       - name: Build & Export Next.js
         run: |
           npm run build
-          # Ensure Capacitor sees the 'out' directory
           mkdir -p out
-          ls -la out/
+          touch out/.nojekyll
 
-      - name: Initialize & Add Android (Clean Build)
+      - name: Init & Add Android (Stable JS Path)
         run: |
-          # 1. Force Capacitor to see the config
-          test -f capacitor.config.ts || npx cap init "AI Meta Factory" "com.aimetafactory.app" --web-dir=out
+          # 1. Initialize Capacitor (Ignore error if already initialized)
+          npx cap init "AI Meta Factory" "com.aimetafactory.app" --web-dir=out || true
           
-          # 2. Delete any ghost folder and ADD it fresh
+          # 2. Force Add Platform (This creates the android/ folder)
           rm -rf android
           npx cap add android
           
-          # 3. Sync the web assets
+          # 3. Sync web assets
           npx cap sync android
 
       - name: Inject V4 Native Engine
@@ -44,9 +43,9 @@ jobs:
           mkdir -p $TARGET_DIR
           cp -r native-backups/android/com/aimetafactory/app/* $TARGET_DIR/
           
-          # Inject Styles (Fixes the Black Bars/Keyboard bug)
+          # Inject Styles & Manifest fixes
           mkdir -p android/app/src/main/res/values/
-          cp native-backups/android/res/values/styles.xml android/app/src/main/res/values/styles.xml || echo "No styles found"
+          cp native-backups/android/res/values/styles.xml android/app/src/main/res/values/styles.xml || echo "No styles"
           
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />' $MANIFEST
@@ -67,5 +66,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Meta-Factory-V4-Build-200
+          name: AI-Meta-Factory-V4-Build-202
           path: android/app/build/outputs/apk/debug/app-debug.apk
