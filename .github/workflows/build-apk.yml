@@ -22,30 +22,32 @@ jobs:
       - name: Build & Export Next.js
         run: |
           npm run build
-          # Ensure the 'out' directory exists for Capacitor to hook into
+          # Ensure Capacitor sees the 'out' directory
           mkdir -p out
-          touch out/.nojekyll
+          ls -la out/
 
-      - name: Initialize & Add Android
+      - name: Initialize & Add Android (Clean Build)
         run: |
-          # If config is missing, init it. Then force add the platform.
+          # 1. Force Capacitor to see the config
           test -f capacitor.config.ts || npx cap init "AI Meta Factory" "com.aimetafactory.app" --web-dir=out
+          
+          # 2. Delete any ghost folder and ADD it fresh
           rm -rf android
           npx cap add android
+          
+          # 3. Sync the web assets
           npx cap sync android
 
-      - name: Inject Native Engine
+      - name: Inject V4 Native Engine
         run: |
           TARGET_DIR="android/app/src/main/java/com/aimetafactory/app"
           mkdir -p $TARGET_DIR
-          # Inject your V4 Java classes from backups
           cp -r native-backups/android/com/aimetafactory/app/* $TARGET_DIR/
           
-          # Inject Styles (Fixes the Black Line/Keyboard bug)
+          # Inject Styles (Fixes the Black Bars/Keyboard bug)
           mkdir -p android/app/src/main/res/values/
-          cp native-backups/android/res/values/styles.xml android/app/src/main/res/values/styles.xml || echo "Styles missing"
-
-          # Register Manifest Components
+          cp native-backups/android/res/values/styles.xml android/app/src/main/res/values/styles.xml || echo "No styles found"
+          
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />' $MANIFEST
           sed -i '/<\/application>/i \    <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />' $MANIFEST
@@ -65,5 +67,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Meta-Factory-V4-Final
+          name: AI-Meta-Factory-V4-Build-200
           path: android/app/build/outputs/apk/debug/app-debug.apk
