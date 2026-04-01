@@ -1,8 +1,6 @@
 package com.aimetafactory.app;
 
 import android.content.Context;
-import android.util.Log;
-import com.getcapacitor.JSObject;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -22,13 +20,14 @@ public class MultiThreadDownloader {
         if (!dir.exists()) dir.mkdirs();
         File file = new File(dir, modelId + ".gguf");
 
-        // Pre-allocate file size
+        // Pre-allocate file space
         RandomAccessFile raf = new RandomAccessFile(file, "rw");
         raf.setLength(fileSize);
         raf.close();
 
         long partSize = fileSize / THREAD_COUNT;
         Thread[] threads = new Thread[THREAD_COUNT];
+        totalDownloaded.set(0);
 
         for (int i = 0; i < THREAD_COUNT; i++) {
             long start = i * partSize;
@@ -39,7 +38,7 @@ public class MultiThreadDownloader {
 
         for (Thread t : threads) t.join();
         
-        // Register in JSON after success
+        // Finalize registration
         ModelRegistry.register(ctx, modelId, file.getAbsolutePath());
     }
 }

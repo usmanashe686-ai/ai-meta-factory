@@ -1,13 +1,14 @@
 package com.aimetafactory.app;
 
-import android.content.Intent;
+import androidx.work.*;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-@CapacitorPlugin(name = "ModelDownloader") // This MUST be the short name
+@CapacitorPlugin(name = "ModelDownloaderPlugin")
 public class ModelDownloaderPlugin extends Plugin {
+    
     @PluginMethod
     public void download(PluginCall call) {
         String url = call.getString("url");
@@ -18,15 +19,19 @@ public class ModelDownloaderPlugin extends Plugin {
             return;
         }
 
-        Intent intent = new Intent(getContext(), DownloadService.class);
-        intent.putExtra("url", url);
-        intent.putExtra("modelId", modelId);
+        // Create the WorkRequest for background persistence
+        Data inputData = new Data.Builder()
+                .putString("url", url)
+                .putString("modelId", modelId)
+                .build();
+
+        OneTimeWorkRequest downloadRequest = new OneTimeWorkRequest.Builder(DownloadWorker.class)
+                .setInputData(inputData)
+                .addTag("DOWNLOAD_" + modelId)
+                .build();
+
+        WorkManager.getInstance(getContext()).enqueue(downloadRequest);
         
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            getContext().startForegroundService(intent);
-        } else {
-            getContext().startService(intent);
-        }
         call.resolve();
     }
 }
