@@ -53,6 +53,28 @@ jobs:
           # Sync web assets and plugins
           npx cap sync android
 
+      - name: Inject V4 Native Engine (Full)
+        run: |
+          # Create package directory
+          mkdir -p android/app/src/main/java/com/aimetafactory/app
+
+          # Copy native files if they exist in backup
+          if [ -d "native-backups/android/com/aimetafactory/app" ]; then
+            cp -r native-backups/android/com/aimetafactory/app/* android/app/src/main/java/com/aimetafactory/app/
+          fi
+
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+
+          # Add permissions if missing
+          grep -q "android.permission.FOREGROUND_SERVICE" $MANIFEST || \
+            sed -i '/<application/i \
+    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' $MANIFEST
+
+          # Add DownloadService if missing
+          grep -q "DownloadService" $MANIFEST || \
+            sed -i '/<\/application>/i \
+    <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />' $MANIFEST
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
