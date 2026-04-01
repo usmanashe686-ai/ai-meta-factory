@@ -1,6 +1,5 @@
 'use client';
 
-import { ModelDownloader } from '../ai-ui/ModelDownloader';
 import { RunModel } from '../ai-ui/RunModel';
 import { useEffect, useState } from 'react';
 import { Folder, FileText, Brain, Globe } from 'lucide-react';
@@ -17,6 +16,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useBackupStore } from '../state/backup-store';
 import { useSessionStore } from '../state/session-store';
 import { useLocalAIStore } from '../state/local-ai-store';
+import { ModelManager } from "../../../../src/components/ModelManager";
 
 export function EnhancedCanvasLayout() {
   const { project, files, activeFileId, setActiveFile, createBlankProject, setFiles, setProjectName } = useProjectStore();
