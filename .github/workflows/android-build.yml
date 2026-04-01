@@ -63,11 +63,6 @@ jobs:
             cp -r native-backups/android/com/aimetafactory/app/* android/app/src/main/java/com/aimetafactory/app/
           fi
 
-          # Rename the plugin to DownloadPlugin (keep class name ModelDownloaderPlugin)
-          if [ -f "android/app/src/main/java/com/aimetafactory/app/ModelDownloaderPlugin.java" ]; then
-            sed -i 's/name = "ModelDownloaderPlugin"/name = "DownloadPlugin"/' android/app/src/main/java/com/aimetafactory/app/ModelDownloaderPlugin.java
-          fi
-
           # Write full AndroidManifest.xml with all permissions and service
           cat > android/app/src/main/AndroidManifest.xml << 'MANIFEST_EOF'
           <?xml version="1.0" encoding="utf-8"?>
@@ -112,7 +107,7 @@ jobs:
             sed -i '/dependencies {/a \    implementation "androidx.work:work-runtime:2.9.0"' $BUILD_GRADLE
           fi
 
-          # Write a correct MainActivity.java that registers ModelDownloaderPlugin (class name)
+          # Write a correct MainActivity.java that registers ModelDownloaderPlugin
           cat > android/app/src/main/java/com/aimetafactory/app/MainActivity.java << 'MAIN_ACTIVITY_EOF'
           package com.aimetafactory.app;
 
@@ -127,6 +122,15 @@ jobs:
               }
           }
           MAIN_ACTIVITY_EOF
+
+          # Patch the ModelDownloader.tsx to use the correct plugin name
+          if [ -f "app/builder/components/canvas/ai-ui/ModelDownloader.tsx" ]; then
+            sed -i "s/registerPlugin<any>('DownloadPlugin')/registerPlugin<any>('ModelDownloaderPlugin')/" app/builder/components/canvas/ai-ui/ModelDownloader.tsx
+            sed -i "s/await DownloadPlugin.download/await ModelDownloaderPlugin.download/" app/builder/components/canvas/ai-ui/ModelDownloader.tsx
+          fi
+
+          # Ensure useModelEngine.ts already uses the correct plugin (it does, but keep it)
+          # No changes needed.
 
       - name: Setup Java
         uses: actions/setup-java@v4
