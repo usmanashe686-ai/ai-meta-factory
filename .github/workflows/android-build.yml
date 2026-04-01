@@ -53,17 +53,9 @@ jobs:
           # Sync web assets and plugins
           npx cap sync android
 
-      - name: Inject V4 Native Engine (Full)
+      - name: Inject Android Manifest (Community Plugin Compatible)
         run: |
-          # Create package directory
-          mkdir -p android/app/src/main/java/com/aimetafactory/app
-
-          # Copy native files if they exist in backup
-          if [ -d "native-backups/android/com/aimetafactory/app" ]; then
-            cp -r native-backups/android/com/aimetafactory/app/* android/app/src/main/java/com/aimetafactory/app/
-          fi
-
-          # Write full AndroidManifest.xml with all permissions and service
+          # Write full AndroidManifest.xml with required permissions (plugin will handle its own service)
           cat > android/app/src/main/AndroidManifest.xml << 'MANIFEST_EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -73,6 +65,7 @@ jobs:
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
               <application
                   android:allowBackup="true"
@@ -95,42 +88,10 @@ jobs:
                       </intent-filter>
                   </activity>
 
-                  <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />
+                  <!-- The community plugin will add its own service automatically -->
               </application>
-
           </manifest>
           MANIFEST_EOF
-
-          # Add WorkManager dependency to app/build.gradle
-          BUILD_GRADLE="android/app/build.gradle"
-          if ! grep -q "work-runtime" $BUILD_GRADLE; then
-            sed -i '/dependencies {/a \    implementation "androidx.work:work-runtime:2.9.0"' $BUILD_GRADLE
-          fi
-
-          # Write a correct MainActivity.java that registers ModelDownloaderPlugin
-          cat > android/app/src/main/java/com/aimetafactory/app/MainActivity.java << 'MAIN_ACTIVITY_EOF'
-          package com.aimetafactory.app;
-
-          import com.getcapacitor.BridgeActivity;
-          import android.os.Bundle;
-
-          public class MainActivity extends BridgeActivity {
-              @Override
-              public void onCreate(Bundle savedInstanceState) {
-                  super.onCreate(savedInstanceState);
-                  registerPlugin(ModelDownloaderPlugin.class);
-              }
-          }
-          MAIN_ACTIVITY_EOF
-
-          # Patch the ModelDownloader.tsx to use the correct plugin name
-          if [ -f "app/builder/components/canvas/ai-ui/ModelDownloader.tsx" ]; then
-            sed -i "s/registerPlugin<any>('DownloadPlugin')/registerPlugin<any>('ModelDownloaderPlugin')/" app/builder/components/canvas/ai-ui/ModelDownloader.tsx
-            sed -i "s/await DownloadPlugin.download/await ModelDownloaderPlugin.download/" app/builder/components/canvas/ai-ui/ModelDownloader.tsx
-          fi
-
-          # Ensure useModelEngine.ts already uses the correct plugin (it does, but keep it)
-          # No changes needed.
 
       - name: Setup Java
         uses: actions/setup-java@v4

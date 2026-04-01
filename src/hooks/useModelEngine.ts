@@ -5,8 +5,7 @@ interface DownloadOptions {
   modelId: string;
 }
 
-// Register the native plugin – name must match Java @CapacitorPlugin(name = "ModelDownloaderPlugin")
-const ModelDownloader = registerPlugin<any>('ModelDownloaderPlugin');
+const BackgroundDownload = registerPlugin<any>('BackgroundDownload');
 
 export const useModelEngine = () => {
   const requestNotificationPermission = async (): Promise<boolean> => {
@@ -33,8 +32,7 @@ export const useModelEngine = () => {
 
   const startDownload = async (options: DownloadOptions) => {
     try {
-      console.log("📡 V4 Handshake: Starting", options.modelId);
-      console.log("Plugin object:", ModelDownloader);
+      console.log("📡 Starting download via community plugin:", options.modelId);
 
       const ok = await requestNotificationPermission();
       if (!ok) {
@@ -42,26 +40,34 @@ export const useModelEngine = () => {
         return;
       }
 
-      // Call native plugin and capture the result
-      const result = await ModelDownloader.download(options);
-      console.log("Native plugin returned:", result);
-      alert(`Download started! Returned: ${JSON.stringify(result)}`);
+      // Create a download request (saves to Downloads folder)
+      const download = await BackgroundDownload.createDownload({
+        url: options.url,
+        description: options.modelId,
+        title: `Downloading ${options.modelId}`,
+        allowRoaming: true,
+        allowMetered: true,
+        visibleInDownloadsUi: true,
+        destination: `file:///storage/emulated/0/Download/${options.modelId.replace(/[^a-z0-9]/gi, '_')}.gguf`
+      });
+
+      // Start the download
+      await BackgroundDownload.start(download.id);
+      alert(`Download started! Check your notification tray.`);
     } catch (error: any) {
-      console.error("❌ Bridge Error:", error);
+      console.error("❌ Download error:", error);
       alert(`Download failed: ${error.message || error}`);
     }
   };
 
-  // Test method: try to call a simple method (if we had one) or just check plugin existence
   const checkPlugin = async () => {
     try {
-      console.log("Testing plugin existence...");
-      if (!ModelDownloader) {
+      if (!BackgroundDownload) {
         alert("Plugin is undefined");
         return;
       }
-      console.log("Plugin methods:", Object.keys(ModelDownloader));
-      alert(`Plugin methods: ${Object.keys(ModelDownloader).join(', ')}`);
+      const methods = Object.keys(BackgroundDownload);
+      alert(`Plugin methods: ${methods.join(', ')}`);
     } catch (err) {
       console.error("Check error:", err);
       alert("Error checking plugin");
