@@ -1,48 +1,120 @@
-# (the full workflow with the new injection block)
-- name: Inject V4 Native Engine (Full)
-  run: |
-    # Create package directory
-    mkdir -p android/app/src/main/java/com/aimetafactory/app
+name: Build Android APK
 
-    # Copy native files if they exist in backup
-    if [ -d "native-backups/android/com/aimetafactory/app" ]; then
-      cp -r native-backups/android/com/aimetafactory/app/* android/app/src/main/java/com/aimetafactory/app/
-    fi
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
-    # Write a full AndroidManifest.xml with all permissions and service
-    cat > android/app/src/main/AndroidManifest.xml << 'MANIFEST_EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.aimetafactory.app">
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    <application
-        android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
-        android:theme="@style/AppTheme">
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
 
-        <activity
-            android:name=".MainActivity"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
-            android:exported="true"
-            android:label="@string/title_activity_main"
-            android:launchMode="singleTop"
-            android:theme="@style/AppTheme.NoActionBarLaunch">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps --no-audit
 
-        <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />
-    </application>
+      - name: Build Next.js static export
+        env:
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_FLASK_URL: ${{ secrets.NEXT_PUBLIC_FLASK_URL }}
+          NEXT_PUBLIC_BUILD_SERVICE_URL: ${{ secrets.NEXT_PUBLIC_BUILD_SERVICE_URL }}
+          NEXT_PUBLIC_REAL_TIME_URL: ${{ secrets.NEXT_PUBLIC_REAL_TIME_URL }}
+          NEXT_AUTH_URL: ${{ secrets.NEXT_AUTH_URL }}
+        run: npm run build
 
-</manifest>
-MANIFEST_EOF
+      - name: Debug - List out folder
+        run: |
+          echo "Contents of out folder:"
+          ls -la out/ || echo "out folder not found"
+
+      - name: Debug - Show Capacitor config
+        run: |
+          echo "=== capacitor.config.js ==="
+          cat capacitor.config.js || echo "File not found"
+          echo "=== capacitor.config.ts (if exists) ==="
+          cat capacitor.config.ts 2>/dev/null || echo "No .ts file"
+
+      - name: Init & Add Android (Stable JS Path)
+        run: |
+          # Initialize Capacitor (ignore if already initialized)
+          npx cap init "AI Meta Factory" "com.aimetafactory.app" --web-dir=out || true
+          # Force clean and add platform
+          rm -rf android
+          npx cap add android
+          # Sync web assets and plugins
+          npx cap sync android
+
+      - name: Inject V4 Native Engine (Full)
+        run: |
+          # Create package directory
+          mkdir -p android/app/src/main/java/com/aimetafactory/app
+
+          # Copy native files if they exist in backup
+          if [ -d "native-backups/android/com/aimetafactory/app" ]; then
+            cp -r native-backups/android/com/aimetafactory/app/* android/app/src/main/java/com/aimetafactory/app/
+          fi
+
+          # Write full AndroidManifest.xml with all permissions and service
+          cat > android/app/src/main/AndroidManifest.xml << 'MANIFEST_EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.aimetafactory.app">
+
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+              <application
+                  android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:label="@string/app_name"
+                  android:roundIcon="@mipmap/ic_launcher_round"
+                  android:supportsRtl="true"
+                  android:theme="@style/AppTheme">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+                      android:exported="true"
+                      android:label="@string/title_activity_main"
+                      android:launchMode="singleTop"
+                      android:theme="@style/AppTheme.NoActionBarLaunch">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+
+                  <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />
+              </application>
+
+          </manifest>
+          MANIFEST_EOF
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 21
+
+      - name: Build APK
+        working-directory: ./android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI-Meta-Factory-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
