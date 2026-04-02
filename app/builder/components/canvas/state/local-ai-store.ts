@@ -25,6 +25,15 @@ export interface LocalAIState {
   clearError: () => void;
   generate: (prompt: string, provider?: string, options?: any, onToken?: (token: string) => void) => Promise<string>;
   loadSessionModel: () => Promise<void>;
+  addLocalModel: (model: AIModel) => void;
+}
+
+declare global {
+  interface Window {
+    llama?: {
+      generate: (options: { prompt: string; modelPath: string }) => Promise<{ text: string }>;
+    };
+  }
 }
 
 export const useLocalAIStore = create<LocalAIState>((set, get) => ({
@@ -43,6 +52,12 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
     } catch (error) {
       console.error("Failed to fetch models", error);
     }
+  },
+
+  addLocalModel: (model: AIModel) => {
+    set((state) => ({
+      availableModels: [...state.availableModels, model],
+    }));
   },
 
   loadModel: async (modelId: string) => {
@@ -70,17 +85,32 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
 
   generate: async (prompt, provider = 'auto', options, onToken) => {
     const { currentModel } = get();
+    // If it's a local model with a localPath, use native plugin
+    if (currentModel?.localPath && window.llama) {
+      set({ isLoading: true, error: null });
+      try {
+        const result = await window.llama.generate({
+          prompt,
+          modelPath: currentModel.localPath,
+        });
+        return result.text;
+      } catch (err: any) {
+        set({ error: err.message });
+        return "";
+      } finally {
+        set({ isLoading: false });
+      }
+    }
+
+    // Otherwise fall back to remote API
     const modelId = currentModel?.id || 'tinyllama-1.1b';
     const currentRetry = options?._retryCount || 0;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), options?.timeout || 90000);
-
     set({ isLoading: true, error: null });
-
     const endpoint = onToken
       ? `${API_CONFIG.aiUrl}/ai/generate-stream`
       : `${API_CONFIG.aiUrl}/ai/generate`;
-
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -95,33 +125,26 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
           temperature: options?.temperature ?? 0.2,
         }),
       });
-
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
       if (onToken && response.body) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
         let fullContent = "";
-
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
           buffer = lines.pop() || "";
-
           for (const line of lines) {
             const cleanLine = line.trim();
             if (!cleanLine.startsWith('data: ')) continue;
             const rawData = cleanLine.replace('data: ', '');
-
             if (rawData === '[DONE]') {
               reader.cancel();
               return fullContent;
             }
-
             try {
               const parsed = JSON.parse(rawData);
               const token = parsed.token || parsed.content || "";
@@ -134,10 +157,8 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
         }
         return fullContent;
       }
-
       const data = await response.json();
       return data.result || data.text || '';
-
     } catch (err: any) {
       if (err.name === 'AbortError') {
         set({ error: "Request timed out." });

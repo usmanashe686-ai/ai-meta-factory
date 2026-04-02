@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { useModelStore } from '../stores/modelStore';
+import { useLocalAIStore } from '../../app/builder/components/canvas/state/local-ai-store';
 
 export const ModelImporter: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -8,10 +9,12 @@ export const ModelImporter: React.FC = () => {
   const [models, setModels] = useState<{ name: string; path: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { setSelectedModelUri, setSelectedModelName } = useModelStore();
+  const addLocalModel = useLocalAIStore(state => state.addLocalModel);
+  const loadModel = useLocalAIStore(state => state.loadModel);
 
   const listModels = async () => {
     try {
-      await Filesystem.mkdir({ path: 'models', directory: Directory.Data, recursive: true }).catch(() => {});
+      await Filesystem.mkdir({ path: 'models', directory: Directory.Data, recursive: true });
       const result = await Filesystem.readdir({ path: 'models', directory: Directory.Data });
       const ggufFiles = result.files.filter(f => f.name.endsWith('.gguf')).map(f => ({ name: f.name, path: `models/${f.name}` }));
       setModels(ggufFiles);
@@ -26,64 +29,50 @@ export const ModelImporter: React.FC = () => {
   const selectModel = (file: { name: string; path: string }) => {
     setSelectedModelUri(file.path);
     setSelectedModelName(file.name);
-    alert(`✅ Selected: ${file.name}`);
+    // Also add to the local AI store so it appears in the chat sidebar
+    const localModel = {
+      id: file.name,
+      name: file.name,
+      size: 'Local',
+      downloaded: true,
+      active: false,
+      type: 'llamacpp' as const,
+      tags: ['local'],
+      localPath: file.path, // relative to Directory.Data
+    };
+    addLocalModel(localModel);
+    loadModel(file.name);
+    alert(`✅ Model "${file.name}" is now available in the AI Chat.`);
   };
 
-  // Import file in chunks to avoid memory issues
-  const importFileChunked = async (file: File) => {
+  const importFile = async (file: File) => {
     setLoading(true);
     setMessage(`Importing ${file.name}...`);
     try {
       await Filesystem.mkdir({ path: 'models', directory: Directory.Data, recursive: true });
       const destPath = `models/${file.name}`;
-
-      // Delete existing file if present
       try {
         await Filesystem.deleteFile({ path: destPath, directory: Directory.Data });
-      } catch (e) { /* ignore if not exists */ }
-
-      const CHUNK_SIZE = 1024 * 1024; // 1 MB
-      let offset = 0;
-      let firstChunk = true;
-
-      while (offset < file.size) {
-        const chunk = file.slice(offset, offset + CHUNK_SIZE);
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            const base64Data = result.split(',')[1];
-            resolve(base64Data);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(chunk);
-        });
-
-        if (firstChunk) {
-          await Filesystem.writeFile({
-            path: destPath,
-            data: base64,
-            directory: Directory.Data,
-            recursive: false,
-          });
-          firstChunk = false;
-        } else {
-          // Append: read existing, concat, write back (inefficient but works for up to 2GB)
-          const existing = await Filesystem.readFile({ path: destPath, directory: Directory.Data });
-          const newData = existing.data + base64;
-          await Filesystem.writeFile({
-            path: destPath,
-            data: newData,
-            directory: Directory.Data,
-          });
-        }
-
-        offset += CHUNK_SIZE;
-        setMessage(`Importing... ${Math.round((offset / file.size) * 100)}%`);
-      }
-
+      } catch (e) {}
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      await Filesystem.writeFile({
+        path: destPath,
+        data: base64,
+        directory: Directory.Data,
+        recursive: false,
+      });
       setMessage(`✅ Imported ${file.name}`);
       await listModels();
+      // Automatically select after import
+      selectModel({ name: file.name, path: destPath });
     } catch (err: any) {
       console.error(err);
       setMessage(`❌ Import failed: ${err.message}`);
@@ -99,7 +88,7 @@ export const ModelImporter: React.FC = () => {
       alert('Please select a .gguf file');
       return;
     }
-    await importFileChunked(file);
+    await importFile(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -125,7 +114,7 @@ export const ModelImporter: React.FC = () => {
         📂 Import Model from Device
       </button>
       <p className="text-xs text-slate-400 mb-3">
-        Select a .gguf file (e.g., from Downloads). The app will import it in chunks – no memory issues.
+        Select a .gguf file (e.g., from Downloads). The app will copy it to internal storage.
       </p>
       <div className="border-t border-slate-700 pt-3">
         <div className="flex justify-between items-center mb-2">
