@@ -53,9 +53,9 @@ jobs:
           # Sync web assets and plugins
           npx cap sync android
 
-      - name: Inject Android Manifest (Community Plugin Compatible)
+      - name: Inject Android Manifest (Fixed Theme)
         run: |
-          # Write full AndroidManifest.xml with all required permissions
+          # Write full AndroidManifest.xml with correct theme and permissions
           cat > android/app/src/main/AndroidManifest.xml << 'MANIFEST_EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -74,7 +74,7 @@ jobs:
                   android:label="@string/app_name"
                   android:roundIcon="@mipmap/ic_launcher_round"
                   android:supportsRtl="true"
-                  android:theme="@style/AppTheme"
+                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
                   android:requestLegacyExternalStorage="true">
 
                   <activity
@@ -83,7 +83,7 @@ jobs:
                       android:exported="true"
                       android:label="@string/title_activity_main"
                       android:launchMode="singleTop"
-                      android:theme="@style/AppTheme.NoActionBarLaunch">
+                      android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
