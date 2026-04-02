@@ -50,12 +50,17 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Fix AndroidManifest (remove activity theme, add permissions/service)
+      - name: Fix AndroidManifest (remove activity theme, add permissions, fix duplicates)
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           # Remove the android:theme line from the activity
-          sed -i '/android:theme="[^"]*"/d' $MANIFEST
-          # Add permissions after the manifest tag
+          sed -i 's/android:theme="[^"]*"//g' $MANIFEST
+          sed -i "s/android:theme='[^']*'//g" $MANIFEST
+          # Remove duplicate INTERNET permission
+          sed -i '/<uses-permission android:name="android.permission.INTERNET"\/>/d' $MANIFEST
+          # Add INTERNET permission once
+          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
+          # Add other permissions if missing
           grep -q "FOREGROUND_SERVICE" $MANIFEST || \
             sed -i '/<manifest/a \    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
           # Add DownloadService if missing
