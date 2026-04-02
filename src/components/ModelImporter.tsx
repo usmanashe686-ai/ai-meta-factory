@@ -1,105 +1,51 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { useLocalAIStore } from '../../app/builder/components/canvas/state/local-ai-store';
 
 export const ModelImporter: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
   const [models, setModels] = useState<{ name: string; path: string }[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { addLocalModel, loadModel, setCurrentModel } = useLocalAIStore();
 
   const listModels = async () => {
+    setLoading(true);
     try {
       await Filesystem.mkdir({ path: 'models', directory: Directory.Data, recursive: true });
       const result = await Filesystem.readdir({ path: 'models', directory: Directory.Data });
       const ggufFiles = result.files.filter(f => f.name.endsWith('.gguf')).map(f => ({ name: f.name, path: `models/${f.name}` }));
       setModels(ggufFiles);
-      if (ggufFiles.length === 0) setMessage('No models imported yet.');
-      else setMessage(`${ggufFiles.length} model(s) available.`);
-    } catch (err: any) {
-      console.error(err);
-      setMessage(`Error: ${err.message}`);
-    }
-  };
-
-  const selectModel = (file: { name: string; path: string }) => {
-    const localModel = {
-      id: file.name,
-      name: file.name.replace('.gguf', ''),
-      size: 'Local',
-      downloaded: true,
-      active: true,
-      type: 'llamacpp' as const,
-      tags: ['local'],
-      localPath: file.path,
-    };
-    addLocalModel(localModel);
-    loadModel(file.name);
-    setCurrentModel(localModel);
-    alert(`✅ Model "${file.name}" is now available in the AI Chat.`);
-  };
-
-  const importFile = async (file: File) => {
-    setLoading(true);
-    setMessage(`Importing ${file.name}...`);
-    try {
-      // Ensure models directory exists
-      await Filesystem.mkdir({ path: 'models', directory: Directory.Data, recursive: true });
-      const destPath = `models/${file.name}`;
-
-      // Force clean path before writing
-      try {
-        await Filesystem.stat({ path: destPath, directory: Directory.Data });
-        // If exists → remove safely
-        try {
-          await Filesystem.deleteFile({ path: destPath, directory: Directory.Data });
-        } catch {
-          await Filesystem.rmdir({ path: destPath, directory: Directory.Data, recursive: true });
+      // Register any new models in the store
+      for (const file of ggufFiles) {
+        const exists = useLocalAIStore.getState().availableModels.some(m => m.id === file.name);
+        if (!exists) {
+          addLocalModel({
+            id: file.name,
+            name: file.name.replace('.gguf', ''),
+            size: 'Local',
+            downloaded: true,
+            active: false,
+            type: 'llamacpp',
+            tags: ['local'],
+            localPath: file.path,
+          });
         }
-      } catch {
-        // does not exist → OK
       }
-
-      // Read the selected file as base64
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      // ✅ Write with recursive: true (critical fix)
-      await Filesystem.writeFile({
-        path: destPath,
-        data: base64,
-        directory: Directory.Data,
-        recursive: true,
-      });
-
-      setMessage(`✅ Imported ${file.name}`);
-      await listModels();
-      selectModel({ name: file.name, path: destPath });
     } catch (err: any) {
       console.error(err);
-      setMessage(`❌ Import failed: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFilePick = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.name.endsWith('.gguf')) {
-      alert('Please select a .gguf file');
-      return;
+  const selectModel = (file: { name: string; path: string }) => {
+    const model = useLocalAIStore.getState().availableModels.find(m => m.id === file.name);
+    if (model) {
+      loadModel(model.id);
+      setCurrentModel(model);
+      alert(`✅ Model "${file.name}" selected.`);
+    } else {
+      alert(`Model not found in store.`);
     }
-    await importFile(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   useEffect(() => {
@@ -108,44 +54,30 @@ export const ModelImporter: React.FC = () => {
 
   return (
     <div className="mt-6 p-4 bg-slate-800/30 rounded-lg">
-      <h3 className="text-sm font-semibold text-indigo-300 mb-2">Model Management</h3>
-      <input
-        type="file"
-        ref={fileInputRef}
-        accept=".gguf"
-        onChange={handleFilePick}
-        style={{ display: 'none' }}
-      />
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        disabled={loading}
-        className="w-full bg-indigo-600 hover:bg-indigo-500 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50 mb-3"
-      >
-        📂 Import Model from Device
-      </button>
+      <h3 className="text-sm font-semibold text-indigo-300 mb-2">Available Models</h3>
       <p className="text-xs text-slate-400 mb-3">
-        Select a .gguf file (e.g., from Downloads). The app will copy it to internal storage.
+        Place your .gguf files in the folder:
+        <br />
+        <code className="text-[10px] break-all">/data/data/com.aimetafactory.app/files/models/</code>
+        <br />
+        Use a file manager to copy them there. Then tap Refresh.
       </p>
-      <div className="border-t border-slate-700 pt-3">
-        <div className="flex justify-between items-center mb-2">
-          <h4 className="text-xs font-semibold text-indigo-300">Available Models</h4>
-          <button onClick={listModels} className="text-xs text-indigo-400">Refresh</button>
-        </div>
-        {loading && <p className="text-xs text-slate-400">Processing...</p>}
-        {!loading && models.length === 0 && <p className="text-xs text-slate-500">{message}</p>}
-        <div className="space-y-2 max-h-48 overflow-y-auto">
-          {models.map(model => (
-            <div key={model.name} className="flex justify-between items-center bg-slate-700/50 p-2 rounded">
-              <div className="truncate text-xs text-slate-300">{model.name}</div>
-              <button
-                onClick={() => selectModel(model)}
-                className="bg-indigo-600 hover:bg-indigo-500 text-xs px-2 py-1 rounded"
-              >
-                Select
-              </button>
-            </div>
-          ))}
-        </div>
+      <div className="flex justify-between items-center mb-2">
+        <button onClick={listModels} className="text-xs bg-indigo-600 px-2 py-1 rounded">Refresh</button>
+        {loading && <span className="text-xs text-slate-400">Loading...</span>}
+      </div>
+      <div className="space-y-2 max-h-48 overflow-y-auto">
+        {models.map(model => (
+          <div key={model.name} className="flex justify-between items-center bg-slate-700/50 p-2 rounded">
+            <div className="truncate text-xs text-slate-300">{model.name}</div>
+            <button
+              onClick={() => selectModel(model)}
+              className="bg-indigo-600 hover:bg-indigo-500 text-xs px-2 py-1 rounded"
+            >
+              Select
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
