@@ -35,7 +35,13 @@ export const ModelImporter: React.FC = () => {
     try {
       await Filesystem.mkdir({ path: 'models', directory: Directory.Data, recursive: true });
       const destPath = `models/${file.name}`;
-      // Read the file as base64 (may be large but works for up to 500MB on many devices)
+      
+      // Delete any existing file/directory at destPath to avoid "already exists" error
+      try {
+        await Filesystem.rm({ path: destPath, directory: Directory.Data });
+      } catch (e) { /* ignore if not exists */ }
+      
+      // Read file as base64 (works for files up to ~500MB on modern devices)
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -46,11 +52,12 @@ export const ModelImporter: React.FC = () => {
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
+      
       await Filesystem.writeFile({
         path: destPath,
         data: base64,
         directory: Directory.Data,
-        recursive: true,
+        recursive: false,
       });
       setMessage(`✅ Imported ${file.name}`);
       await listModels();
