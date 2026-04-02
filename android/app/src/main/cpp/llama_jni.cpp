@@ -1,5 +1,6 @@
 #include <jni.h>
 #include <string>
+#include <vector>
 #include <android/log.h>
 #include "llama/llama.h"
 
@@ -30,24 +31,60 @@ Java_com_aimetafactory_app_LlamaBridge_runModel(
         env->ReleaseStringUTFChars(modelPath, model_path);
         env->ReleaseStringUTFChars(prompt, input);
         llama_backend_free();
-        return env->NewStringUTF("Failed to load model");
+        return env->NewStringUTF("Error: Failed to load model");
     }
 
     // Create context
     llama_context_params ctx_params = llama_context_default_params();
-    ctx_params.n_ctx = 512;
+    ctx_params.n_ctx = 512;      // context size
+    ctx_params.n_threads = 4;    // use 4 CPU threads
     llama_context *ctx = llama_new_context_with_model(model, ctx_params);
     if (!ctx) {
         llama_free_model(model);
         env->ReleaseStringUTFChars(modelPath, model_path);
         env->ReleaseStringUTFChars(prompt, input);
         llama_backend_free();
-        return env->NewStringUTF("Failed to create context");
+        return env->NewStringUTF("Error: Failed to create context");
     }
 
-    // Tokenize and run a single inference (stub for simplicity)
-    // For real generation, you would loop and decode tokens.
-    std::string result = "Model loaded and ready. Your prompt: " + std::string(input);
+    // Tokenize prompt
+    std::vector<llama_token> tokens;
+    int n_tokens = llama_tokenize(model, input, nullptr, 0, true, false);
+    tokens.resize(n_tokens);
+    llama_tokenize(model, input, tokens.data(), tokens.size(), true, false);
+
+    // Prepare for generation
+    const int max_tokens = 200;
+    std::string result;
+    std::vector<llama_token> generated_tokens = tokens;
+
+    // Feed prompt tokens
+    for (size_t i = 0; i < generated_tokens.size(); i++) {
+        if (llama_eval(ctx, &generated_tokens[i], 1, i, 0)) {
+            LOGD("llama_eval failed at token %zu", i);
+            break;
+        }
+    }
+
+    // Generate new tokens
+    for (int i = 0; i < max_tokens; i++) {
+        llama_token next_token = llama_sample_token_greedy(ctx, nullptr);
+        if (next_token == llama_token_eos(model)) {
+            break;
+        }
+        generated_tokens.push_back(next_token);
+        // Decode token to string (simple, but may need to accumulate)
+        char buf[128];
+        int n = llama_token_to_piece(model, next_token, buf, sizeof(buf), 0, false);
+        if (n > 0) {
+            result.append(buf, n);
+        }
+        // Evaluate the new token
+        if (llama_eval(ctx, &next_token, 1, generated_tokens.size() - 1, 0)) {
+            LOGD("llama_eval failed at generation step %d", i);
+            break;
+        }
+    }
 
     // Cleanup
     llama_free(ctx);
