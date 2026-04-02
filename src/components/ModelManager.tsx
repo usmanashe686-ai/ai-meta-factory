@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useModelEngine } from '../hooks/useModelEngine';
+import { useModelStore } from '../stores/modelStore';
 import { ModelImporter } from './ModelImporter';
 
 const RECOMMENDED_MODELS = [
@@ -11,9 +12,7 @@ const RECOMMENDED_MODELS = [
 
 export const ModelManager = () => {
   const { startDownload } = useModelEngine();
-  const [nickname, setNickname] = useState('');
-  const [url, setUrl] = useState('');
-  const [isDownloading, setIsDownloading] = useState(false);
+  const { nickname, url, isDownloading, setNickname, setUrl, setIsDownloading } = useModelStore();
 
   const handleDownload = async (nick: string, modelUrl: string) => {
     if (!nick || !modelUrl) return alert("Please enter both Name and URL");
