@@ -45,7 +45,7 @@
     "helmet": "^8.1.0",
     "jszip": "^3.10.1",
     "localforage": "^1.10.0",
-    "lodash": "^4.17.23",
+    "lodash": "^4.18.1",
     "lucide-react": "^0.564.0",
     "minio": "^8.0.6",
     "monaco-editor": "^0.55.1",
