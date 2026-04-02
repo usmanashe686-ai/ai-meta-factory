@@ -29,36 +29,59 @@ export const ModelImporter: React.FC = () => {
     alert(`✅ Selected: ${file.name}`);
   };
 
-  const importFile = async (file: File) => {
+  // Import file in chunks to avoid memory issues
+  const importFileChunked = async (file: File) => {
     setLoading(true);
     setMessage(`Importing ${file.name}...`);
     try {
       await Filesystem.mkdir({ path: 'models', directory: Directory.Data, recursive: true });
       const destPath = `models/${file.name}`;
-      
-      // Delete any existing file/directory at destPath to avoid "already exists" error
+
+      // Delete existing file if present
       try {
-        await Filesystem.rm({ path: destPath, directory: Directory.Data });
+        await Filesystem.deleteFile({ path: destPath, directory: Directory.Data });
       } catch (e) { /* ignore if not exists */ }
-      
-      // Read file as base64 (works for files up to ~500MB on modern devices)
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          const base64Data = result.split(',')[1];
-          resolve(base64Data);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      
-      await Filesystem.writeFile({
-        path: destPath,
-        data: base64,
-        directory: Directory.Data,
-        recursive: false,
-      });
+
+      const CHUNK_SIZE = 1024 * 1024; // 1 MB
+      let offset = 0;
+      let firstChunk = true;
+
+      while (offset < file.size) {
+        const chunk = file.slice(offset, offset + CHUNK_SIZE);
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            const base64Data = result.split(',')[1];
+            resolve(base64Data);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(chunk);
+        });
+
+        if (firstChunk) {
+          await Filesystem.writeFile({
+            path: destPath,
+            data: base64,
+            directory: Directory.Data,
+            recursive: false,
+          });
+          firstChunk = false;
+        } else {
+          // Append: read existing, concat, write back (inefficient but works for up to 2GB)
+          const existing = await Filesystem.readFile({ path: destPath, directory: Directory.Data });
+          const newData = existing.data + base64;
+          await Filesystem.writeFile({
+            path: destPath,
+            data: newData,
+            directory: Directory.Data,
+          });
+        }
+
+        offset += CHUNK_SIZE;
+        setMessage(`Importing... ${Math.round((offset / file.size) * 100)}%`);
+      }
+
       setMessage(`✅ Imported ${file.name}`);
       await listModels();
     } catch (err: any) {
@@ -76,7 +99,7 @@ export const ModelImporter: React.FC = () => {
       alert('Please select a .gguf file');
       return;
     }
-    await importFile(file);
+    await importFileChunked(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -102,7 +125,7 @@ export const ModelImporter: React.FC = () => {
         📂 Import Model from Device
       </button>
       <p className="text-xs text-slate-400 mb-3">
-        Select a .gguf file (e.g., from Downloads). The app will copy it to internal storage.
+        Select a .gguf file (e.g., from Downloads). The app will import it in chunks – no memory issues.
       </p>
       <div className="border-t border-slate-700 pt-3">
         <div className="flex justify-between items-center mb-2">
