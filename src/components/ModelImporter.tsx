@@ -44,15 +44,23 @@ export const ModelImporter: React.FC = () => {
     setLoading(true);
     setMessage(`Importing ${file.name}...`);
     try {
+      // Ensure models directory exists
       await Filesystem.mkdir({ path: 'models', directory: Directory.Data, recursive: true });
       const destPath = `models/${file.name}`;
-      // Delete any existing file or directory at destPath
+
+      // Force clean path before writing
       try {
-        await Filesystem.deleteFile({ path: destPath, directory: Directory.Data });
-      } catch (e) { /* ignore if not a file */ }
-      try {
-        await Filesystem.rmdir({ path: destPath, directory: Directory.Data });
-      } catch (e) { /* ignore if not a directory */ }
+        await Filesystem.stat({ path: destPath, directory: Directory.Data });
+        // If exists → remove safely
+        try {
+          await Filesystem.deleteFile({ path: destPath, directory: Directory.Data });
+        } catch {
+          await Filesystem.rmdir({ path: destPath, directory: Directory.Data, recursive: true });
+        }
+      } catch {
+        // does not exist → OK
+      }
+
       // Read the selected file as base64
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -63,13 +71,15 @@ export const ModelImporter: React.FC = () => {
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
-      // Write the file
+
+      // ✅ Write with recursive: true (critical fix)
       await Filesystem.writeFile({
         path: destPath,
         data: base64,
         directory: Directory.Data,
-        recursive: false,
+        recursive: true,
       });
+
       setMessage(`✅ Imported ${file.name}`);
       await listModels();
       selectModel({ name: file.name, path: destPath });
