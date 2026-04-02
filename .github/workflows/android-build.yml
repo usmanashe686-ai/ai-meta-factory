@@ -50,24 +50,8 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Write custom AndroidManifest and styles.xml
+      - name: Replace AndroidManifest with built‑in theme
         run: |
-          # Write styles.xml with the required theme
-          mkdir -p android/app/src/main/res/values
-          cat > android/app/src/main/res/values/styles.xml << 'STYLES_EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <style name="AppTheme" parent="@android:style/Theme.DeviceDefault">
-                  <item name="android:windowActionBar">false</item>
-                  <item name="android:windowNoTitle">true</item>
-              </style>
-              <style name="AppTheme.NoActionBarLaunch" parent="AppTheme">
-                  <item name="android:windowFullscreen">true</item>
-              </style>
-          </resources>
-          STYLES_EOF
-
-          # Write AndroidManifest.xml with permissions and service
           cat > android/app/src/main/AndroidManifest.xml << 'MANIFEST_EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -86,7 +70,7 @@ jobs:
                   android:label="@string/app_name"
                   android:roundIcon="@mipmap/ic_launcher_round"
                   android:supportsRtl="true"
-                  android:theme="@style/AppTheme"
+                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
                   android:requestLegacyExternalStorage="true">
 
                   <activity
@@ -95,7 +79,7 @@ jobs:
                       android:exported="true"
                       android:label="@string/title_activity_main"
                       android:launchMode="singleTop"
-                      android:theme="@style/AppTheme.NoActionBarLaunch">
+                      android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
