@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { useModelStore } from '../stores/modelStore';
 import { useLocalAIStore } from '../../app/builder/components/canvas/state/local-ai-store';
 
 export const ModelImporter: React.FC = () => {
@@ -8,9 +7,7 @@ export const ModelImporter: React.FC = () => {
   const [message, setMessage] = useState('');
   const [models, setModels] = useState<{ name: string; path: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { setSelectedModelUri, setSelectedModelName } = useModelStore();
-  const addLocalModel = useLocalAIStore(state => state.addLocalModel);
-  const loadModel = useLocalAIStore(state => state.loadModel);
+  const { addLocalModel, loadModel, setCurrentModel } = useLocalAIStore();
 
   const listModels = async () => {
     try {
@@ -27,21 +24,19 @@ export const ModelImporter: React.FC = () => {
   };
 
   const selectModel = (file: { name: string; path: string }) => {
-    setSelectedModelUri(file.path);
-    setSelectedModelName(file.name);
-    // Also add to the local AI store so it appears in the chat sidebar
     const localModel = {
       id: file.name,
-      name: file.name,
+      name: file.name.replace('.gguf', ''),
       size: 'Local',
       downloaded: true,
-      active: false,
+      active: true,
       type: 'llamacpp' as const,
       tags: ['local'],
-      localPath: file.path, // relative to Directory.Data
+      localPath: file.path,
     };
     addLocalModel(localModel);
     loadModel(file.name);
+    setCurrentModel(localModel);
     alert(`✅ Model "${file.name}" is now available in the AI Chat.`);
   };
 
@@ -51,9 +46,14 @@ export const ModelImporter: React.FC = () => {
     try {
       await Filesystem.mkdir({ path: 'models', directory: Directory.Data, recursive: true });
       const destPath = `models/${file.name}`;
+      // Delete any existing file or directory at destPath
       try {
         await Filesystem.deleteFile({ path: destPath, directory: Directory.Data });
-      } catch (e) {}
+      } catch (e) { /* ignore if not a file */ }
+      try {
+        await Filesystem.rmdir({ path: destPath, directory: Directory.Data });
+      } catch (e) { /* ignore if not a directory */ }
+      // Read the selected file as base64
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -63,6 +63,7 @@ export const ModelImporter: React.FC = () => {
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
+      // Write the file
       await Filesystem.writeFile({
         path: destPath,
         data: base64,
@@ -71,7 +72,6 @@ export const ModelImporter: React.FC = () => {
       });
       setMessage(`✅ Imported ${file.name}`);
       await listModels();
-      // Automatically select after import
       selectModel({ name: file.name, path: destPath });
     } catch (err: any) {
       console.error(err);
