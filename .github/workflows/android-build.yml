@@ -50,70 +50,19 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Setup llama.cpp native code
+      - name: Setup stub JNI bridge (no llama.cpp)
         run: |
-          mkdir -p android/app/src/main/cpp
-          cd android/app/src/main/cpp
-          git clone --depth 1 https://github.com/ggerganov/llama.cpp.git llama
-          cd ../../../../..
-          cat > android/app/src/main/cpp/CMakeLists.txt << 'CMAKEEOF'
-          cmake_minimum_required(VERSION 3.22)
-          project("llama")
-          set(CMAKE_CXX_STANDARD 17)
-          add_subdirectory(llama)
-          add_library(llama_jni SHARED llama_jni.cpp)
-          target_link_libraries(llama_jni llama log)
-          target_include_directories(llama_jni PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/llama)
-          CMAKEEOF
-          cat > android/app/src/main/cpp/llama_jni.cpp << 'JNICPP'
-          #include <jni.h>
-          #include <string>
-          #include <android/log.h>
-          #include "llama/llama.h"
-          #define LOG_TAG "LlamaJNI"
-          #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
-          extern "C" JNIEXPORT jstring JNICALL Java_com_aimetafactory_app_LlamaBridge_runModel(JNIEnv *env, jobject, jstring modelPath, jstring prompt) {
-              const char *model_path = env->GetStringUTFChars(modelPath, nullptr);
-              const char *input = env->GetStringUTFChars(prompt, nullptr);
-              LOGD("Model: %s, Prompt: %s", model_path, input);
-              llama_backend_init();
-              llama_model_params model_params = llama_model_default_params();
-              model_params.n_gpu_layers = 0;
-              llama_model *model = llama_load_model_from_file(model_path, model_params);
-              if (!model) {
-                  env->ReleaseStringUTFChars(modelPath, model_path);
-                  env->ReleaseStringUTFChars(prompt, input);
-                  llama_backend_free();
-                  return env->NewStringUTF("Failed to load model");
-              }
-              llama_context_params ctx_params = llama_context_default_params();
-              ctx_params.n_ctx = 512;
-              llama_context *ctx = llama_new_context_with_model(model, ctx_params);
-              if (!ctx) {
-                  llama_free_model(model);
-                  env->ReleaseStringUTFChars(modelPath, model_path);
-                  env->ReleaseStringUTFChars(prompt, input);
-                  llama_backend_free();
-                  return env->NewStringUTF("Failed to create context");
-              }
-              // Tokenize and run a single inference (stub for simplicity)
-              std::string result = "Model loaded and ready. Your prompt: " + std::string(input);
-              llama_free(ctx);
-              llama_free_model(model);
-              llama_backend_free();
-              env->ReleaseStringUTFChars(modelPath, model_path);
-              env->ReleaseStringUTFChars(prompt, input);
-              return env->NewStringUTF(result.c_str());
-          }
-          JNICPP
+          # Create Java bridge class
           mkdir -p android/app/src/main/java/com/aimetafactory/app
           cat > android/app/src/main/java/com/aimetafactory/app/LlamaBridge.java << 'JAVAEOF'
           package com.aimetafactory.app;
           public class LlamaBridge {
-              static { System.loadLibrary("llama_jni"); }
+              static { System.loadLibrary("llama"); }
               public static native String runModel(String modelPath, String prompt);
           }
           JAVAEOF
+
+          # Create MainActivity with JavaScript interface
           cat > android/app/src/main/java/com/aimetafactory/app/MainActivity.java << 'MAINACT'
           package com.aimetafactory.app;
           import android.os.Bundle;
@@ -129,11 +78,88 @@ jobs:
               }
           }
           MAINACT
-          BUILD_GRADLE="android/app/build.gradle"
-          sed -i 's/minSdkVersion [0-9]*/minSdkVersion 24/' $BUILD_GRADLE
-          if ! grep -q "externalNativeBuild" $BUILD_GRADLE; then
-            sed -i '/android {/a \    externalNativeBuild {\n        cmake {\n            path "src/main/cpp/CMakeLists.txt"\n        }\n    }\n    ndkVersion "26.3.11579264"' $BUILD_GRADLE
-          fi
+
+          # Create C++ stub
+          mkdir -p android/app/src/main/cpp
+          cat > android/app/src/main/cpp/CMakeLists.txt << 'CMAKEEOF'
+          cmake_minimum_required(VERSION 3.22)
+          project("llama")
+          set(CMAKE_CXX_STANDARD 17)
+          add_library(llama SHARED llama_jni.cpp)
+          find_library(log-lib log)
+          target_link_libraries(llama ${log-lib})
+          CMAKEEOF
+
+          cat > android/app/src/main/cpp/llama_jni.cpp << 'JNICPP'
+          #include <jni.h>
+          #include <string>
+          #include <android/log.h>
+          #define LOG_TAG "LlamaJNI"
+          #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+          extern "C" JNIEXPORT jstring JNICALL
+          Java_com_aimetafactory_app_LlamaBridge_runModel(JNIEnv *env, jobject, jstring modelPath, jstring prompt) {
+              const char *mp = env->GetStringUTFChars(modelPath, nullptr);
+              const char *pm = env->GetStringUTFChars(prompt, nullptr);
+              LOGD("Model: %s, Prompt: %s", mp, pm);
+              std::string res = "Stub response for: " + std::string(pm);
+              env->ReleaseStringUTFChars(modelPath, mp);
+              env->ReleaseStringUTFChars(prompt, pm);
+              return env->NewStringUTF(res.c_str());
+          }
+          JNICPP
+
+      - name: Write clean build.gradle (no sed damage)
+        run: |
+          cat > android/app/build.gradle << 'GRADLEEOF'
+          apply plugin: 'com.android.application'
+
+          android {
+              namespace "com.aimetafactory.app"
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId "com.aimetafactory.app"
+                  minSdkVersion 24
+                  targetSdkVersion 34
+                  versionCode 1
+                  versionName "1.0"
+
+                  testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+              }
+
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+
+              externalNativeBuild {
+                  cmake {
+                      path "src/main/cpp/CMakeLists.txt"
+                      version "3.22.1"
+                  }
+              }
+              ndkVersion "26.3.11579264"
+          }
+
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.7.0'
+              implementation 'com.google.android.material:material:1.12.0'
+              implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+              testImplementation 'junit:junit:4.13.2'
+              androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+              androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+              implementation project(':capacitor-android')
+          }
+
+          apply from: '../capacitor-cordova-android-plugins/cordova.variables.gradle'
+          apply from: '../capacitor-cordova-android-plugins/capacitor-cordova.gradle'
+          GRADLEEOF
 
       - name: Patch AndroidManifest (fix theme, add permissions, etc.)
         run: |
