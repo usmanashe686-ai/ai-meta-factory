@@ -36,34 +36,137 @@ jobs:
           echo "Contents of out folder:"
           ls -la out/ || echo "out folder not found"
 
-      - name: Debug - Show Capacitor config
+      - name: Init & Add Android
         run: |
-          echo "=== capacitor.config.js ==="
-          cat capacitor.config.js || echo "File not found"
-          echo "=== capacitor.config.ts (if exists) ==="
-          cat capacitor.config.ts 2>/dev/null || echo "No .ts file"
-
-      - name: Init & Add Android (Stable JS Path)
-        run: |
+          rm -f capacitor.config.json
           npx cap init "AI Meta Factory" "com.aimetafactory.app" --web-dir=out || true
           rm -rf android
           npx cap add android
           npx cap sync android
 
-      - name: Fix AndroidManifest (remove activity theme, add permissions, fix duplicates)
+      - name: Create DownloadPlugin stub
+        run: |
+          mkdir -p android/app/src/main/java/com/aimetafactory/app
+          cat > android/app/src/main/java/com/aimetafactory/app/DownloadPlugin.java << 'EOF'
+          package com.aimetafactory.app;
+          import com.getcapacitor.Plugin;
+          public class DownloadPlugin extends Plugin {}
+          EOF
+
+      - name: Setup stub JNI bridge (no llama.cpp)
+        run: |
+          mkdir -p android/app/src/main/java/com/aimetafactory/app
+          cat > android/app/src/main/java/com/aimetafactory/app/LlamaBridge.java << 'JAVAEOF'
+          package com.aimetafactory.app;
+          public class LlamaBridge {
+              static { System.loadLibrary("llama"); }
+              public static native String runModel(String modelPath, String prompt);
+          }
+          JAVAEOF
+
+          cat > android/app/src/main/java/com/aimetafactory/app/MainActivity.java << 'MAINACT'
+          package com.aimetafactory.app;
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+          import android.webkit.WebView;
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  registerPlugin(DownloadPlugin.class);
+                  WebView webView = getBridge().getWebView();
+                  webView.addJavascriptInterface(new LlamaBridge(), "LlamaBridge");
+              }
+          }
+          MAINACT
+
+          mkdir -p android/app/src/main/cpp
+          cat > android/app/src/main/cpp/CMakeLists.txt << 'CMAKEEOF'
+          cmake_minimum_required(VERSION 3.22)
+          project("llama")
+          set(CMAKE_CXX_STANDARD 17)
+          add_library(llama SHARED llama_jni.cpp)
+          find_library(log-lib log)
+          target_link_libraries(llama ${log-lib})
+          CMAKEEOF
+
+          cat > android/app/src/main/cpp/llama_jni.cpp << 'JNICPP'
+          #include <jni.h>
+          #include <string>
+          #include <android/log.h>
+          #define LOG_TAG "LlamaJNI"
+          #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+          extern "C" JNIEXPORT jstring JNICALL
+          Java_com_aimetafactory_app_LlamaBridge_runModel(JNIEnv *env, jobject, jstring modelPath, jstring prompt) {
+              const char *mp = env->GetStringUTFChars(modelPath, nullptr);
+              const char *pm = env->GetStringUTFChars(prompt, nullptr);
+              LOGD("Model: %s, Prompt: %s", mp, pm);
+              std::string res = "Stub response for: " + std::string(pm);
+              env->ReleaseStringUTFChars(modelPath, mp);
+              env->ReleaseStringUTFChars(prompt, pm);
+              return env->NewStringUTF(res.c_str());
+          }
+          JNICPP
+
+      - name: Write clean build.gradle (compileSdk 36)
+        run: |
+          cat > android/app/build.gradle << 'GRADLEEOF'
+          apply plugin: 'com.android.application'
+
+          android {
+              namespace "com.aimetafactory.app"
+              compileSdk 36
+
+              defaultConfig {
+                  applicationId "com.aimetafactory.app"
+                  minSdkVersion 24
+                  targetSdkVersion 36
+                  versionCode 1
+                  versionName "1.0"
+
+                  testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+              }
+
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+
+              externalNativeBuild {
+                  cmake {
+                      path "src/main/cpp/CMakeLists.txt"
+                      version "3.22.1"
+                  }
+              }
+              ndkVersion "26.3.11579264"
+          }
+
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.7.0'
+              implementation 'com.google.android.material:material:1.12.0'
+              implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+              testImplementation 'junit:junit:4.13.2'
+              androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+              androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+              implementation project(':capacitor-android')
+          }
+          GRADLEEOF
+
+      - name: Patch AndroidManifest (fix theme, add permissions)
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          # Remove the android:theme line from the activity
           sed -i 's/android:theme="[^"]*"//g' $MANIFEST
           sed -i "s/android:theme='[^']*'//g" $MANIFEST
-          # Remove duplicate INTERNET permission
           sed -i '/<uses-permission android:name="android.permission.INTERNET"\/>/d' $MANIFEST
-          # Add INTERNET permission once
           sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
-          # Add other permissions if missing
           grep -q "FOREGROUND_SERVICE" $MANIFEST || \
             sed -i '/<manifest/a \    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
-          # Add DownloadService if missing
           grep -q "DownloadService" $MANIFEST || \
             sed -i '/<\/application>/i \    <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />' $MANIFEST
 
