@@ -113,60 +113,35 @@ export default function Home() {
                 <Zap className="w-6 h-6 text-blue-600" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-3">Structured AI Pipeline</h3>
-              <p className="text-gray-600 mb-4">
-                Idea → Structure → Code. Our AI analyzes your prompt, creates a structured blueprint, then generates production-ready code.
-              </p>
+              <p className="text-gray-600 mb-4">Idea → Structure → Code. Our AI analyzes your prompt, creates a structured blueprint, then generates production-ready code.</p>
               <ul className="space-y-2">
-                <li className="flex items-center gap-2 text-sm">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                  <span>Multi-model AI analysis</span>
-                </li>
-                <li className="flex items-center gap-2 text-sm">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                  <span>TypeScript-first generation</span>
-                </li>
-                <li className="flex items-center gap-2 text-sm">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                  <span>Best practices enforcement</span>
-                </li>
+                <li className="flex items-center gap-2 text-sm"><div className="w-2 h-2 bg-blue-600 rounded-full"></div><span>Multi-model AI analysis</span></li>
+                <li className="flex items-center gap-2 text-sm"><div className="w-2 h-2 bg-blue-600 rounded-full"></div><span>TypeScript-first generation</span></li>
+                <li className="flex items-center gap-2 text-sm"><div className="w-2 h-2 bg-blue-600 rounded-full"></div><span>Best practices enforcement</span></li>
               </ul>
             </div>
-
             <div className="bg-white p-8 rounded-2xl shadow-lg border hover:shadow-xl transition-shadow">
               <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-6">
                 <Database className="w-6 h-6 text-green-600" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-3">Full-Stack Ready</h3>
-              <p className="text-gray-600 mb-4">
-                Support for Next.js, React, Flutter, Node.js, Python with database integration and deployment configuration.
-              </p>
+              <p className="text-gray-600 mb-4">Support for Next.js, React, Flutter, Node.js, Python with database integration and deployment configuration.</p>
               <div className="flex flex-wrap gap-2">
                 {['Next.js', 'React', 'Flutter', 'Node.js', 'Python', 'Supabase', 'Firebase', 'MongoDB'].map((tech) => (
-                  <span key={tech} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
-                    {tech}
-                  </span>
+                  <span key={tech} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">{tech}</span>
                 ))}
               </div>
             </div>
-
             <div className="bg-white p-8 rounded-2xl shadow-lg border hover:shadow-xl transition-shadow">
               <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-6">
                 <Cloud className="w-6 h-6 text-purple-600" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-3">One-Click Deployment</h3>
-              <p className="text-gray-600 mb-4">
-                Export to GitHub, deploy to Vercel/Netlify, or download as ZIP. Complete projects ready for production.
-              </p>
+              <p className="text-gray-600 mb-4">Export to GitHub, deploy to Vercel/Netlify, or download as ZIP. Complete projects ready for production.</p>
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-gray-100 rounded-lg">
-                  <GitBranch className="w-5 h-5 text-gray-700" />
-                </div>
-                <div className="p-3 bg-gray-100 rounded-lg">
-                  <Rocket className="w-5 h-5 text-gray-700" />
-                </div>
-                <div className="p-3 bg-gray-100 rounded-lg">
-                  <Shield className="w-5 h-5 text-gray-700" />
-                </div>
+                <div className="p-3 bg-gray-100 rounded-lg"><GitBranch className="w-5 h-5 text-gray-700" /></div>
+                <div className="p-3 bg-gray-100 rounded-lg"><Rocket className="w-5 h-5 text-gray-700" /></div>
+                <div className="p-3 bg-gray-100 rounded-lg"><Shield className="w-5 h-5 text-gray-700" /></div>
               </div>
             </div>
           </div>
@@ -200,36 +175,15 @@ export default function Home() {
       <div className="py-20 px-6 bg-gradient-to-r from-blue-600 to-purple-600">
         <div className="max-w-4xl mx-auto text-center text-white">
           <h2 className="text-3xl font-bold mb-6">Ready to Transform Your Development Workflow?</h2>
-          <p className="text-xl mb-8 opacity-90">
-            Join thousands of developers building faster with AI Meta Factory
-          </p>
+          <p className="text-xl mb-8 opacity-90">Join thousands of developers building faster with AI Meta Factory</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/builder"
-              className="px-8 py-4 bg-white text-blue-600 font-bold rounded-xl hover:bg-gray-100 transition-colors"
-            >
-              Start Building Free
-            </Link>
-            <Link
-              href="/docs"
-              className="px-8 py-4 bg-transparent border-2 border-white text-white font-bold rounded-xl hover:bg-white/10 transition-colors"
-            >
-              Schedule Demo
-            </Link>
+            <Link href="/builder" className="px-8 py-4 bg-white text-blue-600 font-bold rounded-xl hover:bg-gray-100 transition-colors">Start Building Free</Link>
+            <Link href="/docs" className="px-8 py-4 bg-transparent border-2 border-white text-white font-bold rounded-xl hover:bg-white/10 transition-colors">Schedule Demo</Link>
           </div>
           <div className="mt-12 grid grid-cols-3 gap-8 text-center">
-            <div>
-              <div className="text-3xl font-bold">10,000+</div>
-              <div className="text-blue-100">Components Generated</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold">2,000+</div>
-              <div className="text-blue-100">Projects Built</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold">99.9%</div>
-              <div className="text-blue-100">Uptime</div>
-            </div>
+            <div><div className="text-3xl font-bold">10,000+</div><div className="text-blue-100">Components Generated</div></div>
+            <div><div className="text-3xl font-bold">2,000+</div><div className="text-blue-100">Projects Built</div></div>
+            <div><div className="text-3xl font-bold">99.9%</div><div className="text-blue-100">Uptime</div></div>
           </div>
         </div>
       </div>
@@ -246,15 +200,14 @@ export default function Home() {
                 <span className="text-xl font-bold">AI Meta Factory</span>
               </div>
               <p className="text-gray-400">Full-Stack AI Development Platform</p>
-              
               <p className="text-gray-500 text-sm mt-2 text-center">
-  O Prophet ﷺ, mercy to the worlds so bright, <br/>
-  Your light guides hearts through darkest night. <br/>
-  Wisdom, love, and peace you bring, <br/>
-  In every soul, Your praises sing. <br/>
-  <span className="block mt-1">Powered by Sufi's World ❤ | Created & Developed by: Usman Ashebir & Umer Ashebir</span>
-</p>
-                <div className="flex items-center gap-2 mt-4">
+                O Prophet ﷺ, mercy to the worlds so bright,<br />
+                Your light guides hearts through darkest night.<br />
+                Wisdom, love, and peace you bring,<br />
+                In every soul, Your praises sing.<br />
+                <span className="block mt-1">Powered by Sufi's World ❤ | Created & Developed by: Usman Ashebir & Umer Ashebir</span>
+              </p>
+              <div className="flex items-center gap-2 mt-4">
                 <div className="px-3 py-1 bg-gray-800 rounded-full text-sm">▲ Vercel</div>
                 <div className="px-3 py-1 bg-gray-800 rounded-full text-sm">🚀 Production Ready</div>
               </div>
