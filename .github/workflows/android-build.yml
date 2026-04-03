@@ -36,23 +36,25 @@ jobs:
           echo "Contents of out folder:"
           ls -la out/ || echo "out folder not found"
 
-      - name: Debug - Show Capacitor config
+      - name: Init & Add Android
         run: |
-          echo "=== capacitor.config.js ==="
-          cat capacitor.config.js || echo "File not found"
-          echo "=== capacitor.config.ts (if exists) ==="
-          cat capacitor.config.ts 2>/dev/null || echo "No .ts file"
-
-      - name: Init & Add Android (Stable JS Path)
-        run: |
+          rm -f capacitor.config.json
           npx cap init "AI Meta Factory" "com.aimetafactory.app" --web-dir=out || true
           rm -rf android
           npx cap add android
           npx cap sync android
 
+      - name: Create DownloadPlugin stub
+        run: |
+          mkdir -p android/app/src/main/java/com/aimetafactory/app
+          cat > android/app/src/main/java/com/aimetafactory/app/DownloadPlugin.java << 'EOF'
+          package com.aimetafactory.app;
+          import com.getcapacitor.Plugin;
+          public class DownloadPlugin extends Plugin {}
+          EOF
+
       - name: Setup stub JNI bridge (no llama.cpp)
         run: |
-          # Create Java bridge class
           mkdir -p android/app/src/main/java/com/aimetafactory/app
           cat > android/app/src/main/java/com/aimetafactory/app/LlamaBridge.java << 'JAVAEOF'
           package com.aimetafactory.app;
@@ -62,7 +64,6 @@ jobs:
           }
           JAVAEOF
 
-          # Create MainActivity with JavaScript interface
           cat > android/app/src/main/java/com/aimetafactory/app/MainActivity.java << 'MAINACT'
           package com.aimetafactory.app;
           import android.os.Bundle;
@@ -79,7 +80,6 @@ jobs:
           }
           MAINACT
 
-          # Create C++ stub
           mkdir -p android/app/src/main/cpp
           cat > android/app/src/main/cpp/CMakeLists.txt << 'CMAKEEOF'
           cmake_minimum_required(VERSION 3.22)
@@ -108,7 +108,7 @@ jobs:
           }
           JNICPP
 
-      - name: Write clean build.gradle (no sed damage)
+      - name: Write clean build.gradle (no Cordova plugins)
         run: |
           cat > android/app/build.gradle << 'GRADLEEOF'
           apply plugin: 'com.android.application'
@@ -156,12 +156,9 @@ jobs:
               androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
               implementation project(':capacitor-android')
           }
-
-          apply from: '../capacitor-cordova-android-plugins/cordova.variables.gradle'
-          apply from: '../capacitor-cordova-android-plugins/capacitor-cordova.gradle'
           GRADLEEOF
 
-      - name: Patch AndroidManifest (fix theme, add permissions, etc.)
+      - name: Patch AndroidManifest (fix theme, add permissions)
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i 's/android:theme="[^"]*"//g' $MANIFEST
