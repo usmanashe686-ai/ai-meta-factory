@@ -50,20 +50,100 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Fix AndroidManifest (remove activity theme, add permissions, fix duplicates)
+      - name: Setup llama.cpp native code
+        run: |
+          mkdir -p android/app/src/main/cpp
+          cd android/app/src/main/cpp
+          git clone --depth 1 https://github.com/ggerganov/llama.cpp.git llama
+          cd ../../../../..
+          cat > android/app/src/main/cpp/CMakeLists.txt << 'CMAKEEOF'
+          cmake_minimum_required(VERSION 3.22)
+          project("llama")
+          set(CMAKE_CXX_STANDARD 17)
+          add_subdirectory(llama)
+          add_library(llama_jni SHARED llama_jni.cpp)
+          target_link_libraries(llama_jni llama log)
+          target_include_directories(llama_jni PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/llama)
+          CMAKEEOF
+          cat > android/app/src/main/cpp/llama_jni.cpp << 'JNICPP'
+          #include <jni.h>
+          #include <string>
+          #include <android/log.h>
+          #include "llama/llama.h"
+          #define LOG_TAG "LlamaJNI"
+          #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+          extern "C" JNIEXPORT jstring JNICALL Java_com_aimetafactory_app_LlamaBridge_runModel(JNIEnv *env, jobject, jstring modelPath, jstring prompt) {
+              const char *model_path = env->GetStringUTFChars(modelPath, nullptr);
+              const char *input = env->GetStringUTFChars(prompt, nullptr);
+              LOGD("Model: %s, Prompt: %s", model_path, input);
+              llama_backend_init();
+              llama_model_params model_params = llama_model_default_params();
+              model_params.n_gpu_layers = 0;
+              llama_model *model = llama_load_model_from_file(model_path, model_params);
+              if (!model) {
+                  env->ReleaseStringUTFChars(modelPath, model_path);
+                  env->ReleaseStringUTFChars(prompt, input);
+                  llama_backend_free();
+                  return env->NewStringUTF("Failed to load model");
+              }
+              llama_context_params ctx_params = llama_context_default_params();
+              ctx_params.n_ctx = 512;
+              llama_context *ctx = llama_new_context_with_model(model, ctx_params);
+              if (!ctx) {
+                  llama_free_model(model);
+                  env->ReleaseStringUTFChars(modelPath, model_path);
+                  env->ReleaseStringUTFChars(prompt, input);
+                  llama_backend_free();
+                  return env->NewStringUTF("Failed to create context");
+              }
+              // Tokenize and run a single inference (stub for simplicity)
+              std::string result = "Model loaded and ready. Your prompt: " + std::string(input);
+              llama_free(ctx);
+              llama_free_model(model);
+              llama_backend_free();
+              env->ReleaseStringUTFChars(modelPath, model_path);
+              env->ReleaseStringUTFChars(prompt, input);
+              return env->NewStringUTF(result.c_str());
+          }
+          JNICPP
+          mkdir -p android/app/src/main/java/com/aimetafactory/app
+          cat > android/app/src/main/java/com/aimetafactory/app/LlamaBridge.java << 'JAVAEOF'
+          package com.aimetafactory.app;
+          public class LlamaBridge {
+              static { System.loadLibrary("llama_jni"); }
+              public static native String runModel(String modelPath, String prompt);
+          }
+          JAVAEOF
+          cat > android/app/src/main/java/com/aimetafactory/app/MainActivity.java << 'MAINACT'
+          package com.aimetafactory.app;
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+          import android.webkit.WebView;
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  registerPlugin(DownloadPlugin.class);
+                  WebView webView = getBridge().getWebView();
+                  webView.addJavascriptInterface(new LlamaBridge(), "LlamaBridge");
+              }
+          }
+          MAINACT
+          BUILD_GRADLE="android/app/build.gradle"
+          sed -i 's/minSdkVersion [0-9]*/minSdkVersion 24/' $BUILD_GRADLE
+          if ! grep -q "externalNativeBuild" $BUILD_GRADLE; then
+            sed -i '/android {/a \    externalNativeBuild {\n        cmake {\n            path "src/main/cpp/CMakeLists.txt"\n        }\n    }\n    ndkVersion "26.3.11579264"' $BUILD_GRADLE
+          fi
+
+      - name: Patch AndroidManifest (fix theme, add permissions, etc.)
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          # Remove the android:theme line from the activity
           sed -i 's/android:theme="[^"]*"//g' $MANIFEST
           sed -i "s/android:theme='[^']*'//g" $MANIFEST
-          # Remove duplicate INTERNET permission
           sed -i '/<uses-permission android:name="android.permission.INTERNET"\/>/d' $MANIFEST
-          # Add INTERNET permission once
           sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
-          # Add other permissions if missing
           grep -q "FOREGROUND_SERVICE" $MANIFEST || \
             sed -i '/<manifest/a \    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
-          # Add DownloadService if missing
           grep -q "DownloadService" $MANIFEST || \
             sed -i '/<\/application>/i \    <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />' $MANIFEST
 

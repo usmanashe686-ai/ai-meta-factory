@@ -26,13 +26,12 @@ export interface LocalAIState {
   generate: (prompt: string, provider?: string, options?: any, onToken?: (token: string) => void) => Promise<string>;
   loadSessionModel: () => Promise<void>;
   addLocalModel: (model: AIModel) => void;
+  generateLocal: (prompt: string, onToken?: (token: string) => void) => Promise<string>;
 }
 
 declare global {
   interface Window {
-    llama?: {
-      generate: (options: { prompt: string; modelPath: string }) => Promise<{ text: string }>;
-    };
+    llama?: { generate: (options: { prompt: string; modelPath: string }) => Promise<{ text: string }> };
   }
 }
 
@@ -55,9 +54,10 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
   },
 
   addLocalModel: (model: AIModel) => {
-    set((state) => ({
-      availableModels: [...state.availableModels, model],
-    }));
+    const exists = get().availableModels.some(m => m.id === model.id);
+    if (!exists) {
+      set(state => ({ availableModels: [...state.availableModels, { ...model, downloaded: true, active: false }] }));
+    }
   },
 
   loadModel: async (modelId: string) => {
@@ -69,11 +69,8 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
   },
 
   setCurrentModel: (model) => {
-    if (model) {
-      get().loadModel(model.id);
-    } else {
-      get().unloadModel();
-    }
+    if (model) get().loadModel(model.id);
+    else get().unloadModel();
   },
 
   unloadModel: async () => {
@@ -83,54 +80,36 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 
-  generate: async (prompt, provider = 'auto', options, onToken) => {
+  generateLocal: async (prompt: string, onToken?: (token: string) => void) => {
     const { currentModel } = get();
-    // If it's a local model with a localPath, use native plugin
-    if (currentModel?.localPath && window.llama) {
-      set({ isLoading: true, error: null });
-      try {
-        const result = await window.llama.generate({
-          prompt,
-          modelPath: currentModel.localPath,
-        });
-        return result.text;
-      } catch (err: any) {
-        set({ error: err.message });
-        return "";
-      } finally {
-        set({ isLoading: false });
-      }
-    }
+    if (!currentModel?.localPath) throw new Error('No local model selected');
+    const { localEngine } = await import('../ai-local/LlamaWASMEngine');
+    await localEngine.loadModel(currentModel.localPath);
+    return localEngine.generateStream(prompt, onToken || (() => {}), { maxTokens: 500, temperature: 0.7 });
+  },
 
-    // Otherwise fall back to remote API
+  generate: async (prompt, provider = 'auto', options, onToken) => {
+    const { currentModel, generateLocal } = get();
+    if (currentModel && currentModel.type === 'llamacpp') {
+      return generateLocal(prompt, onToken);
+    }
+    // Fallback to remote API (unchanged)
     const modelId = currentModel?.id || 'tinyllama-1.1b';
     const currentRetry = options?._retryCount || 0;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), options?.timeout || 90000);
     set({ isLoading: true, error: null });
-    const endpoint = onToken
-      ? `${API_CONFIG.aiUrl}/ai/generate-stream`
-      : `${API_CONFIG.aiUrl}/ai/generate`;
+    const endpoint = onToken ? `${API_CONFIG.aiUrl}/ai/generate-stream` : `${API_CONFIG.aiUrl}/ai/generate`;
     try {
       const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          prompt,
-          model: modelId,
-          provider,
-          stream: !!onToken,
-          max_tokens: options?.max_tokens || 2000,
-          temperature: options?.temperature ?? 0.2,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
+        body: JSON.stringify({ prompt, model: modelId, provider, stream: !!onToken, max_tokens: options?.max_tokens || 2000, temperature: options?.temperature ?? 0.2 }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       if (onToken && response.body) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let buffer = "";
-        let fullContent = "";
+        let buffer = "", full = "";
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -138,35 +117,26 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
           const lines = buffer.split('\n');
           buffer = lines.pop() || "";
           for (const line of lines) {
-            const cleanLine = line.trim();
-            if (!cleanLine.startsWith('data: ')) continue;
-            const rawData = cleanLine.replace('data: ', '');
-            if (rawData === '[DONE]') {
-              reader.cancel();
-              return fullContent;
-            }
+            const clean = line.trim();
+            if (!clean.startsWith('data: ')) continue;
+            const raw = clean.replace('data: ', '');
+            if (raw === '[DONE]') { reader.cancel(); return full; }
             try {
-              const parsed = JSON.parse(rawData);
+              const parsed = JSON.parse(raw);
               const token = parsed.token || parsed.content || "";
-              fullContent += token;
+              full += token;
               onToken(token);
-            } catch (e) {
-              console.warn("SSE Parse Error", e);
-            }
+            } catch (e) {}
           }
         }
-        return fullContent;
+        return full;
       }
       const data = await response.json();
       return data.result || data.text || '';
     } catch (err: any) {
-      if (err.name === 'AbortError') {
-        set({ error: "Request timed out." });
-      } else if (onToken && currentRetry < 1) {
-        return await get().generate(prompt, provider, { ...options, _retryCount: currentRetry + 1 });
-      } else {
-        set({ error: err.message });
-      }
+      if (err.name === 'AbortError') set({ error: "Request timed out." });
+      else if (onToken && currentRetry < 1) return get().generate(prompt, provider, { ...options, _retryCount: currentRetry + 1 }, onToken);
+      else set({ error: err.message });
       return "";
     } finally {
       clearTimeout(timeout);
