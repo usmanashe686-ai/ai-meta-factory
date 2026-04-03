@@ -1,6 +1,5 @@
 import { Filesystem, Directory } from '@capacitor/filesystem';
-// @ts-ignore
-import { Llama } from 'llama.rn';
+import { Llama } from '@huggingface/llama-wasm';
 
 export class LlamaWASMEngine {
   private model: any = null;
@@ -12,7 +11,7 @@ export class LlamaWASMEngine {
     const binary = atob(result.data as string);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    this.model = new Llama(bytes, { numThreads: 4, gpu: false, embedding: false });
+    this.model = new Llama(bytes, { numThreads: 4, gpu: false });
     await this.model.load();
     this.modelPath = modelPath;
   }
