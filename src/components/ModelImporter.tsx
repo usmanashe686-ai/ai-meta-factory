@@ -5,33 +5,41 @@ import { useLocalAIStore } from '../../app/builder/components/canvas/state/local
 export const ModelImporter: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [models, setModels] = useState<{ name: string; path: string }[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const { addLocalModel, loadModel, setCurrentModel } = useLocalAIStore();
 
   const listModels = async () => {
     setLoading(true);
+    setError(null);
     try {
+      // Ensure models directory exists
       await Filesystem.mkdir({ path: 'models', directory: Directory.Data, recursive: true });
       const result = await Filesystem.readdir({ path: 'models', directory: Directory.Data });
+      console.log('readdir result:', result);
       const ggufFiles = result.files.filter(f => f.name.endsWith('.gguf')).map(f => ({ name: f.name, path: `models/${f.name}` }));
       setModels(ggufFiles);
-      // Register any new models in the store
-      for (const file of ggufFiles) {
-        const exists = useLocalAIStore.getState().availableModels.some(m => m.id === file.name);
-        if (!exists) {
-          addLocalModel({
-            id: file.name,
-            name: file.name.replace('.gguf', ''),
-            size: 'Local',
-            downloaded: true,
-            active: false,
-            type: 'llamacpp',
-            tags: ['local'],
-            localPath: file.path,
-          });
+      if (ggufFiles.length === 0) {
+        setError('No .gguf files found. Place your model in the folder above.');
+      } else {
+        for (const file of ggufFiles) {
+          const exists = useLocalAIStore.getState().availableModels.some(m => m.id === file.name);
+          if (!exists) {
+            addLocalModel({
+              id: file.name,
+              name: file.name.replace('.gguf', ''),
+              size: 'Local',
+              downloaded: true,
+              active: false,
+              type: 'llamacpp',
+              tags: ['local'],
+              localPath: file.path,
+            });
+          }
         }
       }
     } catch (err: any) {
       console.error(err);
+      setError(`Error reading models: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -66,6 +74,7 @@ export const ModelImporter: React.FC = () => {
         <button onClick={listModels} className="text-xs bg-indigo-600 px-2 py-1 rounded">Refresh</button>
         {loading && <span className="text-xs text-slate-400">Loading...</span>}
       </div>
+      {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
       <div className="space-y-2 max-h-48 overflow-y-auto">
         {models.map(model => (
           <div key={model.name} className="flex justify-between items-center bg-slate-700/50 p-2 rounded">
