@@ -108,19 +108,19 @@ jobs:
           }
           JNICPP
 
-      - name: Write clean build.gradle (no Cordova plugins)
+      - name: Write clean build.gradle (compileSdk 36)
         run: |
           cat > android/app/build.gradle << 'GRADLEEOF'
           apply plugin: 'com.android.application'
 
           android {
               namespace "com.aimetafactory.app"
-              compileSdk 34
+              compileSdk 36
 
               defaultConfig {
                   applicationId "com.aimetafactory.app"
                   minSdkVersion 24
-                  targetSdkVersion 34
+                  targetSdkVersion 36
                   versionCode 1
                   versionName "1.0"
 
