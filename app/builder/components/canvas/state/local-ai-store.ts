@@ -83,7 +83,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
   generateLocal: async (prompt: string, onToken?: (token: string) => void) => {
     const { currentModel } = get();
     if (!currentModel?.localPath) throw new Error('No local model selected');
-    const { localEngine } = await import('../ai-local/LlamaWASMEngine');
+    const { localEngine } = await import('../ai-local/LlamaNativeEngine');
     await localEngine.loadModel(currentModel.localPath);
     return localEngine.generateStream(prompt, onToken || (() => {}), { maxTokens: 500, temperature: 0.7 });
   },
