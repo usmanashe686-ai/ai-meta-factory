@@ -1,137 +1,166 @@
 #include <jni.h>
 #include <string>
 #include <vector>
-#include <unordered_map>
-#include <mutex>
 #include <algorithm>
-#include <cmath>
-#include <cstdlib>
-#include <ctime>
+#include <random>
+#include <chrono>
 #include <llama.h>
 
-static std::unordered_map<std::string, llama_model*> g_models;
-static std::unordered_map<std::string, llama_context*> g_contexts;
-static std::mutex g_mutex;
+// Global caches (model + context) – vocab is owned by model, do NOT free
+static struct {
+    llama_model* model = nullptr;
+    llama_context* ctx = nullptr;
+    const llama_vocab* vocab = nullptr;   // const, owned by model
+    std::string last_path;
+} g_state;
 
-static llama_context* get_context(const std::string& model_path) {
-    std::lock_guard<std::mutex> lock(g_mutex);
-    auto it = g_contexts.find(model_path);
-    if (it != g_contexts.end()) return it->second;
-    
+static std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
+
+// Helper: ensure model & context are loaded for a given path
+static bool ensure_model(const std::string& model_path) {
+    if (g_state.last_path == model_path && g_state.model && g_state.ctx && g_state.vocab) {
+        return true;
+    }
+    // Clean up old (free only model and context, NOT vocab)
+    if (g_state.ctx) {
+        llama_free(g_state.ctx);
+        g_state.ctx = nullptr;
+    }
+    if (g_state.model) {
+        llama_model_free(g_state.model);
+        g_state.model = nullptr;
+    }
+    g_state.vocab = nullptr;
+    g_state.last_path.clear();
+
+    // Load model
     llama_model_params model_params = llama_model_default_params();
-    model_params.n_gpu_layers = 99;
-    llama_model* model = llama_load_model_from_file(model_path.c_str(), model_params);
-    if (!model) return nullptr;
-    
+    model_params.n_gpu_layers = 0;  // CPU only for now
+    g_state.model = llama_load_model_from_file(model_path.c_str(), model_params);
+    if (!g_state.model) return false;
+
+    // Get vocab (const, owned by model)
+    g_state.vocab = llama_model_get_vocab(g_state.model);
+    if (!g_state.vocab) return false;
+
+    // Create context
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.n_ctx = 2048;
-    ctx_params.n_batch = 512;
     ctx_params.n_threads = 4;
     ctx_params.n_threads_batch = 4;
-    llama_context* ctx = llama_new_context_with_model(model, ctx_params);
-    if (!ctx) { llama_free_model(model); return nullptr; }
-    
-    g_models[model_path] = model;
-    g_contexts[model_path] = ctx;
-    return ctx;
+    g_state.ctx = llama_new_context_with_model(g_state.model, ctx_params);
+    if (!g_state.ctx) return false;
+
+    g_state.last_path = model_path;
+    return true;
 }
 
-struct GenerationParams {
-    int32_t n_predict = 256;
-    float temperature = 0.7f;
-    float top_p = 0.95f;
-    int32_t top_k = 40;
-};
-
-static float frand() { return (float)rand() / RAND_MAX; }
-
-static llama_token sample_token(llama_context* ctx, const float* logits, const GenerationParams& params) {
-    const int n_vocab = llama_n_vocab(llama_get_model(ctx));
+// Sample a token from logits (top-p / temperature)
+static llama_token sample_token(const float* logits, int n_vocab, float temp, float top_p) {
     std::vector<std::pair<float, llama_token>> candidates;
     candidates.reserve(n_vocab);
-    for (llama_token id = 0; id < n_vocab; id++) candidates.emplace_back(logits[id], id);
-    
-    if (params.temperature > 0) {
-        for (auto& p : candidates) p.first = expf(p.first / params.temperature);
+    for (llama_token id = 0; id < n_vocab; ++id) {
+        candidates.emplace_back(logits[id], id);
     }
-    std::sort(candidates.begin(), candidates.end(), [](auto& a, auto& b) { return a.first > b.first; });
-    if (params.top_k > 0 && params.top_k < (int)candidates.size()) candidates.resize(params.top_k);
-    
-    if (params.top_p < 1.0f) {
+    // Apply temperature
+    if (temp > 0) {
+        for (auto& p : candidates) p.first = std::exp(p.first / temp);
+    }
+    // Sort descending by probability
+    std::sort(candidates.begin(), candidates.end(),
+              [](const auto& a, const auto& b) { return a.first > b.first; });
+    // Top-p (nucleus) sampling
+    if (top_p < 1.0f && top_p > 0.0f) {
         float total = 0.0f;
-        for (auto& p : candidates) total += p.first;
-        float cum = 0.0f, cutoff = params.top_p * total;
+        for (const auto& p : candidates) total += p.first;
+        float cum = 0.0f;
+        float cutoff = top_p * total;
         size_t last = candidates.size();
-        for (size_t i = 0; i < candidates.size(); i++) {
+        for (size_t i = 0; i < candidates.size(); ++i) {
             cum += candidates[i].first;
-            if (cum >= cutoff) { last = i + 1; break; }
+            if (cum >= cutoff) {
+                last = i + 1;
+                break;
+            }
         }
         if (last < candidates.size()) candidates.resize(last);
     }
-    
+    // Sample
     float total = 0.0f;
-    for (auto& p : candidates) total += p.first;
-    float r = frand() * total;
+    for (const auto& p : candidates) total += p.first;
+    float r = std::uniform_real_distribution<float>(0, total)(rng);
     float cum = 0.0f;
-    for (auto& p : candidates) {
+    for (const auto& p : candidates) {
         cum += p.first;
         if (cum >= r) return p.second;
     }
     return candidates.empty() ? 0 : candidates[0].second;
 }
 
-static std::string generate_text(const std::string& model_path, const std::string& prompt, const GenerationParams& params) {
-    llama_context* ctx = get_context(model_path);
-    if (!ctx) return "Error: Failed to load model";
-    llama_model* model = llama_get_model(ctx);
-    
-    std::vector<llama_token> tokens(prompt.length() + 1);
-    int n_tokens = llama_tokenize(model, prompt.c_str(), prompt.length(), tokens.data(), tokens.size(), true, false);
-    if (n_tokens < 0) {
-        tokens.resize(-n_tokens);
-        n_tokens = llama_tokenize(model, prompt.c_str(), prompt.length(), tokens.data(), tokens.size(), true, false);
+// Generate text from prompt
+static std::string generate_text(const std::string& model_path, const std::string& prompt,
+                                 int max_tokens = 256, float temp = 0.7f, float top_p = 0.95f) {
+    if (!ensure_model(model_path)) {
+        return "Error: Failed to load model";
     }
+
+    // Tokenize prompt
+    std::vector<llama_token> tokens;
+    int n_tokens = llama_tokenize(g_state.vocab, prompt.c_str(), prompt.length(), nullptr, 0, true, false);
+    if (n_tokens < 0) return "Error: Tokenization failed";
     tokens.resize(n_tokens);
-    
-    std::vector<llama_token> embd = tokens;
+    n_tokens = llama_tokenize(g_state.vocab, prompt.c_str(), prompt.length(), tokens.data(), tokens.size(), true, false);
+    tokens.resize(n_tokens);
+
+    // Prepare batch (start with prompt)
+    std::vector<llama_token> generated = tokens;
     std::string result;
-    int n_consumed = 0;
-    const int n_ctx = llama_n_ctx(ctx);
-    
-    for (int i = 0; i < params.n_predict; i++) {
-        if ((int)embd.size() > n_consumed) {
-            int n_eval = embd.size() - n_consumed;
-            if (llama_decode(ctx, llama_batch_get_one(embd.data() + n_consumed, n_eval, 0, 0)))
-                return result + " [error]";
-            n_consumed = embd.size();
+
+    // Evaluate prompt tokens
+    for (size_t i = 0; i < generated.size(); ++i) {
+        llama_batch batch = llama_batch_get_one(&generated[i], 1);
+        if (llama_decode(g_state.ctx, batch)) {
+            return "Error: llama_decode failed at prompt";
         }
-        const float* logits = llama_get_logits(ctx);
-        if (!logits) return result + " [no logits]";
-        logits += (embd.size() - 1) * llama_n_vocab(model);
-        
-        llama_token token = sample_token(ctx, logits, params);
-        if (token == llama_token_eos(model)) break;
-        
-        char buf[128];
-        int n = llama_token_to_piece(model, token, buf, sizeof(buf), 0, false);
-        if (n > 0) result.append(buf, n);
-        embd.push_back(token);
-        if ((int)embd.size() > n_ctx - 10) break;
     }
-    return result;
+
+    const int n_vocab = llama_vocab_n_tokens(g_state.vocab);
+    const llama_token eos = llama_vocab_eos(g_state.vocab);
+
+    // Generate new tokens
+    for (int i = 0; i < max_tokens; ++i) {
+        const float* logits = llama_get_logits(g_state.ctx);
+        if (!logits) break;
+        // Use the correct number of tokens in context for logits offset
+        int n_tokens_ctx = llama_get_n_tokens(g_state.ctx);
+        logits += (n_tokens_ctx - 1) * n_vocab; // last token's logits
+
+        llama_token token = sample_token(logits, n_vocab, temp, top_p);
+        if (token == eos) break;
+
+        // Convert token to piece
+        std::vector<char> piece(128);
+        int n = llama_token_to_piece(g_state.vocab, token, piece.data(), piece.size(), 0, false);
+        if (n > 0) result.append(piece.data(), n);
+
+        generated.push_back(token);
+        llama_batch batch = llama_batch_get_one(&token, 1);
+        if (llama_decode(g_state.ctx, batch)) break;
+    }
+
+    return result.empty() ? "[no output]" : result;
 }
 
+// JNI entry point
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_aimetafactory_llama_LlamaNative_generate(JNIEnv* env, jobject, jstring jprompt, jstring jmodelPath) {
+Java_com_aimetafactory_llama_LlamaNative_generate(JNIEnv* env, jobject /* this */, jstring jprompt, jstring jmodelPath) {
     const char* prompt_cstr = env->GetStringUTFChars(jprompt, nullptr);
     const char* model_path = env->GetStringUTFChars(jmodelPath, nullptr);
-    srand(time(nullptr));
-    GenerationParams params;
-    params.n_predict = 512;
-    params.temperature = 0.7f;
-    params.top_p = 0.95f;
-    std::string result = generate_text(model_path, prompt_cstr, params);
+
+    std::string result = generate_text(model_path, prompt_cstr, 256, 0.7f, 0.95f);
+
     env->ReleaseStringUTFChars(jprompt, prompt_cstr);
     env->ReleaseStringUTFChars(jmodelPath, model_path);
+
     return env->NewStringUTF(result.c_str());
 }
