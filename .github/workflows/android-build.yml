@@ -38,6 +38,7 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      # Force ARM64 ABI (global property)
       - name: Force ARM64 ABI
         run: echo "android.defaultConfig.ndk.abiFilters=arm64-v8a" >> android/gradle.properties
 
@@ -76,12 +77,15 @@ jobs:
         working-directory: ./android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug -Pandroid.injected.build.abi=arm64-v8a
+          ./gradlew clean
+          ./gradlew assembleDebug --no-daemon
 
-      - name: List output APKs (debug)
+      - name: Find APK (debug)
         run: |
-          echo "Looking for APK files..."
-          find android -name "*.apk" -type f
+          echo "=== APK SEARCH ==="
+          find android -type f -name "*.apk"
+          echo "=== OUTPUT FOLDERS ==="
+          ls -R android/app/build/outputs || true
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -89,5 +93,5 @@ jobs:
           name: AI-Meta-Factory-APK
           path: |
             android/app/build/outputs/apk/debug/*.apk
-            android/app/build/outputs/apk/*/*.apk
-          if-no-files-found: warn
+            android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
