@@ -7,6 +7,7 @@ export const ModelImporter: React.FC = () => {
   const [models, setModels] = useState<{ name: string; path: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
   const [manualFileName, setManualFileName] = useState('');
   const [debugInfo, setDebugInfo] = useState('');
   const { addLocalModel, loadModel, setCurrentModel } = useLocalAIStore();
@@ -33,7 +34,7 @@ export const ModelImporter: React.FC = () => {
       }));
       setModels(ggufFiles);
       if (ggufFiles.length === 0) {
-        setError('No .gguf files found via readdir. Use "List Dir" to see what Capacitor sees, or use manual file entry below.');
+        setError('No .gguf files found. Use "Import Model" to add one.');
       } else {
         for (const file of ggufFiles) {
           const exists = useLocalAIStore.getState().availableModels.some(m => m.id === file.name);
@@ -60,16 +61,88 @@ export const ModelImporter: React.FC = () => {
     }
   };
 
-  const listDirectoryRaw = async () => {
+  // Chunked file copy – reads file in 1MB slices, writes with appendFile
+  const importModelChunked = async (file: File) => {
+    const CHUNK_SIZE = 1024 * 1024; // 1 MB
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    setImportProgress(0);
+    setImporting(true);
+    setError(null);
+
+    const fileName = file.name;
+    const internalPath = `models/${fileName}`;
+
     try {
       await ensureModelsDir();
-      const result = await Filesystem.readdir({ path: 'models', directory: Directory.Data });
-      const fileNames = result.files.map(f => f.name).join('\n') || '(empty)';
-      alert(`Files in models folder:\n${fileNames}`);
-      setDebugInfo(`Raw readdir: ${result.files.length} files`);
+      // Delete existing file if any
+      try {
+        await Filesystem.deleteFile({ path: internalPath, directory: Directory.Data });
+      } catch (e) { /* ignore */ }
+
+      let offset = 0;
+      let chunkIndex = 0;
+
+      while (offset < file.size) {
+        const chunk = file.slice(offset, offset + CHUNK_SIZE);
+        const base64Chunk = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            // Remove the data URL prefix (e.g., "data:application/octet-stream;base64,")
+            const base64 = result.split(',')[1];
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(chunk);
+        });
+
+        if (chunkIndex === 0) {
+          await Filesystem.writeFile({
+            path: internalPath,
+            data: base64Chunk,
+            directory: Directory.Data,
+            recursive: true,
+          });
+        } else {
+          await Filesystem.appendFile({
+            path: internalPath,
+            data: base64Chunk,
+            directory: Directory.Data,
+          });
+        }
+
+        offset += CHUNK_SIZE;
+        chunkIndex++;
+        setImportProgress(Math.floor((offset / file.size) * 100));
+      }
+
+      await listModels();
+      alert(`✅ Model "${fileName}" imported successfully! (${(file.size / (1024*1024)).toFixed(1)} MB)`);
     } catch (err: any) {
-      alert(`Error: ${err.message}`);
+      console.error(err);
+      setError(`Import failed: ${err.message}`);
+      alert(`Import failed: ${err.message}`);
+    } finally {
+      setImporting(false);
+      setImportProgress(0);
     }
+  };
+
+  const importModel = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.gguf,application/octet-stream';
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
+      if (!file) return;
+      if (!file.name.endsWith('.gguf')) {
+        alert('Please select a .gguf file');
+        return;
+      }
+      await importModelChunked(file);
+    };
+    input.click();
   };
 
   const selectModelByName = async () => {
@@ -109,51 +182,6 @@ export const ModelImporter: React.FC = () => {
     }
   };
 
-  const importModel = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.gguf,application/octet-stream';
-    input.onchange = async (e: Event) => {
-      const target = e.target as HTMLInputElement;
-      const file = target.files?.[0];
-      if (!file) return;
-      if (file.size > 100 * 1024 * 1024) {
-        if (!confirm(`File size is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Importing large files may crash the app. Please copy the file manually to the internal folder and use manual file selection instead. Continue anyway?`)) {
-          return;
-        }
-      }
-      setImporting(true);
-      try {
-        const fileName = file.name;
-        const reader = new FileReader();
-        reader.onload = async (ev) => {
-          const base64Data = (ev.target?.result as string).split(',')[1];
-          await ensureModelsDir();
-          const internalPath = `models/${fileName}`;
-          await Filesystem.writeFile({
-            path: internalPath,
-            data: base64Data,
-            directory: Directory.Data,
-            recursive: true,
-          });
-          await listModels();
-          alert(`Model "${fileName}" imported successfully!`);
-          setImporting(false);
-        };
-        reader.onerror = () => {
-          setError('Failed to read file');
-          setImporting(false);
-        };
-        reader.readAsDataURL(file);
-      } catch (err: any) {
-        console.error(err);
-        setError(`Import failed: ${err.message}`);
-        setImporting(false);
-      }
-    };
-    input.click();
-  };
-
   const selectModel = (file: { name: string; path: string }) => {
     const model = useLocalAIStore.getState().availableModels.find(m => m.id === file.name);
     if (model) {
@@ -174,10 +202,17 @@ export const ModelImporter: React.FC = () => {
       <h3 className="text-sm font-semibold text-indigo-300 mb-2">Available Models</h3>
       <div className="flex gap-2 mb-3 flex-wrap">
         <button onClick={importModel} disabled={importing} className="text-xs bg-green-600 hover:bg-green-500 px-2 py-1 rounded">
-          {importing ? 'Importing...' : '📂 Import Model'}
+          {importing ? `Importing ${importProgress}%` : '📂 Import Model'}
         </button>
         <button onClick={listModels} className="text-xs bg-indigo-600 px-2 py-1 rounded">Refresh</button>
-        <button onClick={listDirectoryRaw} className="text-xs bg-gray-600 px-2 py-1 rounded">📁 List Dir</button>
+        <button onClick={async () => {
+          try {
+            const result = await Filesystem.readdir({ path: 'models', directory: Directory.Data });
+            alert(`Files in models folder:\n${result.files.map(f => f.name).join('\n') || '(empty)'}`);
+          } catch (err: any) {
+            alert(`Error: ${err.message}`);
+          }
+        }} className="text-xs bg-gray-600 px-2 py-1 rounded">📁 List Dir</button>
       </div>
 
       <div className="mt-3 p-2 bg-slate-700/30 rounded">
@@ -213,8 +248,8 @@ export const ModelImporter: React.FC = () => {
         ))}
       </div>
       <p className="text-xs text-slate-400 mt-3">
-        Tip: Manually copy .gguf files to:<br/>
-        <code className="text-[10px] break-all">/data/data/com.aimetafactory.app/files/models/</code>
+        Tip: Import models up to 2 GB using the green button (chunked copy, safe).<br/>
+        Internal folder: <code className="text-[10px] break-all">/data/data/com.aimetafactory.app/files/models/</code>
       </p>
     </div>
   );

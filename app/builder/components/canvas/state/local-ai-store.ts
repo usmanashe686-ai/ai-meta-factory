@@ -85,7 +85,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
 
   generate: async (prompt, provider = 'auto', options, onToken) => {
     const { currentModel } = get();
-    // If a local model is selected, use native bridge
+    // If a local model is selected, use native bridge (stub for now)
     if (currentModel?.localPath && window.llama) {
       set({ isLoading: true, error: null });
       try {
@@ -96,7 +96,6 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
         const fullText = result.text || "Stub response from native bridge";
         // Simulate streaming if onToken is provided
         if (onToken) {
-          // Send token by token (character by character) to simulate streaming
           for (let i = 0; i < fullText.length; i++) {
             onToken(fullText[i]);
             await new Promise(resolve => setTimeout(resolve, 20));
@@ -111,7 +110,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
       }
     }
 
-    // Otherwise fall back to remote API (existing code)
+    // Fallback to remote API (unchanged)
     const modelId = currentModel?.id || 'tinyllama-1.1b';
     const currentRetry = options?._retryCount || 0;
     const controller = new AbortController();
