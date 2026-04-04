@@ -1,0 +1,6 @@
+[
+  {
+    "pkg": "@capacitor/core",
+    "classpath": "com.aimetafactory.llama.LlamaPlugin"
+  }
+]

@@ -32,25 +32,36 @@ jobs:
         run: npm run build
 
       - name: Debug - List out folder
-        run: |
-          echo "Contents of out folder:"
-          ls -la out/ || echo "out folder not found"
+        run: ls -la out/ || echo "out folder not found"
 
-      - name: Debug - Show Capacitor config
-        run: |
-          echo "=== capacitor.config.js ==="
-          cat capacitor.config.js || echo "File not found"
-          echo "=== capacitor.config.ts (if exists) ==="
-          cat capacitor.config.ts 2>/dev/null || echo "No .ts file"
-
-      - name: Init & Add Android (Stable JS Path)
+      - name: Init & Add Android (creates fresh android folder)
         run: |
           npx cap init "AI Meta Factory" "com.aimetafactory.app" --web-dir=out || true
           rm -rf android
           npx cap add android
           npx cap sync android
 
-      - name: Fix AndroidManifest (remove activity theme, add permissions, fix duplicates)
+      # ========== Copy native files back ==========
+      - name: Restore native C++ and Java files
+        run: |
+          # Copy C++ files
+          mkdir -p android/app/src/main/cpp
+          cp -r native/android/cpp/* android/app/src/main/cpp/
+          
+          # Copy Java plugin files
+          mkdir -p android/app/src/main/java/com/aimetafactory/llama
+          cp -r native/android/java/com/aimetafactory/llama/* android/app/src/main/java/com/aimetafactory/llama/
+          
+          # Copy Capacitor plugins JSON
+          mkdir -p android/app/src/main/assets
+          cp native/android/assets/capacitor.plugins.json android/app/src/main/assets/ 2>/dev/null || true
+          
+          # Patch MainActivity.java (replace with our version)
+          cp native/android/MainActivity.patch android/app/src/main/java/com/aimetafactory/app/MainActivity.java
+          
+          echo "Native files restored"
+
+      - name: Fix AndroidManifest
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i 's/android:theme="[^"]*"//g' $MANIFEST
@@ -62,18 +73,18 @@ jobs:
           grep -q "DownloadService" $MANIFEST || \
             sed -i '/<\/application>/i \    <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />' $MANIFEST
 
-      # ========== NEW: Clone llama.cpp ==========
+      # ========== Clone llama.cpp ==========
       - name: Clone llama.cpp for native inference
         run: |
           cd android
           git clone --depth 1 --branch master https://github.com/ggerganov/llama.cpp
 
-      # ========== NEW: Enable CMake build ==========
+      # ========== Enable CMake build in app/build.gradle ==========
       - name: Enable CMake build in app/build.gradle
         run: |
           BUILD_GRADLE="android/app/build.gradle"
           if ! grep -q "externalNativeBuild" $BUILD_GRADLE; then
-            sed -i '/android {/a \    defaultConfig {\n        externalNativeBuild {\n            cmake {\n                cppFlags "-O2 -std=c++17"\n                arguments "-DANDROID_STL=c++_shared"\n            }\n        }\n    }\n    externalNativeBuild {\n        cmake {\n            path "src/main/cpp/CMakeLists.txt"\n            version "3.22.1"\n        }\n    }' $BUILD_GRADLE
+            sed -i '/android {/a \    defaultConfig {\n        externalNativeBuild {\n            cmake {\n                cppFlags "-O2 -std=c++17"\n                arguments "-DANDROID_STL=c++_shared"\n            }\n        }\n    }\n    externalNativeBuild {\n        cmake {\n            path file("$projectDir/src/main/cpp/CMakeLists.txt")\n            version "3.22.1"\n        }\n    }' $BUILD_GRADLE
           else
             echo "CMake already configured"
           fi
@@ -90,7 +101,7 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: AI-Meta-Factory-APK
