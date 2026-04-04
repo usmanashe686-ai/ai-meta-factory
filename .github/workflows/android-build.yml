@@ -10,99 +10,50 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps --no-audit
+      - run: npm install --legacy-peer-deps --no-audit
 
-      - name: Build Next.js static export
+      - run: npm run build
         env:
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
           NEXT_PUBLIC_FLASK_URL: ${{ secrets.NEXT_PUBLIC_FLASK_URL }}
           NEXT_PUBLIC_BUILD_SERVICE_URL: ${{ secrets.NEXT_PUBLIC_BUILD_SERVICE_URL }}
           NEXT_PUBLIC_REAL_TIME_URL: ${{ secrets.NEXT_PUBLIC_REAL_TIME_URL }}
           NEXT_AUTH_URL: ${{ secrets.NEXT_AUTH_URL }}
-        run: npm run build
 
-      - name: Init & Add Android
+      - name: Init Android
         run: |
           npx cap init "AI Meta Factory" "com.aimetafactory.app" --web-dir=out || true
           rm -rf android
           npx cap add android
           npx cap sync android
 
-      # ✅ FORCE ARM64 HERE (CRITICAL FIX)
-      - name: Force ARM64 ABI
+      # ✅ SINGLE SOURCE OF TRUTH FOR ABI
+      - name: Force ARM64 only
         run: |
           echo "android.defaultConfig.ndk.abiFilters=arm64-v8a" >> android/gradle.properties
 
-      # ========== Clone llama.cpp ==========
       - name: Clone llama.cpp
-        run: |
-          git clone --depth 1 https://github.com/ggerganov/llama.cpp android/llama.cpp
+        run: git clone --depth 1 https://github.com/ggerganov/llama.cpp android/llama.cpp
 
-      # ========== Restore native files ==========
       - name: Restore native files
         run: |
           mkdir -p android/app/src/main/cpp
-          cp -r native/android/cpp/* android/app/src/main/cpp/
+          cp -r native/android/cpp/* android/app/src/main/cpp/ || true
 
-          mkdir -p android/app/src/main/java/com/aimetafactory/llama
-          cp -r native/android/java/com/aimetafactory/llama/* android/app/src/main/java/com/aimetafactory/llama/
-
-          mkdir -p android/app/src/main/assets
-          cp native/android/assets/capacitor.plugins.json android/app/src/main/assets/ 2>/dev/null || true
-
-          cp native/android/MainActivity.patch android/app/src/main/java/com/aimetafactory/app/MainActivity.java
-
-      - name: Enable CMake
-        run: |
-          BUILD_GRADLE="android/app/build.gradle"
-          if ! grep -q "externalNativeBuild" $BUILD_GRADLE; then
-            sed -i '/android {/a \
-    defaultConfig {\
-        ndk {\
-            abiFilters "arm64-v8a"\
-        }\
-        externalNativeBuild {\
-            cmake {\
-                cppFlags "-O2 -std=c++17"\
-                arguments "-DANDROID_STL=c++_shared -DANDROID_ABI=arm64-v8a"\
-            }\
-        }\
-    }\
-    externalNativeBuild {\
-        cmake {\
-            path file("$projectDir/src/main/cpp/CMakeLists.txt")\
-            version "3.22.1"\
-        }\
-    }' $BUILD_GRADLE
-          fi
-
-      - name: Fix AndroidManifest
-        run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          sed -i 's/android:theme="[^"]*"//g' $MANIFEST
-          sed -i "s/android:theme='[^']*'//g" $MANIFEST
-          sed -i '/<uses-permission android:name="android.permission.INTERNET"\/>/d' $MANIFEST
-          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: 21
 
-      # ✅ FINAL BUILD WITH FORCED ABI (MOST IMPORTANT)
-      - name: Build APK (ARM64 ONLY)
-        working-directory: ./android
+      - name: Build APK
+        working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew clean
