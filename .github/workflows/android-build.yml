@@ -53,19 +53,35 @@ jobs:
       - name: Fix AndroidManifest (remove activity theme, add permissions, fix duplicates)
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          # Remove the android:theme line from the activity
           sed -i 's/android:theme="[^"]*"//g' $MANIFEST
           sed -i "s/android:theme='[^']*'//g" $MANIFEST
-          # Remove duplicate INTERNET permission
           sed -i '/<uses-permission android:name="android.permission.INTERNET"\/>/d' $MANIFEST
-          # Add INTERNET permission once
           sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
-          # Add other permissions if missing
           grep -q "FOREGROUND_SERVICE" $MANIFEST || \
             sed -i '/<manifest/a \    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
-          # Add DownloadService if missing
           grep -q "DownloadService" $MANIFEST || \
             sed -i '/<\/application>/i \    <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />' $MANIFEST
+
+      # ========== NEW: Add native llama.cpp build ==========
+      - name: Clone llama.cpp for native inference
+        run: |
+          cd android
+          git clone --depth 1 --branch master https://github.com/ggerganov/llama.cpp
+          # The CMakeLists.txt expects llama.cpp at android/llama.cpp
+
+      - name: Enable CMake build in app/build.gradle (if not already)
+        run: |
+          BUILD_GRADLE="android/app/build.gradle"
+          # Check if externalNativeBuild block exists
+          if ! grep -q "externalNativeBuild" $BUILD_GRADLE; then
+            echo "Adding CMake configuration to build.gradle"
+            # Insert before the closing '}' of android block
+            sed -i '/android {/a \    defaultConfig {\n        externalNativeBuild {\n            cmake {\n                cppFlags "-O2 -std=c++17"\n                arguments "-DANDROID_STL=c++_shared"\n            }\n        }\n    }\n    externalNativeBuild {\n        cmake {\n            path "src/main/cpp/CMakeLists.txt"\n            version "3.22.1"\n        }\n    }' $BUILD_GRADLE
+          else
+            echo "CMake already configured in build.gradle"
+          fi
+
+      # ========== End of new steps ==========
 
       - name: Setup Java
         uses: actions/setup-java@v4

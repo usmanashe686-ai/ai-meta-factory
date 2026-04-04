@@ -1,6 +1,7 @@
 import API_CONFIG from "@/lib/apiConfig";
 import { create } from 'zustand';
 import { useSessionStore } from './session-store';
+import { Capacitor } from '@capacitor/core';
 
 export interface AIModel {
   localPath?: string;
@@ -26,14 +27,6 @@ export interface LocalAIState {
   generate: (prompt: string, provider?: string, options?: any, onToken?: (token: string) => void) => Promise<string>;
   loadSessionModel: () => Promise<void>;
   addLocalModel: (model: AIModel) => void;
-}
-
-declare global {
-  interface Window {
-    llama?: {
-      generate: (options: { prompt: string; modelPath: string }) => Promise<{ text: string }>;
-    };
-  }
 }
 
 export const useLocalAIStore = create<LocalAIState>((set, get) => ({
@@ -85,20 +78,23 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
 
   generate: async (prompt, provider = 'auto', options, onToken) => {
     const { currentModel } = get();
-    // If a local model is selected, use native bridge (stub for now)
-    if (currentModel?.localPath && window.llama) {
+
+    // Real local inference via Capacitor plugin
+    if (currentModel?.localPath) {
       set({ isLoading: true, error: null });
       try {
-        const result = await window.llama.generate({
-          prompt,
-          modelPath: currentModel.localPath,
-        });
-        const fullText = result.text || "Stub response from native bridge";
-        // Simulate streaming if onToken is provided
+        let fullText = "";
+        if (Capacitor.isNativePlatform()) {
+          const { Llama } = Capacitor.Plugins as any;
+          const result = await Llama.generate({ prompt, modelPath: currentModel.localPath });
+          fullText = result.text;
+        } else {
+          fullText = `[Web mode: local model "${currentModel.name}" – real inference only works on device]`;
+        }
         if (onToken) {
           for (let i = 0; i < fullText.length; i++) {
             onToken(fullText[i]);
-            await new Promise(resolve => setTimeout(resolve, 20));
+            await new Promise(resolve => setTimeout(resolve, 15));
           }
         }
         return fullText;
@@ -110,7 +106,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
       }
     }
 
-    // Fallback to remote API (unchanged)
+    // Remote API fallback
     const modelId = currentModel?.id || 'tinyllama-1.1b';
     const currentRetry = options?._retryCount || 0;
     const controller = new AbortController();
@@ -158,9 +154,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
               const token = parsed.token || parsed.content || "";
               fullContent += token;
               onToken(token);
-            } catch (e) {
-              console.warn("SSE Parse Error", e);
-            }
+            } catch (e) { /* ignore */ }
           }
         }
         return fullContent;

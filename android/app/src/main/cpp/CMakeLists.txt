@@ -1,24 +1,17 @@
 cmake_minimum_required(VERSION 3.22)
-project("llama")
-
+project("llamabridge")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Add llama.cpp as a subdirectory (ensure you have cloned it into 'llama')
-add_subdirectory(llama)
+# Path to llama.cpp – adjust if you place it differently
+set(LLAMA_CPP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp)
 
-# Our JNI wrapper
-add_library(llama_jni SHARED
-    llama_jni.cpp
-)
+if(NOT EXISTS ${LLAMA_CPP_DIR}/ggml.h)
+    message(FATAL_ERROR "llama.cpp not found at ${LLAMA_CPP_DIR}. Please clone it: git clone https://github.com/ggerganov/llama.cpp")
+endif()
 
-# Link against llama and log
-target_link_libraries(llama_jni
-    llama
-    log
-)
+add_subdirectory(${LLAMA_CPP_DIR} ${CMAKE_CURRENT_BINARY_DIR}/llama.cpp)
 
-# Tell CMake where to find headers
-target_include_directories(llama_jni PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/llama
-)
+add_library(llamabridge SHARED llama-bridge.cpp)
+target_link_libraries(llamabridge llama c++_shared android log)
+target_include_directories(llamabridge PRIVATE ${LLAMA_CPP_DIR} ${LLAMA_CPP_DIR}/ggml/include)

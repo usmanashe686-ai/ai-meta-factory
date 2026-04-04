@@ -1,0 +1,17 @@
+
+android {
+    defaultConfig {
+        externalNativeBuild {
+            cmake {
+                cppFlags "-O2 -std=c++17"
+                arguments "-DANDROID_STL=c++_shared"
+            }
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+}
