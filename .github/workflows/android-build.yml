@@ -38,15 +38,15 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      # ========== Clone llama.cpp FIRST ==========
+      # ========== Clone llama.cpp ==========
       - name: Clone llama.cpp into android/llama.cpp
         run: |
           cd android
           git clone --depth 1 --branch master https://github.com/ggerganov/llama.cpp
-          # Verify clone
-          ls -la llama.cpp/llama.h
+          # Debug: list what was cloned
+          ls -la llama.cpp/
 
-      # ========== Restore native files (overwrites any defaults) ==========
+      # ========== Restore native files ==========
       - name: Restore native files
         run: |
           mkdir -p android/app/src/main/cpp
