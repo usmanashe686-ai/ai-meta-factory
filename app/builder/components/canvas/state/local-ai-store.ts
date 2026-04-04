@@ -85,9 +85,17 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
       try {
         let fullText = "";
         if (Capacitor.isNativePlatform()) {
-          const { Llama } = Capacitor.Plugins as any;
-          const result = await Llama.generate({ prompt, modelPath: currentModel.localPath });
-          fullText = result.text;
+          // Safely access the plugin at runtime
+          const capacitorAny = Capacitor as any;
+          if (capacitorAny.Plugins && capacitorAny.Plugins.Llama) {
+            const result = await capacitorAny.Plugins.Llama.generate({ 
+              prompt, 
+              modelPath: currentModel.localPath 
+            });
+            fullText = result.text;
+          } else {
+            fullText = `[Error: Llama plugin not available on this device]`;
+          }
         } else {
           fullText = `[Web mode: local model "${currentModel.name}" – real inference only works on device]`;
         }
@@ -106,7 +114,7 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
       }
     }
 
-    // Remote API fallback
+    // Remote API fallback (unchanged)
     const modelId = currentModel?.id || 'tinyllama-1.1b';
     const currentRetry = options?._retryCount || 0;
     const controller = new AbortController();
