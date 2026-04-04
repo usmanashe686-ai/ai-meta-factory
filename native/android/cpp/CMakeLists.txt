@@ -3,9 +3,16 @@ project("llamabridge")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Use a direct path: assume llama.cpp is cloned into android/llama.cpp
-set(LLAMA_CPP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp)
-if(NOT EXISTS ${LLAMA_CPP_DIR}/ggml.h)
+# Use absolute path from GITHUB_WORKSPACE (set in CI) or fallback to relative
+if(DEFINED ENV{GITHUB_WORKSPACE})
+    set(LLAMA_CPP_DIR $ENV{GITHUB_WORKSPACE}/android/llama.cpp)
+else()
+    set(LLAMA_CPP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp)
+endif()
+
+message(STATUS "Looking for llama.cpp at: ${LLAMA_CPP_DIR}")
+
+if(NOT EXISTS ${LLAMA_CPP_DIR}/llama.h)
     message(FATAL_ERROR "llama.cpp not found at ${LLAMA_CPP_DIR}. Please ensure it's cloned into android/llama.cpp")
 endif()
 
