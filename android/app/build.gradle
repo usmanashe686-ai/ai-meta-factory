@@ -1,6 +1,21 @@
 
 android {
     splits {
+
+        abi {
+
+            enable true
+
+            reset()
+
+            include "arm64-v8a"
+
+            universalApk false
+
+        }
+
+    }
+    splits {
         abi {
             enable true
             reset()
@@ -15,12 +30,14 @@ android {
         }
         externalNativeBuild {
             cmake {
+                abiFilters "arm64-v8a"
                 cppFlags "-O2 -std=c++17"
             }
         }
     }
     externalNativeBuild {
         cmake {
+                abiFilters "arm64-v8a"
             path file("$projectDir/src/main/cpp/CMakeLists.txt")
             version "3.22.1"
         }
