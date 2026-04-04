@@ -8,6 +8,7 @@ export const ModelImporter: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [manualFileName, setManualFileName] = useState('');
+  const [debugInfo, setDebugInfo] = useState('');
   const { addLocalModel, loadModel, setCurrentModel } = useLocalAIStore();
 
   const ensureModelsDir = async () => {
@@ -21,16 +22,18 @@ export const ModelImporter: React.FC = () => {
   const listModels = async () => {
     setLoading(true);
     setError(null);
+    setDebugInfo('');
     try {
       await ensureModelsDir();
       const result = await Filesystem.readdir({ path: 'models', directory: Directory.Data });
+      setDebugInfo(`readdir returned ${result.files.length} files: ${result.files.map(f => f.name).join(', ')}`);
       const ggufFiles = result.files.filter(f => f.name.endsWith('.gguf')).map(f => ({
         name: f.name,
         path: `models/${f.name}`
       }));
       setModels(ggufFiles);
       if (ggufFiles.length === 0) {
-        setError('No .gguf files found via readdir. If you manually copied a file, use "Manual File" below.');
+        setError('No .gguf files found via readdir. Use "List Dir" to see what Capacitor sees, or use manual file entry below.');
       } else {
         for (const file of ggufFiles) {
           const exists = useLocalAIStore.getState().availableModels.some(m => m.id === file.name);
@@ -51,8 +54,21 @@ export const ModelImporter: React.FC = () => {
     } catch (err: any) {
       console.error(err);
       setError(`Error reading models: ${err.message}`);
+      setDebugInfo(`Exception: ${err.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const listDirectoryRaw = async () => {
+    try {
+      await ensureModelsDir();
+      const result = await Filesystem.readdir({ path: 'models', directory: Directory.Data });
+      const fileNames = result.files.map(f => f.name).join('\n') || '(empty)';
+      alert(`Files in models folder:\n${fileNames}`);
+      setDebugInfo(`Raw readdir: ${result.files.length} files`);
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
     }
   };
 
@@ -64,10 +80,8 @@ export const ModelImporter: React.FC = () => {
     const fileName = manualFileName.trim();
     const filePath = `models/${fileName}`;
     try {
-      // Verify the file exists
       const stat = await Filesystem.stat({ path: filePath, directory: Directory.Data });
-      if (stat.size === 0) throw new Error('File size zero');
-      // Add to store
+      setDebugInfo(`Stat success: size=${stat.size}, type=${stat.type}`);
       const existing = useLocalAIStore.getState().availableModels.find(m => m.id === fileName);
       if (!existing) {
         addLocalModel({
@@ -90,7 +104,8 @@ export const ModelImporter: React.FC = () => {
         alert('Model not found after adding.');
       }
     } catch (err: any) {
-      alert(`File not found: ${err.message}\nMake sure the filename is exact and the file is in the models folder.`);
+      setDebugInfo(`Stat failed: ${err.message}`);
+      alert(`File not found: ${err.message}\nMake sure the filename is exact (case-sensitive) and the file is in the models folder.`);
     }
   };
 
@@ -103,7 +118,7 @@ export const ModelImporter: React.FC = () => {
       const file = target.files?.[0];
       if (!file) return;
       if (file.size > 100 * 1024 * 1024) {
-        if (!confirm(`File size is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Importing large files may crash the app. Please copy the file manually to the internal folder and use "Manual File" instead. Continue anyway?`)) {
+        if (!confirm(`File size is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Importing large files may crash the app. Please copy the file manually to the internal folder and use manual file selection instead. Continue anyway?`)) {
           return;
         }
       }
@@ -157,14 +172,14 @@ export const ModelImporter: React.FC = () => {
   return (
     <div className="mt-6 p-4 bg-slate-800/30 rounded-lg">
       <h3 className="text-sm font-semibold text-indigo-300 mb-2">Available Models</h3>
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-2 mb-3 flex-wrap">
         <button onClick={importModel} disabled={importing} className="text-xs bg-green-600 hover:bg-green-500 px-2 py-1 rounded">
           {importing ? 'Importing...' : '📂 Import Model'}
         </button>
         <button onClick={listModels} className="text-xs bg-indigo-600 px-2 py-1 rounded">Refresh</button>
+        <button onClick={listDirectoryRaw} className="text-xs bg-gray-600 px-2 py-1 rounded">📁 List Dir</button>
       </div>
 
-      {/* Manual file input (bypasses readdir) */}
       <div className="mt-3 p-2 bg-slate-700/30 rounded">
         <p className="text-xs text-slate-300 mb-1">Manual File (if refresh fails):</p>
         <div className="flex gap-2">
@@ -186,6 +201,7 @@ export const ModelImporter: React.FC = () => {
 
       {loading && <span className="text-xs text-slate-400">Loading...</span>}
       {error && <p className="text-xs text-red-400 mb-2 whitespace-pre-line">{error}</p>}
+      {debugInfo && <p className="text-xs text-blue-300 mb-2">{debugInfo}</p>}
       <div className="space-y-2 max-h-48 overflow-y-auto mt-2">
         {models.map(model => (
           <div key={model.name} className="flex justify-between items-center bg-slate-700/50 p-2 rounded">
