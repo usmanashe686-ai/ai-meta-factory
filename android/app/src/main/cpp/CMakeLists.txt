@@ -3,7 +3,7 @@ project("llamabridge")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Path to llama.cpp – adjust if you place it differently
+# Path to llama.cpp (will be cloned by CI)
 set(LLAMA_CPP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp)
 
 if(NOT EXISTS ${LLAMA_CPP_DIR}/ggml.h)

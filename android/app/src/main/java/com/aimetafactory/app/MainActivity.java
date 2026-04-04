@@ -6,20 +6,16 @@ import android.webkit.JavascriptInterface;
 import com.getcapacitor.BridgeActivity;
 import com.aimetafactory.llama.LlamaPlugin;
 
-// Your existing DownloadPlugin (assuming it exists)
-// If not, remove or comment the line that registers it.
-// For now we keep it as is.
-
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        // Register your existing plugins
+        // Register your plugins
         registerPlugin(DownloadPlugin.class);
-        registerPlugin(LlamaPlugin.class);  // <-- NEW: Capacitor plugin for llama.cpp
+        registerPlugin(LlamaPlugin.class);
         
-        // Your custom JavaScript bridge (kept as is)
+        // Your custom JavaScript bridge
         WebView webView = getBridge().getWebView();
         webView.addJavascriptInterface(new LlamaBridge(), "LlamaBridge");
         webView.evaluateJavascript(
