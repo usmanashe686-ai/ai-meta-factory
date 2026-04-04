@@ -38,12 +38,16 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      # ========== Clone llama.cpp directly into android/llama.cpp ==========
-      - name: Clone llama.cpp
+      # ========== Clone llama.cpp (no branch – use latest master) ==========
+      - name: Clone llama.cpp into android/llama.cpp
         run: |
-          git clone --depth 1 --branch master https://github.com/ggerganov/llama.cpp android/llama.cpp
-          # Verify the expected file exists
-          test -f android/llama.cpp/llama.h || { echo "llama.cpp clone failed – no llama.h"; exit 1; }
+          git clone --depth 1 https://github.com/ggerganov/llama.cpp android/llama.cpp
+          echo "Contents of android/llama.cpp:"
+          ls -la android/llama.cpp
+          echo "Contents of include folder:"
+          ls -la android/llama.cpp/include || echo "include folder missing"
+          # Verify the new header location
+          test -f android/llama.cpp/include/llama.h || { echo "llama.h not found in include/ – clone failed or structure changed"; exit 1; }
 
       # ========== Restore native files ==========
       - name: Restore native files
