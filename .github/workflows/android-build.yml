@@ -10,34 +10,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
 
-      - run: npm install --legacy-peer-deps --no-audit
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps --no-audit
 
-      - run: npm run build
+      - name: Build Next.js static export
         env:
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
           NEXT_PUBLIC_FLASK_URL: ${{ secrets.NEXT_PUBLIC_FLASK_URL }}
           NEXT_PUBLIC_BUILD_SERVICE_URL: ${{ secrets.NEXT_PUBLIC_BUILD_SERVICE_URL }}
           NEXT_PUBLIC_REAL_TIME_URL: ${{ secrets.NEXT_PUBLIC_REAL_TIME_URL }}
           NEXT_AUTH_URL: ${{ secrets.NEXT_AUTH_URL }}
+        run: npm run build
 
-      - name: Init Android
+      - name: Init & Add Android
         run: |
           npx cap init "AI Meta Factory" "com.aimetafactory.app" --web-dir=out || true
           rm -rf android
           npx cap add android
           npx cap sync android
 
-      # ✅ SINGLE SOURCE OF TRUTH FOR ABI
-      - name: Force ARM64 only
-        run: |
-          echo "android.defaultConfig.ndk.abiFilters=arm64-v8a" >> android/gradle.properties
+      - name: Force ARM64 ABI
+        run: echo "android.defaultConfig.ndk.abiFilters=arm64-v8a" >> android/gradle.properties
 
       - name: Clone llama.cpp
         run: git clone --depth 1 https://github.com/ggerganov/llama.cpp android/llama.cpp
@@ -45,22 +47,70 @@ jobs:
       - name: Restore native files
         run: |
           mkdir -p android/app/src/main/cpp
-          cp -r native/android/cpp/* android/app/src/main/cpp/ || true
+          cp -r native/android/cpp/* android/app/src/main/cpp/
+          mkdir -p android/app/src/main/java/com/aimetafactory/llama
+          cp -r native/android/java/com/aimetafactory/llama/* android/app/src/main/java/com/aimetafactory/llama/
+          mkdir -p android/app/src/main/assets
+          cp native/android/assets/capacitor.plugins.json android/app/src/main/assets/ 2>/dev/null || true
+          cp native/android/MainActivity.patch android/app/src/main/java/com/aimetafactory/app/MainActivity.java
 
-      - uses: actions/setup-java@v4
+      - name: Configure CMake in build.gradle
+        run: |
+          BUILD_GRADLE="android/app/build.gradle"
+          if ! grep -q "externalNativeBuild" $BUILD_GRADLE; then
+            cat >> $BUILD_GRADLE << 'CMAKEEOF'
+
+    defaultConfig {
+        externalNativeBuild {
+            cmake {
+                cppFlags "-O2 -std=c++17"
+                arguments "-DANDROID_STL=c++_shared"
+            }
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path file("$projectDir/src/main/cpp/CMakeLists.txt")
+            version "3.22.1"
+        }
+    }
+CMAKEEOF
+          fi
+
+      - name: Fix AndroidManifest
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i 's/android:theme="[^"]*"//g' $MANIFEST
+          sed -i "s/android:theme='[^']*'//g" $MANIFEST
+          sed -i '/<uses-permission android:name="android.permission.INTERNET"\/>/d' $MANIFEST
+          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
+          grep -q "FOREGROUND_SERVICE" $MANIFEST || \
+            sed -i '/<manifest/a \    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
+          grep -q "DownloadService" $MANIFEST || \
+            sed -i '/<\/application>/i \    <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />' $MANIFEST
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: 21
 
-      - name: Build APK
-        working-directory: android
+      - name: Build APK (ARM64 only)
+        working-directory: ./android
         run: |
           chmod +x gradlew
-          ./gradlew clean
           ./gradlew assembleDebug -Pandroid.injected.build.abi=arm64-v8a
+
+      - name: List output APKs (debug)
+        run: |
+          echo "Looking for APK files..."
+          find android -name "*.apk" -type f
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: AI-Meta-Factory-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/apk/*/*.apk
+          if-no-files-found: warn
