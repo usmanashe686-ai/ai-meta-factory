@@ -53,11 +53,20 @@ jobs:
           cp native/android/MainActivity.patch android/app/src/main/java/com/aimetafactory/app/MainActivity.java
           echo "Native files restored"
 
-      # ========== Clone llama.cpp ==========
+      # ========== Clone llama.cpp BEFORE CMake ==========
       - name: Clone llama.cpp for native inference
         run: |
           cd android
           git clone --depth 1 --branch master https://github.com/ggerganov/llama.cpp
+          ls -la llama.cpp/ggml.h || echo "llama.cpp not cloned properly"
+
+      # ========== Verify the path that CMake will use ==========
+      - name: Debug - Check llama.cpp location
+        run: |
+          ls -la android/llama.cpp || echo "llama.cpp missing in android/"
+          ls -la android/app/src/main/cpp/../../../../llama.cpp || echo "Relative path broken"
+          REAL_PATH=$(cd android/app/src/main/cpp/../../../../llama.cpp && pwd) || echo "Cannot resolve"
+          echo "Resolved path: $REAL_PATH"
 
       # ========== Enable CMake build ==========
       - name: Enable CMake build in app/build.gradle

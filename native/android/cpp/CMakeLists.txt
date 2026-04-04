@@ -3,13 +3,17 @@ project("llamabridge")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Path to llama.cpp (will be cloned by CI)
+# Try relative path first
 set(LLAMA_CPP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp)
-
 if(NOT EXISTS ${LLAMA_CPP_DIR}/ggml.h)
-    message(FATAL_ERROR "llama.cpp not found at ${LLAMA_CPP_DIR}. Please clone it: git clone https://github.com/ggerganov/llama.cpp")
+    # Try absolute path from project root
+    set(LLAMA_CPP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../llama.cpp)
+endif()
+if(NOT EXISTS ${LLAMA_CPP_DIR}/ggml.h)
+    message(FATAL_ERROR "llama.cpp not found at ${LLAMA_CPP_DIR}. Please ensure it's cloned into android/llama.cpp")
 endif()
 
+message(STATUS "Using llama.cpp at ${LLAMA_CPP_DIR}")
 add_subdirectory(${LLAMA_CPP_DIR} ${CMAKE_CURRENT_BINARY_DIR}/llama.cpp)
 
 add_library(llamabridge SHARED llama-bridge.cpp)
