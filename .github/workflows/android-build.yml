@@ -31,18 +31,22 @@ jobs:
           NEXT_AUTH_URL: ${{ secrets.NEXT_AUTH_URL }}
         run: npm run build
 
-      - name: Debug - List out folder
-        run: ls -la out/ || echo "out folder not found"
-
-      - name: Init & Add Android (creates fresh android folder)
+      - name: Init & Add Android
         run: |
           npx cap init "AI Meta Factory" "com.aimetafactory.app" --web-dir=out || true
           rm -rf android
           npx cap add android
           npx cap sync android
 
-      # ========== Restore native C++ and Java files ==========
-      - name: Restore native C++ and Java files
+      # ========== Clone llama.cpp EARLY ==========
+      - name: Clone llama.cpp into android/llama.cpp
+        run: |
+          cd android
+          git clone --depth 1 --branch master https://github.com/ggerganov/llama.cpp
+          ls -la llama.cpp/ggml.h   # Verify it's there
+
+      # ========== Restore native C++/Java files (overwrites any defaults) ==========
+      - name: Restore native files
         run: |
           mkdir -p android/app/src/main/cpp
           cp -r native/android/cpp/* android/app/src/main/cpp/
@@ -53,23 +57,8 @@ jobs:
           cp native/android/MainActivity.patch android/app/src/main/java/com/aimetafactory/app/MainActivity.java
           echo "Native files restored"
 
-      # ========== Clone llama.cpp BEFORE CMake ==========
-      - name: Clone llama.cpp for native inference
-        run: |
-          cd android
-          git clone --depth 1 --branch master https://github.com/ggerganov/llama.cpp
-          ls -la llama.cpp/ggml.h || echo "llama.cpp not cloned properly"
-
-      # ========== Verify the path that CMake will use ==========
-      - name: Debug - Check llama.cpp location
-        run: |
-          ls -la android/llama.cpp || echo "llama.cpp missing in android/"
-          ls -la android/app/src/main/cpp/../../../../llama.cpp || echo "Relative path broken"
-          REAL_PATH=$(cd android/app/src/main/cpp/../../../../llama.cpp && pwd) || echo "Cannot resolve"
-          echo "Resolved path: $REAL_PATH"
-
       # ========== Enable CMake build ==========
-      - name: Enable CMake build in app/build.gradle
+      - name: Enable CMake in app/build.gradle
         run: |
           BUILD_GRADLE="android/app/build.gradle"
           if ! grep -q "externalNativeBuild" $BUILD_GRADLE; then
