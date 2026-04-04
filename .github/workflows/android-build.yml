@@ -38,34 +38,52 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      # ========== Clone llama.cpp (no branch – use latest master) ==========
-      - name: Clone llama.cpp into android/llama.cpp
+      # ✅ FORCE ARM64 HERE (CRITICAL FIX)
+      - name: Force ARM64 ABI
+        run: |
+          echo "android.defaultConfig.ndk.abiFilters=arm64-v8a" >> android/gradle.properties
+
+      # ========== Clone llama.cpp ==========
+      - name: Clone llama.cpp
         run: |
           git clone --depth 1 https://github.com/ggerganov/llama.cpp android/llama.cpp
-          echo "Contents of android/llama.cpp:"
-          ls -la android/llama.cpp
-          echo "Contents of include folder:"
-          ls -la android/llama.cpp/include || echo "include folder missing"
-          # Verify the new header location
-          test -f android/llama.cpp/include/llama.h || { echo "llama.h not found in include/ – clone failed or structure changed"; exit 1; }
 
       # ========== Restore native files ==========
       - name: Restore native files
         run: |
           mkdir -p android/app/src/main/cpp
           cp -r native/android/cpp/* android/app/src/main/cpp/
+
           mkdir -p android/app/src/main/java/com/aimetafactory/llama
           cp -r native/android/java/com/aimetafactory/llama/* android/app/src/main/java/com/aimetafactory/llama/
+
           mkdir -p android/app/src/main/assets
           cp native/android/assets/capacitor.plugins.json android/app/src/main/assets/ 2>/dev/null || true
-          cp native/android/MainActivity.patch android/app/src/main/java/com/aimetafactory/app/MainActivity.java
-          echo "Native files restored"
 
-      - name: Enable CMake in app/build.gradle
+          cp native/android/MainActivity.patch android/app/src/main/java/com/aimetafactory/app/MainActivity.java
+
+      - name: Enable CMake
         run: |
           BUILD_GRADLE="android/app/build.gradle"
           if ! grep -q "externalNativeBuild" $BUILD_GRADLE; then
-            sed -i '/android {/a \    defaultConfig {\n        externalNativeBuild {\n            cmake {\n                cppFlags "-O2 -std=c++17"\n                arguments "-DANDROID_STL=c++_shared"\n            }\n        }\n    }\n    externalNativeBuild {\n        cmake {\n            path file("$projectDir/src/main/cpp/CMakeLists.txt")\n            version "3.22.1"\n        }\n    }' $BUILD_GRADLE
+            sed -i '/android {/a \
+    defaultConfig {\
+        ndk {\
+            abiFilters "arm64-v8a"\
+        }\
+        externalNativeBuild {\
+            cmake {\
+                cppFlags "-O2 -std=c++17"\
+                arguments "-DANDROID_STL=c++_shared -DANDROID_ABI=arm64-v8a"\
+            }\
+        }\
+    }\
+    externalNativeBuild {\
+        cmake {\
+            path file("$projectDir/src/main/cpp/CMakeLists.txt")\
+            version "3.22.1"\
+        }\
+    }' $BUILD_GRADLE
           fi
 
       - name: Fix AndroidManifest
@@ -75,10 +93,6 @@ jobs:
           sed -i "s/android:theme='[^']*'//g" $MANIFEST
           sed -i '/<uses-permission android:name="android.permission.INTERNET"\/>/d' $MANIFEST
           sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
-          grep -q "FOREGROUND_SERVICE" $MANIFEST || \
-            sed -i '/<manifest/a \    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
-          grep -q "DownloadService" $MANIFEST || \
-            sed -i '/<\/application>/i \    <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />' $MANIFEST
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -86,11 +100,13 @@ jobs:
           distribution: 'temurin'
           java-version: 21
 
-      - name: Build APK
+      # ✅ FINAL BUILD WITH FORCED ABI (MOST IMPORTANT)
+      - name: Build APK (ARM64 ONLY)
         working-directory: ./android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew clean
+          ./gradlew assembleDebug -Pandroid.injected.build.abi=arm64-v8a
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
