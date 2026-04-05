@@ -33,7 +33,7 @@ jobs:
 
       - name: Init & Add Android
         run: |
-          npx cap init "AI Meta Factory" "com.aimetafactory.app" --web-dir=out || true
+          npx cap init "AI Meta Factory" "com.aimetafactory.app2" --web-dir=out || true
           rm -rf android
           npx cap add android
           npx cap sync android
@@ -84,7 +84,6 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           make -j$(nproc)
           mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs/arm64-v8a
-          # Copy ALL .so files (bridge + dependencies)
           find . -name "*.so" -exec cp {} $GITHUB_WORKSPACE/android/app/src/main/jniLibs/arm64-v8a/ \;
           echo "✅ All native libraries copied to jniLibs"
 
@@ -94,15 +93,17 @@ jobs:
           distribution: 'temurin'
           java-version: 21
 
-      - name: Build APK
+      - name: Build release APK (signed)
         working-directory: ./android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          # Create a debug keystore on the fly for signing (since we use debug build type)
+          keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug, O=Android, C=US" -storepass android -keypass android
+          ./gradlew assembleRelease --no-daemon
 
       - name: Verify APK contains native library
         run: |
-          APK=$(find android -name "app-debug.apk" | head -1)
+          APK=$(find android -name "app-release.apk" | head -1)
           echo "APK size: $(du -h $APK)"
           unzip -l $APK | grep '\.so$' && echo "✅ Native libraries present" || { echo "❌ Missing native libraries"; exit 1; }
 
@@ -110,5 +111,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AI-Meta-Factory-APK
-          path: android/app/build/outputs/apk/debug/*.apk
+          path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
