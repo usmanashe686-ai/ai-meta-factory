@@ -56,13 +56,19 @@ jobs:
           cp native/android/MainActivity.patch android/app/src/main/java/com/aimetafactory/app/MainActivity.java
           echo "Native files restored"
 
-      - name: Fix AndroidManifest
+      - name: Fix AndroidManifest (clean duplicate permissions and add exported)
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
+          # Remove any duplicate INTERNET lines
+          sed -i '/<uses-permission android:name="android.permission.INTERNET"\/>/d' $MANIFEST
+          # Add a single INTERNET permission
+          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
+          # Ensure main activity has android:exported="true"
+          sed -i '/<activity/a \            android:exported="true"' $MANIFEST
+          # Remove any theme lines that cause issues
           sed -i 's/android:theme="[^"]*"//g' $MANIFEST
           sed -i "s/android:theme='[^']*'//g" $MANIFEST
-          sed -i '/<uses-permission android:name="android.permission.INTERNET"\/>/d' $MANIFEST
-          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
+          # Add other permissions if missing
           grep -q "FOREGROUND_SERVICE" $MANIFEST || \
             sed -i '/<manifest/a \    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
           grep -q "DownloadService" $MANIFEST || \
