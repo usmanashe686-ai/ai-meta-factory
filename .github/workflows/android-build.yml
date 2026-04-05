@@ -84,8 +84,9 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           make -j$(nproc)
           mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs/arm64-v8a
-          cp libllamabridge.so $GITHUB_WORKSPACE/android/app/src/main/jniLibs/arm64-v8a/
-          echo "✅ libllamabridge.so built and copied to jniLibs"
+          # Copy ALL .so files (bridge + dependencies)
+          find . -name "*.so" -exec cp {} $GITHUB_WORKSPACE/android/app/src/main/jniLibs/arm64-v8a/ \;
+          echo "✅ All native libraries copied to jniLibs"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -103,7 +104,7 @@ jobs:
         run: |
           APK=$(find android -name "app-debug.apk" | head -1)
           echo "APK size: $(du -h $APK)"
-          unzip -l $APK | grep libllamabridge.so && echo "✅ Native library present" || { echo "❌ Missing native library"; exit 1; }
+          unzip -l $APK | grep '\.so$' && echo "✅ Native libraries present" || { echo "❌ Missing native libraries"; exit 1; }
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
