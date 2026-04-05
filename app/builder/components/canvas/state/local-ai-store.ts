@@ -29,6 +29,14 @@ export interface LocalAIState {
   addLocalModel: (model: AIModel) => void;
 }
 
+declare global {
+  interface Window {
+    llama?: {
+      generate: (options: { prompt: string; modelPath: string }) => Promise<{ text: string }>;
+    };
+  }
+}
+
 export const useLocalAIStore = create<LocalAIState>((set, get) => ({
   availableModels: [],
   currentModel: null,
@@ -79,25 +87,28 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
   generate: async (prompt, provider = 'auto', options, onToken) => {
     const { currentModel } = get();
 
-    // Real local inference via Capacitor plugin
+    // Local model selected
     if (currentModel?.localPath) {
       set({ isLoading: true, error: null });
       try {
         let fullText = "";
         if (Capacitor.isNativePlatform()) {
-          // Safely access the plugin at runtime
           const capacitorAny = Capacitor as any;
           if (capacitorAny.Plugins && capacitorAny.Plugins.Llama) {
-            const result = await capacitorAny.Plugins.Llama.generate({ 
-              prompt, 
-              modelPath: currentModel.localPath 
+            const result = await capacitorAny.Plugins.Llama.generate({
+              prompt,
+              modelPath: currentModel.localPath,
             });
             fullText = result.text;
           } else {
-            fullText = `[Error: Llama plugin not available on this device]`;
+            const errMsg = "Llama plugin not available – native bridge missing. Check APK for libllamabridge.so";
+            set({ error: errMsg });
+            // Show an alert to the user
+            if (typeof alert !== 'undefined') alert(errMsg);
+            return "";
           }
         } else {
-          fullText = `[Web mode: local model "${currentModel.name}" – real inference only works on device]`;
+          fullText = `[Web mode: local model "${currentModel.name}" – real inference only on device]`;
         }
         if (onToken) {
           for (let i = 0; i < fullText.length; i++) {
@@ -107,14 +118,16 @@ export const useLocalAIStore = create<LocalAIState>((set, get) => ({
         }
         return fullText;
       } catch (err: any) {
-        set({ error: err.message });
+        const errMsg = `Native inference error: ${err.message}`;
+        set({ error: errMsg });
+        if (typeof alert !== 'undefined') alert(errMsg);
         return "";
       } finally {
         set({ isLoading: false });
       }
     }
 
-    // Remote API fallback (unchanged)
+    // Fallback remote API (unchanged)
     const modelId = currentModel?.id || 'tinyllama-1.1b';
     const currentRetry = options?._retryCount || 0;
     const controller = new AbortController();
