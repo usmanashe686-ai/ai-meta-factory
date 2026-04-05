@@ -54,9 +54,6 @@ jobs:
           cp native/android/assets/capacitor.plugins.json android/app/src/main/assets/ 2>/dev/null || true
           cp native/android/MainActivity.patch android/app/src/main/java/com/aimetafactory/app/MainActivity.java
 
-      - name: Verify plugin registration
-        run: cat android/app/src/main/assets/capacitor.plugins.json
-
       - name: Fix AndroidManifest
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
@@ -69,6 +66,41 @@ jobs:
           grep -q "DownloadService" $MANIFEST || \
             sed -i '/<\/application>/i \    <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />' $MANIFEST
 
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+
+      - name: Force clean CMake build
+        working-directory: ./android
+        run: |
+          rm -rf app/.cxx
+          echo "ndk.dir=$ANDROID_NDK_HOME" >> local.properties
+
+      # DEBUG: Show what files are in the cpp folder
+      - name: Debug C++ sources
+        run: |
+          echo "=== C++ sources ==="
+          ls -la android/app/src/main/cpp/
+          echo "=== CMakeLists.txt content ==="
+          cat android/app/src/main/cpp/CMakeLists.txt
+
+      - name: Build native library with verbose output
+        working-directory: ./android
+        run: |
+          ./gradlew :app:externalNativeBuildDebug --info
+
+      - name: Verify .so files were created
+        run: |
+          echo "Searching for .so files in android folder:"
+          find android -name "*.so" -type f
+          if find android -name "*.so" | grep -q libllamabridge; then
+            echo "✅ Native library found"
+          else
+            echo "❌ No .so files – native build failed"
+            exit 1
+          fi
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -79,21 +111,17 @@ jobs:
         working-directory: ./android
         run: |
           chmod +x gradlew
-          ./gradlew clean
           ./gradlew assembleDebug --no-daemon
 
-      - name: Find APK (debug)
+      - name: Verify APK contains native library
         run: |
-          echo "=== APK SEARCH ==="
-          find android -type f -name "*.apk"
-          echo "=== OUTPUT FOLDERS ==="
-          ls -R android/app/build/outputs || true
+          APK=$(find android -name "app-debug.apk" | head -1)
+          echo "APK size: $(du -h $APK)"
+          unzip -l $APK | grep libllamabridge.so && echo "✅ Native library packaged" || { echo "❌ Native library missing from APK"; exit 1; }
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: AI-Meta-Factory-APK
-          path: |
-            android/app/build/outputs/apk/debug/*.apk
-            android/app/build/outputs/apk/**/*.apk
+          path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
