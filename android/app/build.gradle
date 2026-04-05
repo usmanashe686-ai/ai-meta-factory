@@ -1,45 +1,59 @@
+apply plugin: 'com.android.application'
 
 android {
-    splits {
+    namespace "com.aimetafactory.app"
+    compileSdk 34
 
-        abi {
-
-            enable true
-
-            reset()
-
-            include "arm64-v8a"
-
-            universalApk false
-
-        }
-
-    }
-    splits {
-        abi {
-            enable true
-            reset()
-            include "arm64-v8a"
-            universalApk false
-        }
-    }
     defaultConfig {
+        applicationId "com.aimetafactory.app"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+
+        // Force only arm64-v8a ABI
         ndk {
+            abiFilters "arm64-v8a"
         }
-        ndk {
-        }
+
+        // CMake configuration
         externalNativeBuild {
             cmake {
-                abiFilters "arm64-v8a"
                 cppFlags "-O2 -std=c++17"
+                arguments "-DANDROID_STL=c++_shared"
             }
         }
     }
+
+    // Tell Gradle to use our CMakeLists.txt
     externalNativeBuild {
         cmake {
-                abiFilters "arm64-v8a"
-            path file("$projectDir/src/main/cpp/CMakeLists.txt")
+            path "src/main/cpp/CMakeLists.txt"
             version "3.22.1"
         }
     }
+
+    // Restrict APK to arm64-v8a only (no universal APK)
+    splits {
+        abi {
+            enable true
+            reset()
+            include "arm64-v8a"
+            universalApk false
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.9.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
 }
