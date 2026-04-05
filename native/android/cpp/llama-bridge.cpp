@@ -35,7 +35,6 @@ static bool ensure_model(const std::string& model_path) {
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.n_ctx = 2048;
     ctx_params.n_threads = 4;
-    ctx_params.n_threads_batch = 4;
     g_state.ctx = llama_new_context_with_model(g_state.model, ctx_params);
     if (!g_state.ctx) return false;
 
@@ -101,12 +100,10 @@ static std::string generate_text(const std::string& model_path, const std::strin
     const int n_vocab = llama_vocab_n_tokens(g_state.vocab);
     const llama_token eos = llama_vocab_eos(g_state.vocab);
     std::string result;
-    llama_token last_token = tokens.back();
 
     for (int i = 0; i < max_tokens; ++i) {
         const float* logits = llama_get_logits(g_state.ctx);
         if (!logits) break;
-        // logits are already for the last token – no offset needed
         llama_token token = sample_token(logits, n_vocab, temp, top_p);
         if (token == eos) break;
 
@@ -116,7 +113,6 @@ static std::string generate_text(const std::string& model_path, const std::strin
 
         llama_batch batch = llama_batch_get_one(&token, 1);
         if (llama_decode(g_state.ctx, batch)) break;
-        last_token = token;
     }
     return result.empty() ? "[no output]" : result;
 }
