@@ -54,6 +54,34 @@ jobs:
           cp native/android/assets/capacitor.plugins.json android/app/src/main/assets/ 2>/dev/null || true
           cp native/android/MainActivity.patch android/app/src/main/java/com/aimetafactory/app/MainActivity.java
 
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+
+      - name: Build native library manually with CMake
+        run: |
+          export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
+          export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
+          mkdir -p android/app/src/main/cpp/build
+          cd android/app/src/main/cpp/build
+          cmake .. \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc)
+          # Copy the generated .so to jniLibs
+          mkdir -p ../libs/arm64-v8a
+          cp libllamabridge.so ../libs/arm64-v8a/
+          mkdir -p ../../../../app/src/main/jniLibs/arm64-v8a
+          cp libllamabridge.so ../../../../app/src/main/jniLibs/arm64-v8a/
+
+      - name: Verify native library exists
+        run: |
+          find android/app/src/main -name "*.so" -ls
+          test -f android/app/src/main/jniLibs/arm64-v8a/libllamabridge.so || exit 1
+
       - name: Fix AndroidManifest
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
@@ -65,41 +93,6 @@ jobs:
             sed -i '/<manifest/a \    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
           grep -q "DownloadService" $MANIFEST || \
             sed -i '/<\/application>/i \    <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />' $MANIFEST
-
-      - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r26d
-
-      - name: Force clean CMake build
-        working-directory: ./android
-        run: |
-          rm -rf app/.cxx
-          echo "ndk.dir=$ANDROID_NDK_HOME" >> local.properties
-
-      # DEBUG: Show what files are in the cpp folder
-      - name: Debug C++ sources
-        run: |
-          echo "=== C++ sources ==="
-          ls -la android/app/src/main/cpp/
-          echo "=== CMakeLists.txt content ==="
-          cat android/app/src/main/cpp/CMakeLists.txt
-
-      - name: Build native library with verbose output
-        working-directory: ./android
-        run: |
-          ./gradlew :app:externalNativeBuildDebug --info
-
-      - name: Verify .so files were created
-        run: |
-          echo "Searching for .so files in android folder:"
-          find android -name "*.so" -type f
-          if find android -name "*.so" | grep -q libllamabridge; then
-            echo "✅ Native library found"
-          else
-            echo "❌ No .so files – native build failed"
-            exit 1
-          fi
 
       - name: Setup Java
         uses: actions/setup-java@v4
