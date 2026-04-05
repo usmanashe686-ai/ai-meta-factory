@@ -95,22 +95,20 @@ jobs:
           distribution: 'temurin'
           java-version: 21
 
-      - name: Build release APK (signed)
+      - name: Build debug APK (signed with debug key)
         working-directory: ./android
         run: |
           chmod +x gradlew
-          keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug, O=Android, C=US" -storepass android -keypass android
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleDebug --no-daemon
 
       - name: Verify APK contains native library
         run: |
-          APK="android/app/build/outputs/apk/release/app-release.apk"
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
           if [ -f "$APK" ]; then
             echo "APK size: $(du -h $APK)"
             unzip -l $APK | grep '\.so$' && echo "✅ Native libraries present" || { echo "❌ Missing native libraries"; exit 1; }
           else
             echo "APK not found at $APK"
-            find android -name "*.apk" -type f
             exit 1
           fi
 
@@ -118,5 +116,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AI-Meta-Factory-APK
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
