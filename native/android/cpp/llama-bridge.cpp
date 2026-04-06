@@ -9,28 +9,23 @@
 static struct {
     llama_model* model = nullptr;
     llama_context* ctx = nullptr;
-    const llama_vocab* vocab = nullptr;
     std::string last_path;
 } g_state;
 
 static std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
 
 static bool ensure_model(const std::string& model_path) {
-    if (g_state.last_path == model_path && g_state.model && g_state.ctx && g_state.vocab)
+    if (g_state.last_path == model_path && g_state.model && g_state.ctx)
         return true;
 
     if (g_state.ctx) { llama_free(g_state.ctx); g_state.ctx = nullptr; }
-    if (g_state.model) { llama_model_free(g_state.model); g_state.model = nullptr; }
-    g_state.vocab = nullptr;
+    if (g_state.model) { llama_free_model(g_state.model); g_state.model = nullptr; }
     g_state.last_path.clear();
 
     llama_model_params model_params = llama_model_default_params();
     model_params.n_gpu_layers = 0;
     g_state.model = llama_load_model_from_file(model_path.c_str(), model_params);
     if (!g_state.model) return false;
-
-    g_state.vocab = llama_model_get_vocab(g_state.model);
-    if (!g_state.vocab) return false;
 
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.n_ctx = 2048;
@@ -82,23 +77,21 @@ static std::string generate_text(const std::string& model_path, const std::strin
     if (!ensure_model(model_path))
         return "Error: Failed to load model";
 
-    // Tokenize prompt
-    std::vector<llama_token> tokens;
-    int n_tokens = llama_tokenize(g_state.vocab, prompt.c_str(), prompt.length(), nullptr, 0, true, false);
+    // Tokenize prompt (old API: llama_tokenize takes model, not vocab)
+    std::vector<llama_token> tokens(prompt.length() + 1);
+    int n_tokens = llama_tokenize(g_state.model, prompt.c_str(), prompt.length(),
+                                  tokens.data(), tokens.size(), true, false);
     if (n_tokens < 0) return "Error: Tokenization failed";
     tokens.resize(n_tokens);
-    n_tokens = llama_tokenize(g_state.vocab, prompt.c_str(), prompt.length(), tokens.data(), tokens.size(), true, false);
-    tokens.resize(n_tokens);
 
-    // Evaluate prompt
+    // Evaluate prompt (old batch API needs 4 arguments)
     for (size_t i = 0; i < tokens.size(); ++i) {
-        llama_batch batch = llama_batch_get_one(&tokens[i], 1);
-        if (llama_decode(g_state.ctx, batch))
-            return "Error: llama_decode failed at prompt";
+        if (llama_eval(g_state.ctx, &tokens[i], 1, i, 0))
+            return "Error: llama_eval failed at prompt";
     }
 
-    const int n_vocab = llama_vocab_n_tokens(g_state.vocab);
-    const llama_token eos = llama_vocab_eos(g_state.vocab);
+    const int n_vocab = llama_n_vocab(g_state.model);
+    const llama_token eos = llama_token_eos(g_state.model);
     std::string result;
 
     for (int i = 0; i < max_tokens; ++i) {
@@ -108,11 +101,12 @@ static std::string generate_text(const std::string& model_path, const std::strin
         if (token == eos) break;
 
         std::vector<char> piece(128);
-        int n = llama_token_to_piece(g_state.vocab, token, piece.data(), piece.size(), 0, false);
+        int n = llama_token_to_piece(g_state.model, token, piece.data(), piece.size(), 0, false);
         if (n > 0) result.append(piece.data(), n);
 
-        llama_batch batch = llama_batch_get_one(&token, 1);
-        if (llama_decode(g_state.ctx, batch)) break;
+        // Feed token and eval (old API: positions increase)
+        int pos = tokens.size() + i;
+        if (llama_eval(g_state.ctx, &token, 1, pos, 0)) break;
     }
     return result.empty() ? "[no output]" : result;
 }
