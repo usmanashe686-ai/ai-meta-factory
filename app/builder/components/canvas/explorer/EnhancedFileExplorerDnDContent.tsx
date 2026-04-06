@@ -20,7 +20,7 @@ import {
   restrictToParentElement,
 } from '@dnd-kit/modifiers';
 import {
-  Plus, Search, FolderPlus, Folder, Edit2, Copy, Trash2
+  Plus, Search, FolderPlus, Folder, Edit2, Copy, Trash2, Upload
 } from 'lucide-react';
 import { useProjectStore } from '../state/project-store';
 import { SortableFileItem } from './dnd/SortableFileItem';
@@ -43,8 +43,8 @@ export function EnhancedFileExplorerDnDContent() {
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [renamingName, setRenamingName] = useState('');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; path: string } | null>(null);
-  
-  // FIX: Explicitly define the ref type to satisfy the compiler
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -60,6 +60,55 @@ export function EnhancedFileExplorerDnDContent() {
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
 
+  const readFileContent = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+  };
+
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const content = await readFileContent(file);
+      const filePath = `src/${file.name}`;
+      createFile(filePath, content, false);
+      console.log(`Imported file: ${filePath}`);
+    } catch (error) {
+      console.error('Failed to import file:', error);
+    }
+    event.target.value = '';
+  };
+
+  const handleImportFolder = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const relativePath = file.webkitRelativePath;
+      if (relativePath) {
+        try {
+          const content = await readFileContent(file);
+          const targetPath = `src/${relativePath}`;
+          createFile(targetPath, content, false);
+          const pathParts = targetPath.split('/');
+          let currentPath = '';
+          for (let j = 1; j < pathParts.length - 1; j++) {
+            currentPath += (currentPath ? '/' : '') + pathParts[j];
+            setExpandedFolders(prev => new Set(prev).add(currentPath));
+          }
+        } catch (error) {
+          console.error(`Failed to import file ${relativePath}:`, error);
+        }
+      }
+    }
+    console.log(`Imported folder with ${files.length} files`);
+    event.target.value = '';
+  };
+
   const handleCreateFile = () => {
     const defaultPath = `src/components/NewComponent-${Date.now()}.tsx`;
     const defaultContent = `export default function NewComponent() {\n  return <div>New Component</div>;\n}`;
@@ -70,7 +119,7 @@ export function EnhancedFileExplorerDnDContent() {
     const folderName = prompt('Enter folder name:');
     if (folderName) {
       const folderPath = `src/${folderName}/.folder-marker`;
-      createFile(folderPath, '', false);
+      createFile(folderPath, '', true);
       const newExpanded = new Set(expandedFolders);
       newExpanded.add(`src/${folderName}`);
       setExpandedFolders(newExpanded);
@@ -137,8 +186,23 @@ export function EnhancedFileExplorerDnDContent() {
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-semibold text-sm text-gray-300">Explorer</h3>
           <div className="flex items-center gap-1">
-            <button onClick={handleCreateFolder} className="p-1 hover:bg-gray-800 rounded"><FolderPlus className="w-4 h-4" /></button>
-            <button onClick={handleCreateFile} className="p-1 hover:bg-gray-800 rounded"><Plus className="w-4 h-4" /></button>
+            <button 
+              onClick={() => fileInputRef.current?.click()} 
+              className="p-1 hover:bg-gray-800 rounded" 
+              title="Import File"
+            >
+              <Upload className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={() => folderInputRef.current?.click()} 
+              className="p-1 hover:bg-gray-800 rounded" 
+              title="Import Folder"
+            >
+              <FolderPlus className="w-4 h-4" />
+            </button>
+            <button onClick={handleCreateFile} className="p-1 hover:bg-gray-800 rounded" title="New File">
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
         </div>
         <div className="relative">
@@ -152,6 +216,23 @@ export function EnhancedFileExplorerDnDContent() {
           />
         </div>
       </div>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleImportFile}
+        style={{ display: 'none' }}
+        accept="*/*"
+      />
+      <input
+        type="file"
+        ref={folderInputRef}
+        onChange={handleImportFolder}
+        style={{ display: 'none' }}
+        // @ts-ignore
+        webkitdirectory=""
+        directory=""
+      />
 
       <div className="flex-1 overflow-y-auto p-2">
         {searchQuery ? (

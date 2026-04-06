@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { Template } from '../templates/TemplateLibrary';
 import { FileNode } from '../types/project.types';
 import { arrayMove } from '@dnd-kit/sortable';
+import { useBackupStore } from './backup-store';
 
 export interface ConsoleEntry {
   type: 'command' | 'ai' | 'error' | 'info';
@@ -141,7 +142,12 @@ export const useProjectStore = create<ProjectState>()(
           content: isFolder ? undefined : content,
           children: isFolder ? [] : undefined,
         };
-        set(state => ({ files: [...state.files, newFile] }));
+        set(state => {
+          const newFiles = [...state.files, newFile];
+          const projectName = state.project?.name || 'Untitled';
+          useBackupStore.getState().addBackup(newFiles, projectName, `Created ${path}`);
+          return { files: newFiles };
+        });
       },
 
       updateFileContent: (fileId, content) =>
@@ -150,11 +156,14 @@ export const useProjectStore = create<ProjectState>()(
       deleteFile: (fileId) => {
         const { files, openFiles, activeFileId } = get();
         const newOpen = openFiles.filter(id => id !== fileId);
+        const newFiles = deleteNode(files, fileId);
         set({
-          files: deleteNode(files, fileId),
+          files: newFiles,
           openFiles: newOpen,
           activeFileId: activeFileId === fileId ? newOpen[0] || null : activeFileId,
         });
+        const projectName = get().project?.name || 'Untitled';
+        useBackupStore.getState().addBackup(newFiles, projectName, `Deleted ${fileId}`);
       },
 
       openFile: (fileId) =>
@@ -189,20 +198,45 @@ export const useProjectStore = create<ProjectState>()(
       runPreview: async () => {},
 
       renameFile: (oldPath, newPath) =>
-        set(state => ({
-          files: renameNode(state.files, oldPath, newPath, newPath.split('/').pop() || newPath)
-        })),
+        set(state => {
+          const newFiles = renameNode(state.files, oldPath, newPath, newPath.split('/').pop() || newPath);
+          const projectName = state.project?.name || 'Untitled';
+          useBackupStore.getState().addBackup(newFiles, projectName, `Renamed ${oldPath} to ${newPath}`);
+          return { files: newFiles };
+        }),
 
-      copyFile: () => {},
+      copyFile: (path) => {
+        const file = get().files.find(f => f.path === path);
+        if (!file || file.type === 'folder') return;
+        const lastDot = path.lastIndexOf('.');
+        const newPath = lastDot === -1 ? path + '_copy' : path.slice(0, lastDot) + '_copy' + path.slice(lastDot);
+        const newContent = file.content || '';
+        get().createFile(newPath, newContent, false);
+      },
 
-      searchFiles: () => [],
+      searchFiles: (query) => {
+        const results: Array<{ path: string; name: string }> = [];
+        const searchInNodes = (nodes: FileNode[]) => {
+          for (const node of nodes) {
+            if (node.name.toLowerCase().includes(query.toLowerCase())) {
+              results.push({ path: node.path, name: node.name });
+            }
+            if (node.children) searchInNodes(node.children);
+          }
+        };
+        searchInNodes(get().files);
+        return results;
+      },
 
       moveFile: (sourceId, targetId) => {
         const files = get().files;
         const from = files.findIndex(f => f.id === sourceId);
         const to = files.findIndex(f => f.id === targetId);
         if (from === -1 || to === -1) return;
-        set({ files: arrayMove(files, from, to) });
+        const newFiles = arrayMove(files, from, to);
+        set({ files: newFiles });
+        const projectName = get().project?.name || 'Untitled';
+        useBackupStore.getState().addBackup(newFiles, projectName, `Moved ${sourceId}`);
       },
 
       setProjectName: (name) => {
@@ -228,7 +262,7 @@ export const useProjectStore = create<ProjectState>()(
       name: 'project-storage-v2',
       version: 2,
       storage: createJSONStorage(() => localStorage),
-      skipHydration: true,
+      skipHydration: false,
     }
   )
 );
