@@ -68,39 +68,40 @@ jobs:
         with:
           ndk-version: r26d
 
-      - name: Build native library for both ABIs (conditional compilation)
+      - name: Patch llama.cpp to conditionally compile sgemm.cpp using a CMake option
+        run: |
+          GGML_CMAKE="android/llama.cpp/ggml/src/CMakeLists.txt"
+          # Remove the existing hardcoded sgemm.cpp line (if any)
+          sed -i '/llamafile\/sgemm.cpp/d' "$GGML_CMAKE"
+          # Add a conditional block that uses GGML_ARMV7_SAFE option
+          cat >> "$GGML_CMAKE" << 'CMAKEPATCH'
+          option(GGML_ARMV7_SAFE "Disable unsafe SIMD code for 32-bit ARM (sgemm.cpp)" OFF)
+          if(NOT GGML_ARMV7_SAFE)
+              target_sources(ggml-cpu PRIVATE ggml-cpu/llamafile/sgemm.cpp)
+              message(STATUS "✅ sgemm.cpp enabled (GGML_ARMV7_SAFE=OFF)")
+          else()
+              message(STATUS "⚠️ ARMv7 SAFE MODE → skipping sgemm.cpp (GGML_ARMV7_SAFE=ON)")
+          endif()
+          CMAKEPATCH
+          echo "✅ Patched CMakeLists.txt with GGML_ARMV7_SAFE option"
+
+      - name: Build native library for both ABIs
         run: |
           export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
           mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs
           
-          # Patch llama.cpp/ggml/src/CMakeLists.txt to exclude sgemm.cpp for armeabi-v7a
-          GGML_CMAKE="$GITHUB_WORKSPACE/android/llama.cpp/ggml/src/CMakeLists.txt"
-          # Save original for 64-bit build later? We'll re-patch for each ABI loop.
-          # Instead, we'll modify the CMakeLists.txt to conditionally include sgemm.cpp based on ANDROID_ABI.
-          # Let's replace the hardcoded sgemm.cpp line with a conditional block.
-          sed -i '/llamafile\/sgemm.cpp/d' "$GGML_CMAKE"
-          cat >> "$GGML_CMAKE" << 'CMAKEPATCH'
-          if (ANDROID_ABI STREQUAL "arm64-v8a")
-              target_sources(ggml-cpu PRIVATE ggml-cpu/llamafile/sgemm.cpp)
-              message(STATUS "✅ sgemm.cpp enabled for arm64-v8a")
-          else()
-              message(STATUS "⚠️ sgemm.cpp disabled for ${ANDROID_ABI} (no FP16/NEON)")
-          endif()
-          CMAKEPATCH
-          
           for ABI in armeabi-v7a arm64-v8a; do
             echo "Building for $ABI"
-            
             cd $GITHUB_WORKSPACE/android/app/src/main/cpp
             rm -rf build
             mkdir build && cd build
             
-            # Set ABI-specific defines: disable FP16 for 32-bit
+            # Flags for 32-bit: enable safe mode + disable FP16
             EXTRA_FLAGS=""
             if [ "$ABI" = "armeabi-v7a" ]; then
-              EXTRA_FLAGS="-DGGML_NO_F16=ON -DGGML_USE_ARM_FP16=OFF"
-              echo "⚠️  FP16 and ARM FP16 disabled for 32-bit"
+              EXTRA_FLAGS="-DGGML_ARMV7_SAFE=ON -DGGML_NO_F16=ON"
+              echo "⚠️  ARMv7 safe mode enabled, FP16 disabled"
             fi
             
             cmake .. \
