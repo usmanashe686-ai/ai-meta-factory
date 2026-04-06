@@ -31,56 +31,46 @@ jobs:
           NEXT_AUTH_URL: ${{ secrets.NEXT_AUTH_URL }}
         run: npm run build
 
-      # ========== REPAIR CSS (fix UI layout) ==========
-      - name: Repair CSS (copy source CSS to out folder)
+      - name: Repair CSS (copy source globals.css)
         run: |
           mkdir -p out/css
           cp app/globals.css out/css/globals.css
-          find . -name "*.css" -path "./out/*" -exec rm {} \;
           npx tailwindcss -i app/globals.css -o out/css/tailwind.css --minify
           echo "✅ CSS repaired"
 
-      # ========== FIX CHAT INPUT VISIBILITY ==========
-      - name: Fix chat input visibility (inject CSS)
+      - name: Fix chat input visibility (create extra CSS)
         run: |
-          CSS_FILE=$(find out -name "*.css" | head -1)
-          if [ -f "$CSS_FILE" ]; then
-            cat >> "$CSS_FILE" << 'CSSEOF'
-
-/* Force chat input to be visible and usable */
-.chat-input-container, 
-.message-input, 
-textarea, 
-[contenteditable="true"],
-.input-area,
-.fixed-bottom {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    background: #1e1e2f !important;
-    color: white !important;
-    border: 1px solid #4a4a6a !important;
-    border-radius: 12px !important;
-    padding: 12px !important;
-    margin: 8px !important;
-    width: calc(100% - 24px) !important;
-    min-height: 48px !important;
-    position: relative !important;
-    z-index: 10000 !important;
-}
-.send-button, 
-button[type="submit"] {
-    display: inline-block !important;
-    background: #4f46e5 !important;
-    color: white !important;
-    padding: 8px 16px !important;
-    border-radius: 20px !important;
-    margin-left: 8px !important;
-}
-CSSEOF
-            echo "✅ CSS fix injected"
+          echo '.chat-input-container, .message-input, textarea, [contenteditable="true"], .input-area, .fixed-bottom {' >> out/css/chat-fix.css
+          echo '    display: block !important;' >> out/css/chat-fix.css
+          echo '    visibility: visible !important;' >> out/css/chat-fix.css
+          echo '    opacity: 1 !important;' >> out/css/chat-fix.css
+          echo '    background: #1e1e2f !important;' >> out/css/chat-fix.css
+          echo '    color: white !important;' >> out/css/chat-fix.css
+          echo '    border: 1px solid #4a4a6a !important;' >> out/css/chat-fix.css
+          echo '    border-radius: 12px !important;' >> out/css/chat-fix.css
+          echo '    padding: 12px !important;' >> out/css/chat-fix.css
+          echo '    margin: 8px !important;' >> out/css/chat-fix.css
+          echo '    width: calc(100% - 24px) !important;' >> out/css/chat-fix.css
+          echo '    min-height: 48px !important;' >> out/css/chat-fix.css
+          echo '    position: relative !important;' >> out/css/chat-fix.css
+          echo '    z-index: 10000 !important;' >> out/css/chat-fix.css
+          echo '}' >> out/css/chat-fix.css
+          echo '' >> out/css/chat-fix.css
+          echo '.send-button, button[type="submit"] {' >> out/css/chat-fix.css
+          echo '    display: inline-block !important;' >> out/css/chat-fix.css
+          echo '    background: #4f46e5 !important;' >> out/css/chat-fix.css
+          echo '    color: white !important;' >> out/css/chat-fix.css
+          echo '    padding: 8px 16px !important;' >> out/css/chat-fix.css
+          echo '    border-radius: 20px !important;' >> out/css/chat-fix.css
+          echo '    margin-left: 8px !important;' >> out/css/chat-fix.css
+          echo '}' >> out/css/chat-fix.css
+          # Append to main CSS
+          MAIN_CSS=$(find out -name "*.css" ! -name "chat-fix.css" | head -1)
+          if [ -n "$MAIN_CSS" ]; then
+            cat out/css/chat-fix.css >> "$MAIN_CSS"
+            echo "✅ CSS fix appended to $MAIN_CSS"
           else
-            echo "❌ No CSS file found"
+            echo "⚠️ No main CSS found"
           fi
 
       - name: Init & Add Android
