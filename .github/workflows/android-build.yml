@@ -68,25 +68,40 @@ jobs:
         with:
           ndk-version: r26d
 
-      - name: Build native library for both ABIs (disable FP16 & llamafile for 32-bit)
+      - name: Build native library for both ABIs (patch 32-bit NEON issues)
         run: |
           export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
           mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs
+          
           for ABI in armeabi-v7a arm64-v8a; do
             echo "Building for $ABI"
+            
+            # For 32-bit, patch sgemm.cpp to disable the problematic NEON intrinsics
+            if [ "$ABI" = "armeabi-v7a" ]; then
+              echo "Patching sgemm.cpp for 32-bit..."
+              SGEM_CPP="$GITHUB_WORKSPACE/android/llama.cpp/ggml/src/ggml-cpu/llamafile/sgemm.cpp"
+              if [ -f "$SGEM_CPP" ]; then
+                # Comment out the two functions that use vld1q_f16 and vld1_f16
+                sed -i 's/^static inline float16x8_t vld1q_f16_hack.*/\/\/ &/' "$SGEM_CPP"
+                sed -i 's/^static inline float16x4_t vld1_f16_hack.*/\/\/ &/' "$SGEM_CPP"
+                # Also comment out their usage inside sgemm
+                sed -i 's/vld1q_f16_hack/\/\/ vld1q_f16_hack/g' "$SGEM_CPP"
+                sed -i 's/vld1_f16_hack/\/\/ vld1_f16_hack/g' "$SGEM_CPP"
+                echo "✅ sgemm.cpp patched"
+              else
+                echo "⚠️ sgemm.cpp not found, skipping patch"
+              fi
+            fi
+            
             cd $GITHUB_WORKSPACE/android/app/src/main/cpp
             rm -rf build
             mkdir build && cd build
             
-            # Common flags for both ABIs
-            COMMON_FLAGS="-DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_COMMON=OFF"
-            
-            # For 32-bit, disable FP16 and llamafile to avoid NEON intrinsics errors
+            # Disable ARM FP16 and llamafile for 32-bit (just in case)
             EXTRA_FLAGS=""
             if [ "$ABI" = "armeabi-v7a" ]; then
               EXTRA_FLAGS="-DGGML_USE_ARM_FP16=OFF -DGGML_USE_LLAMAFILE=OFF"
-              echo "⚠️  Disabled ARM FP16 and llamafile for 32-bit"
             fi
             
             cmake .. \
@@ -94,7 +109,10 @@ jobs:
               -DANDROID_ABI=$ABI \
               -DANDROID_PLATFORM=android-24 \
               -DCMAKE_BUILD_TYPE=Release \
-              $COMMON_FLAGS \
+              -DLLAMA_BUILD_EXAMPLES=OFF \
+              -DLLAMA_BUILD_SERVER=OFF \
+              -DLLAMA_BUILD_TESTS=OFF \
+              -DLLAMA_BUILD_COMMON=OFF \
               $EXTRA_FLAGS
             
             make llama -j$(nproc)
