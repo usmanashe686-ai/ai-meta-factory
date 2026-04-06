@@ -68,40 +68,37 @@ jobs:
         with:
           ndk-version: r26d
 
-      - name: Patch llama.cpp to conditionally compile sgemm.cpp using a CMake option
-        run: |
-          GGML_CMAKE="android/llama.cpp/ggml/src/CMakeLists.txt"
-          # Remove the existing hardcoded sgemm.cpp line (if any)
-          sed -i '/llamafile\/sgemm.cpp/d' "$GGML_CMAKE"
-          # Add a conditional block that uses GGML_ARMV7_SAFE option
-          cat >> "$GGML_CMAKE" << 'CMAKEPATCH'
-          option(GGML_ARMV7_SAFE "Disable unsafe SIMD code for 32-bit ARM (sgemm.cpp)" OFF)
-          if(NOT GGML_ARMV7_SAFE)
-              target_sources(ggml-cpu PRIVATE ggml-cpu/llamafile/sgemm.cpp)
-              message(STATUS "✅ sgemm.cpp enabled (GGML_ARMV7_SAFE=OFF)")
-          else()
-              message(STATUS "⚠️ ARMv7 SAFE MODE → skipping sgemm.cpp (GGML_ARMV7_SAFE=ON)")
-          endif()
-          CMAKEPATCH
-          echo "✅ Patched CMakeLists.txt with GGML_ARMV7_SAFE option"
-
-      - name: Build native library for both ABIs
+      - name: Build native library for both ABIs (renaming sgemm.cpp for 32‑bit)
         run: |
           export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
           mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs
           
+          # Path to the problematic source file
+          SGEMM_FILE="$GITHUB_WORKSPACE/android/llama.cpp/ggml/src/ggml-cpu/llamafile/sgemm.cpp"
+          
           for ABI in armeabi-v7a arm64-v8a; do
             echo "Building for $ABI"
+            
+            # For 32-bit, rename the file to disable it completely
+            if [ "$ABI" = "armeabi-v7a" ]; then
+              if [ -f "$SGEMM_FILE" ]; then
+                mv "$SGEMM_FILE" "${SGEMM_FILE}.disabled"
+                echo "⚠️  Renamed sgemm.cpp → sgemm.cpp.disabled (32‑bit safe build)"
+              else
+                echo "⚠️  sgemm.cpp not found, skipping rename"
+              fi
+            fi
+            
             cd $GITHUB_WORKSPACE/android/app/src/main/cpp
             rm -rf build
             mkdir build && cd build
             
-            # Flags for 32-bit: enable safe mode + disable FP16
+            # Additional flags for 32-bit: disable FP16 and any NEON use
             EXTRA_FLAGS=""
             if [ "$ABI" = "armeabi-v7a" ]; then
-              EXTRA_FLAGS="-DGGML_ARMV7_SAFE=ON -DGGML_NO_F16=ON"
-              echo "⚠️  ARMv7 safe mode enabled, FP16 disabled"
+              EXTRA_FLAGS="-DGGML_NO_F16=ON -DGGML_USE_ARM_FP16=OFF -DGGML_USE_LLAMAFILE=OFF"
+              echo "⚠️  FP16, ARM FP16, and llamafile disabled for 32-bit"
             fi
             
             cmake .. \
@@ -119,6 +116,12 @@ jobs:
             mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs/$ABI
             find . -name "*.so" -exec cp {} $GITHUB_WORKSPACE/android/app/src/main/jniLibs/$ABI/ \;
             echo "✅ $ABI libraries copied"
+            
+            # Restore the file for the next ABI (if we renamed it)
+            if [ "$ABI" = "armeabi-v7a" ] && [ -f "${SGEMM_FILE}.disabled" ]; then
+              mv "${SGEMM_FILE}.disabled" "$SGEMM_FILE"
+              echo "✅ Restored sgemm.cpp for next build"
+            fi
           done
 
       - name: Setup Java
