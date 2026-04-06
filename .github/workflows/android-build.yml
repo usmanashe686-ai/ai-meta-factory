@@ -38,12 +38,10 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Clone llama.cpp (stable commit b2561 – works on 32-bit)
+      - name: Clone llama.cpp (latest master)
         run: |
           git clone https://github.com/ggerganov/llama.cpp android/llama.cpp
-          cd android/llama.cpp
-          git checkout b2561
-          echo "✅ llama.cpp checked out at b2561"
+          echo "✅ llama.cpp cloned (master)"
 
       - name: Restore native files and clean manifest
         run: |
@@ -70,7 +68,7 @@ jobs:
         with:
           ndk-version: r26d
 
-      - name: Build native library for both ABIs (disable llamafile & NEON for 32-bit)
+      - name: Build native library for both ABIs (disable FP16 & llamafile for 32-bit)
         run: |
           export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
@@ -81,10 +79,14 @@ jobs:
             rm -rf build
             mkdir build && cd build
             
+            # Common flags for both ABIs
+            COMMON_FLAGS="-DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_COMMON=OFF"
+            
+            # For 32-bit, disable FP16 and llamafile to avoid NEON intrinsics errors
             EXTRA_FLAGS=""
             if [ "$ABI" = "armeabi-v7a" ]; then
-              EXTRA_FLAGS="-DGGML_NO_LLAMAFILE=ON -DGGML_NO_NEON=ON"
-              echo "⚠️  llamafile and NEON disabled for 32-bit ARM"
+              EXTRA_FLAGS="-DGGML_USE_ARM_FP16=OFF -DGGML_USE_LLAMAFILE=OFF"
+              echo "⚠️  Disabled ARM FP16 and llamafile for 32-bit"
             fi
             
             cmake .. \
@@ -92,10 +94,7 @@ jobs:
               -DANDROID_ABI=$ABI \
               -DANDROID_PLATFORM=android-24 \
               -DCMAKE_BUILD_TYPE=Release \
-              -DLLAMA_BUILD_EXAMPLES=OFF \
-              -DLLAMA_BUILD_SERVER=OFF \
-              -DLLAMA_BUILD_TESTS=OFF \
-              -DLLAMA_BUILD_COMMON=OFF \
+              $COMMON_FLAGS \
               $EXTRA_FLAGS
             
             make llama -j$(nproc)
