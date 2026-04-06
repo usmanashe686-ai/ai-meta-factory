@@ -38,22 +38,10 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Clone llama.cpp (stable commit for 32‑bit)
+      - name: Clone llama.cpp (latest master)
         run: |
-          git clone --depth 1 https://github.com/ggerganov/llama.cpp android/llama.cpp
-          cd android/llama.cpp
-          git fetch --depth 1 origin b3420
-          git checkout b3420
-          ls -la   # Show contents to debug
-
-      - name: Verify llama.cpp clone
-        run: |
-          if [ -f "android/llama.cpp/CMakeLists.txt" ]; then
-            echo "✅ llama.cpp cloned successfully"
-          else
-            echo "❌ llama.cpp missing - CMakeLists.txt not found"
-            exit 1
-          fi
+          git clone https://github.com/ggerganov/llama.cpp android/llama.cpp
+          echo "✅ llama.cpp cloned (master)"
 
       - name: Restore native files and clean manifest
         run: |
@@ -68,7 +56,7 @@ jobs:
           cp native/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
           echo "Native files restored"
 
-      - name: Fix AndroidManifest permissions (safety)
+      - name: Fix AndroidManifest permissions
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           grep -q "INTERNET" $MANIFEST || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
@@ -80,7 +68,7 @@ jobs:
         with:
           ndk-version: r26d
 
-      - name: Build native library for both ABIs (skip common/examples)
+      - name: Build native library for both ABIs (disable NEON for 32‑bit)
         run: |
           export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
@@ -90,6 +78,13 @@ jobs:
             cd $GITHUB_WORKSPACE/android/app/src/main/cpp
             rm -rf build
             mkdir build && cd build
+            
+            EXTRA_FLAGS=""
+            if [ "$ABI" = "armeabi-v7a" ]; then
+              EXTRA_FLAGS="-DGGML_NO_NEON=ON"
+              echo "⚠️  NEON disabled for 32-bit ARM"
+            fi
+            
             cmake .. \
               -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
               -DANDROID_ABI=$ABI \
@@ -98,7 +93,9 @@ jobs:
               -DLLAMA_BUILD_EXAMPLES=OFF \
               -DLLAMA_BUILD_SERVER=OFF \
               -DLLAMA_BUILD_TESTS=OFF \
-              -DLLAMA_BUILD_COMMON=OFF
+              -DLLAMA_BUILD_COMMON=OFF \
+              $EXTRA_FLAGS
+            
             make llama -j$(nproc)
             mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs/$ABI
             find . -name "*.so" -exec cp {} $GITHUB_WORKSPACE/android/app/src/main/jniLibs/$ABI/ \;
@@ -126,7 +123,7 @@ jobs:
             if unzip -l $APK | grep -q "armeabi-v7a.*\.so" && unzip -l $APK | grep -q "arm64-v8a.*\.so"; then
               echo "✅ Both armeabi-v7a and arm64-v8a libraries found"
             else
-              echo "⚠️ Not both ABIs found – but may still work"
+              echo "⚠️ Not both ABIs found – check build"
             fi
           else
             echo "APK not found"
