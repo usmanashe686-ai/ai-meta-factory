@@ -38,19 +38,22 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Clone llama.cpp (full clone to get tag b3420)
+      - name: Clone llama.cpp (full clone, checkout tag b3420)
         run: |
           git clone https://github.com/ggerganov/llama.cpp android/llama.cpp
           cd android/llama.cpp
-          git checkout b3420
-          ls -la   # debug
+          git fetch --tags
+          git checkout tags/b3420
+          echo "Contents of llama.cpp:"
+          ls -la
 
-      - name: Verify llama.cpp clone
+      - name: Verify llama.cpp clone (check for CMakeLists.txt)
         run: |
-          if [ -f "android/llama.cpp/llama.h" ]; then
-            echo "✅ llama.cpp cloned and checked out b3420"
+          if [ -f "android/llama.cpp/CMakeLists.txt" ]; then
+            echo "✅ llama.cpp cloned and checked out b3420 (CMakeLists.txt found)"
           else
-            echo "❌ llama.h not found - clone failed"
+            echo "❌ llama.cpp missing - CMakeLists.txt not found"
+            ls -la android/llama.cpp || echo "Directory empty"
             exit 1
           fi
 
