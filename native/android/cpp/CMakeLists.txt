@@ -4,17 +4,19 @@ project("llamabridge")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Try multiple possible locations for llama.cpp
+set(LLAMA_CPP_DIR "")
 if(DEFINED ENV{GITHUB_WORKSPACE})
     set(LLAMA_CPP_DIR $ENV{GITHUB_WORKSPACE}/android/llama.cpp)
 else()
     set(LLAMA_CPP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp)
 endif()
 
-if(NOT EXISTS ${LLAMA_CPP_DIR}/llama.h)
+if(NOT EXISTS ${LLAMA_CPP_DIR}/llama.h AND NOT EXISTS ${LLAMA_CPP_DIR}/include/llama.h)
     message(FATAL_ERROR "llama.cpp not found at ${LLAMA_CPP_DIR}")
 endif()
 
-# Disable building examples, server, tests AND also the common library
+# Disable everything we don't need
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
