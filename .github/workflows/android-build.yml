@@ -31,48 +31,6 @@ jobs:
           NEXT_AUTH_URL: ${{ secrets.NEXT_AUTH_URL }}
         run: npm run build
 
-      - name: Repair CSS (copy source globals.css)
-        run: |
-          mkdir -p out/css
-          cp app/globals.css out/css/globals.css
-          npx tailwindcss -i app/globals.css -o out/css/tailwind.css --minify
-          echo "✅ CSS repaired"
-
-      - name: Fix chat input visibility (create extra CSS)
-        run: |
-          echo '.chat-input-container, .message-input, textarea, [contenteditable="true"], .input-area, .fixed-bottom {' >> out/css/chat-fix.css
-          echo '    display: block !important;' >> out/css/chat-fix.css
-          echo '    visibility: visible !important;' >> out/css/chat-fix.css
-          echo '    opacity: 1 !important;' >> out/css/chat-fix.css
-          echo '    background: #1e1e2f !important;' >> out/css/chat-fix.css
-          echo '    color: white !important;' >> out/css/chat-fix.css
-          echo '    border: 1px solid #4a4a6a !important;' >> out/css/chat-fix.css
-          echo '    border-radius: 12px !important;' >> out/css/chat-fix.css
-          echo '    padding: 12px !important;' >> out/css/chat-fix.css
-          echo '    margin: 8px !important;' >> out/css/chat-fix.css
-          echo '    width: calc(100% - 24px) !important;' >> out/css/chat-fix.css
-          echo '    min-height: 48px !important;' >> out/css/chat-fix.css
-          echo '    position: relative !important;' >> out/css/chat-fix.css
-          echo '    z-index: 10000 !important;' >> out/css/chat-fix.css
-          echo '}' >> out/css/chat-fix.css
-          echo '' >> out/css/chat-fix.css
-          echo '.send-button, button[type="submit"] {' >> out/css/chat-fix.css
-          echo '    display: inline-block !important;' >> out/css/chat-fix.css
-          echo '    background: #4f46e5 !important;' >> out/css/chat-fix.css
-          echo '    color: white !important;' >> out/css/chat-fix.css
-          echo '    padding: 8px 16px !important;' >> out/css/chat-fix.css
-          echo '    border-radius: 20px !important;' >> out/css/chat-fix.css
-          echo '    margin-left: 8px !important;' >> out/css/chat-fix.css
-          echo '}' >> out/css/chat-fix.css
-          # Append to main CSS
-          MAIN_CSS=$(find out -name "*.css" ! -name "chat-fix.css" | head -1)
-          if [ -n "$MAIN_CSS" ]; then
-            cat out/css/chat-fix.css >> "$MAIN_CSS"
-            echo "✅ CSS fix appended to $MAIN_CSS"
-          else
-            echo "⚠️ No main CSS found"
-          fi
-
       - name: Init & Add Android
         run: |
           npx cap init "AI Meta Factory" "com.aimetafactory.app2" --web-dir=out || true
@@ -80,22 +38,16 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Clone llama.cpp (full clone, checkout tag b3420)
+      - name: Force ARM64 ABI
+        run: echo "android.defaultConfig.ndk.abiFilters=arm64-v8a" >> android/gradle.properties
+
+      - name: Clone llama.cpp (stable commit for 32‑bit)
         run: |
           git clone https://github.com/ggerganov/llama.cpp android/llama.cpp
           cd android/llama.cpp
-          git fetch --tags
-          git checkout tags/b3420
+          git checkout b3420
 
-      - name: Verify llama.cpp clone
-        run: |
-          if [ -f "android/llama.cpp/CMakeLists.txt" ]; then
-            echo "✅ llama.cpp cloned"
-          else
-            exit 1
-          fi
-
-      - name: Restore native files and clean manifest
+      - name: Restore native files (C++ + Java)
         run: |
           mkdir -p android/app/src/main/cpp
           cp -r native/android/cpp/* android/app/src/main/cpp/
@@ -103,24 +55,31 @@ jobs:
           cp -r native/android/java/com/aimetafactory/llama/* android/app/src/main/java/com/aimetafactory/llama/
           mkdir -p android/app/src/main/assets
           cp native/android/assets/capacitor.plugins.json android/app/src/main/assets/ 2>/dev/null || true
-          mkdir -p android/app/src/main/java/com/aimetafactory/app
+          # Use the MainActivity.patch that worked (the one from #334)
           cp native/android/MainActivity.patch android/app/src/main/java/com/aimetafactory/app/MainActivity.java
-          cp native/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          # DO NOT copy a custom AndroidManifest – we'll patch the original one
           echo "Native files restored"
 
-      - name: Fix AndroidManifest permissions
+      - name: Fix AndroidManifest (only add missing permissions, keep original structure)
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          grep -q "INTERNET" $MANIFEST || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
-          grep -q "FOREGROUND_SERVICE" $MANIFEST || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />' $MANIFEST
-          grep -q "WRITE_EXTERNAL_STORAGE" $MANIFEST || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
+          # Remove duplicate INTERNET if any
+          sed -i '/<uses-permission android:name="android.permission.INTERNET"\/>/d' $MANIFEST
+          # Add a single INTERNET permission
+          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
+          # Add other required permissions
+          grep -q "FOREGROUND_SERVICE" $MANIFEST || \
+            sed -i '/<manifest/a \    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
+          # Add DownloadService if missing
+          grep -q "DownloadService" $MANIFEST || \
+            sed -i '/<\/application>/i \    <service android:name=".DownloadService" android:foregroundServiceType="dataSync" android:exported="false" />' $MANIFEST
 
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r26d
 
-      - name: Build native library for both ABIs
+      - name: Build native library (manual CMake) for both ABIs
         run: |
           export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
@@ -151,7 +110,7 @@ jobs:
           distribution: 'temurin'
           java-version: 21
 
-      - name: Build universal APK
+      - name: Build APK (universal)
         working-directory: ./android
         run: |
           chmod +x gradlew
@@ -164,6 +123,7 @@ jobs:
             echo "APK size: $(du -h $APK)"
             unzip -l $APK | grep '\.so$' && echo "✅ Native libraries present"
           else
+            echo "APK not found"
             exit 1
           fi
 
