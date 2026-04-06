@@ -56,6 +56,7 @@ jobs:
           mkdir -p android/app/src/main/assets
           cp native/android/assets/capacitor.plugins.json android/app/src/main/assets/ 2>/dev/null || true
           # Use the MainActivity.patch that worked (the one from #334)
+          mkdir -p android/app/src/main/java/com/aimetafactory/app
           cp native/android/MainActivity.patch android/app/src/main/java/com/aimetafactory/app/MainActivity.java
           # DO NOT copy a custom AndroidManifest – we'll patch the original one
           echo "Native files restored"
