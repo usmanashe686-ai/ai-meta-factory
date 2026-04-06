@@ -68,33 +68,41 @@ jobs:
         with:
           ndk-version: r26d
 
-      - name: Build native library for both ABIs (renaming sgemm.cpp for 32‑bit)
+      - name: Patch ggml-cpu CMakeLists to exclude sgemm.cpp for armeabi-v7a
+        run: |
+          CPU_CMAKE="android/llama.cpp/ggml/src/ggml-cpu/CMakeLists.txt"
+          # Replace the line that adds sgemm.cpp with a conditional generator expression
+          # The original line likely looks like:
+          #   target_sources(ggml-cpu-impl-${CPU_VARIANT} PRIVATE ggml-cpu/llamafile/sgemm.cpp)
+          # We'll use sed to wrap it with $<$<NOT:$<STREQUAL:${ANDROID_ABI},armeabi-v7a>>:...>
+          # But ANDROID_ABI may not be set at that point, so use a simpler approach: 
+          # Remove the line and later add it conditionally using a variable.
+          sed -i '/ggml-cpu\/llamafile\/sgemm.cpp/d' "$CPU_CMAKE"
+          # Now add a conditional block that appends the file only when NOT armeabi-v7a
+          cat >> "$CPU_CMAKE" << 'CMAKEPATCH'
+          # Conditionally add sgemm.cpp for non-armeabi-v7a builds
+          if(NOT ANDROID_ABI STREQUAL "armeabi-v7a")
+              target_sources(ggml-cpu-impl-${CPU_VARIANT} PRIVATE ggml-cpu/llamafile/sgemm.cpp)
+              message(STATUS "✅ sgemm.cpp enabled for ${ANDROID_ABI}")
+          else()
+              message(STATUS "⚠️ sgemm.cpp disabled for armeabi-v7a")
+          endif()
+          CMAKEPATCH
+          echo "✅ Patched ggml-cpu/CMakeLists.txt to conditionally include sgemm.cpp"
+
+      - name: Build native library for both ABIs
         run: |
           export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
           mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs
           
-          # Path to the problematic source file
-          SGEMM_FILE="$GITHUB_WORKSPACE/android/llama.cpp/ggml/src/ggml-cpu/llamafile/sgemm.cpp"
-          
           for ABI in armeabi-v7a arm64-v8a; do
             echo "Building for $ABI"
-            
-            # For 32-bit, rename the file to disable it completely
-            if [ "$ABI" = "armeabi-v7a" ]; then
-              if [ -f "$SGEMM_FILE" ]; then
-                mv "$SGEMM_FILE" "${SGEMM_FILE}.disabled"
-                echo "⚠️  Renamed sgemm.cpp → sgemm.cpp.disabled (32‑bit safe build)"
-              else
-                echo "⚠️  sgemm.cpp not found, skipping rename"
-              fi
-            fi
-            
             cd $GITHUB_WORKSPACE/android/app/src/main/cpp
             rm -rf build
             mkdir build && cd build
             
-            # Additional flags for 32-bit: disable FP16 and any NEON use
+            # Additional flags for 32-bit: disable FP16 and NEON
             EXTRA_FLAGS=""
             if [ "$ABI" = "armeabi-v7a" ]; then
               EXTRA_FLAGS="-DGGML_NO_F16=ON -DGGML_USE_ARM_FP16=OFF -DGGML_USE_LLAMAFILE=OFF"
@@ -116,12 +124,6 @@ jobs:
             mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs/$ABI
             find . -name "*.so" -exec cp {} $GITHUB_WORKSPACE/android/app/src/main/jniLibs/$ABI/ \;
             echo "✅ $ABI libraries copied"
-            
-            # Restore the file for the next ABI (if we renamed it)
-            if [ "$ABI" = "armeabi-v7a" ] && [ -f "${SGEMM_FILE}.disabled" ]; then
-              mv "${SGEMM_FILE}.disabled" "$SGEMM_FILE"
-              echo "✅ Restored sgemm.cpp for next build"
-            fi
           done
 
       - name: Setup Java
