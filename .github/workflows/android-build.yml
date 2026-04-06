@@ -38,18 +38,22 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Clone llama.cpp (stable commit for 32‑bit compatibility)
+      - name: Clone llama.cpp (stable commit for 32‑bit)
         run: |
-          git clone https://github.com/ggerganov/llama.cpp android/llama.cpp
+          git clone --depth 1 https://github.com/ggerganov/llama.cpp android/llama.cpp
           cd android/llama.cpp
+          git fetch --depth 1 origin b3420
           git checkout b3420
-          ls -la   # debug
+          ls -la   # Show contents to debug
 
-      - name: Debug - list android directory
-        run: ls -la android/
-
-      - name: Debug - check llama.cpp existence
-        run: test -f android/llama.cpp/llama.h && echo "✅ llama.cpp found" || { echo "❌ llama.cpp missing"; exit 1; }
+      - name: Verify llama.cpp clone
+        run: |
+          if [ -f "android/llama.cpp/CMakeLists.txt" ]; then
+            echo "✅ llama.cpp cloned successfully"
+          else
+            echo "❌ llama.cpp missing - CMakeLists.txt not found"
+            exit 1
+          fi
 
       - name: Restore native files and clean manifest
         run: |
@@ -107,7 +111,7 @@ jobs:
           distribution: 'temurin'
           java-version: 21
 
-      - name: Build universal APK (includes both ABIs)
+      - name: Build universal APK
         working-directory: ./android
         run: |
           chmod +x gradlew

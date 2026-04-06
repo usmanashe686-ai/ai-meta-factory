@@ -77,14 +77,14 @@ static std::string generate_text(const std::string& model_path, const std::strin
     if (!ensure_model(model_path))
         return "Error: Failed to load model";
 
-    // Tokenize prompt (old API: llama_tokenize takes model, not vocab)
+    // Tokenize prompt (old API)
     std::vector<llama_token> tokens(prompt.length() + 1);
     int n_tokens = llama_tokenize(g_state.model, prompt.c_str(), prompt.length(),
                                   tokens.data(), tokens.size(), true, false);
     if (n_tokens < 0) return "Error: Tokenization failed";
     tokens.resize(n_tokens);
 
-    // Evaluate prompt (old batch API needs 4 arguments)
+    // Evaluate prompt (old batch API)
     for (size_t i = 0; i < tokens.size(); ++i) {
         if (llama_eval(g_state.ctx, &tokens[i], 1, i, 0))
             return "Error: llama_eval failed at prompt";
@@ -104,7 +104,6 @@ static std::string generate_text(const std::string& model_path, const std::strin
         int n = llama_token_to_piece(g_state.model, token, piece.data(), piece.size(), 0, false);
         if (n > 0) result.append(piece.data(), n);
 
-        // Feed token and eval (old API: positions increase)
         int pos = tokens.size() + i;
         if (llama_eval(g_state.ctx, &token, 1, pos, 0)) break;
     }
