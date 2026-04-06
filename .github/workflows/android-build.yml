@@ -68,28 +68,40 @@ jobs:
         with:
           ndk-version: r26d
 
-      - name: Build native library for both ABIs (exclude llamafile for 32‑bit)
+      - name: Build native library for both ABIs (conditional compilation)
         run: |
           export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
           mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs
           
+          # Patch llama.cpp/ggml/src/CMakeLists.txt to exclude sgemm.cpp for armeabi-v7a
+          GGML_CMAKE="$GITHUB_WORKSPACE/android/llama.cpp/ggml/src/CMakeLists.txt"
+          # Save original for 64-bit build later? We'll re-patch for each ABI loop.
+          # Instead, we'll modify the CMakeLists.txt to conditionally include sgemm.cpp based on ANDROID_ABI.
+          # Let's replace the hardcoded sgemm.cpp line with a conditional block.
+          sed -i '/llamafile\/sgemm.cpp/d' "$GGML_CMAKE"
+          cat >> "$GGML_CMAKE" << 'CMAKEPATCH'
+          if (ANDROID_ABI STREQUAL "arm64-v8a")
+              target_sources(ggml-cpu PRIVATE ggml-cpu/llamafile/sgemm.cpp)
+              message(STATUS "✅ sgemm.cpp enabled for arm64-v8a")
+          else()
+              message(STATUS "⚠️ sgemm.cpp disabled for ${ANDROID_ABI} (no FP16/NEON)")
+          endif()
+          CMAKEPATCH
+          
           for ABI in armeabi-v7a arm64-v8a; do
             echo "Building for $ABI"
-            
-            # For 32-bit, patch the ggml CMakeLists.txt to exclude the llamafile source
-            if [ "$ABI" = "armeabi-v7a" ]; then
-              GGML_CMAKE="$GITHUB_WORKSPACE/android/llama.cpp/ggml/src/CMakeLists.txt"
-              if [ -f "$GGML_CMAKE" ]; then
-                # Comment out the line that adds llamafile/sgemm.cpp
-                sed -i 's/\(.*llamafile\/sgemm.cpp.*\)/# \1/' "$GGML_CMAKE"
-                echo "✅ Excluded llamafile/sgemm.cpp from build for 32-bit"
-              fi
-            fi
             
             cd $GITHUB_WORKSPACE/android/app/src/main/cpp
             rm -rf build
             mkdir build && cd build
+            
+            # Set ABI-specific defines: disable FP16 for 32-bit
+            EXTRA_FLAGS=""
+            if [ "$ABI" = "armeabi-v7a" ]; then
+              EXTRA_FLAGS="-DGGML_NO_F16=ON -DGGML_USE_ARM_FP16=OFF"
+              echo "⚠️  FP16 and ARM FP16 disabled for 32-bit"
+            fi
             
             cmake .. \
               -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
@@ -99,7 +111,8 @@ jobs:
               -DLLAMA_BUILD_EXAMPLES=OFF \
               -DLLAMA_BUILD_SERVER=OFF \
               -DLLAMA_BUILD_TESTS=OFF \
-              -DLLAMA_BUILD_COMMON=OFF
+              -DLLAMA_BUILD_COMMON=OFF \
+              $EXTRA_FLAGS
             
             make llama -j$(nproc)
             mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs/$ABI
