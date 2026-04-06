@@ -38,10 +38,21 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Clone llama.cpp (latest master)
+      - name: Clone llama.cpp (full clone to get tag b3420)
         run: |
           git clone https://github.com/ggerganov/llama.cpp android/llama.cpp
-          echo "✅ llama.cpp cloned (master)"
+          cd android/llama.cpp
+          git checkout b3420
+          ls -la   # debug
+
+      - name: Verify llama.cpp clone
+        run: |
+          if [ -f "android/llama.cpp/llama.h" ]; then
+            echo "✅ llama.cpp cloned and checked out b3420"
+          else
+            echo "❌ llama.h not found - clone failed"
+            exit 1
+          fi
 
       - name: Restore native files and clean manifest
         run: |
@@ -68,43 +79,16 @@ jobs:
         with:
           ndk-version: r26d
 
-      - name: Build native library for both ABIs (disable llamafile for 32‑bit)
+      - name: Build native library for both ABIs (skip common/examples)
         run: |
           export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
           mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs
-
           for ABI in armeabi-v7a arm64-v8a; do
             echo "Building for $ABI"
-
-            # For 32-bit, we must remove the llamafile source AND patch the calling code
-            if [ "$ABI" = "armeabi-v7a" ]; then
-              # 1. Remove sgemm.cpp from the build (rename it)
-              SGEMM_FILE="$GITHUB_WORKSPACE/android/llama.cpp/ggml/src/ggml-cpu/llamafile/sgemm.cpp"
-              if [ -f "$SGEMM_FILE" ]; then
-                mv "$SGEMM_FILE" "${SGEMM_FILE}.disabled"
-                echo "⚠️  Renamed sgemm.cpp → sgemm.cpp.disabled"
-              fi
-
-              # 2. Patch ggml-cpu.c to skip the llamafile_sgemm call
-              GGML_CPU_C="$GITHUB_WORKSPACE/android/llama.cpp/ggml/src/ggml-cpu/ggml-cpu.c"
-              # Replace the whole conditional block that uses llamafile with a simple fallback
-              # We'll comment out the #if and the call and force the generic path
-              sed -i '/if (ggml_cpu_has_llamafile() && !NEON && !AVX && !AVX2 && !AVX512)/,/^    }/c\
-              // llamafile path disabled for armeabi-v7a\n    // Fallback to generic multiplication\n    (void)ne00; (void)ne01; (void)ne02; (void)ne10; (void)ne11; (void)ne12;\n    (void)ne0; (void)ne1; (void)ne2;\n    (void)row_i; (void)col; (void)block_size;\n    (void)id; (void)ith; (void)nth;\n    (void)src0; (void)src1; (void)dst;' "$GGML_CPU_C"
-              echo "✅ Patched ggml-cpu.c to remove llamafile_sgemm call"
-            fi
-
             cd $GITHUB_WORKSPACE/android/app/src/main/cpp
             rm -rf build
             mkdir build && cd build
-
-            EXTRA_FLAGS=""
-            if [ "$ABI" = "armeabi-v7a" ]; then
-              EXTRA_FLAGS="-DGGML_USE_LLAMAFILE=OFF -DGGML_NO_F16=ON -DGGML_USE_ARM_FP16=OFF"
-              echo "⚠️  llamafile and FP16 disabled for 32-bit"
-            fi
-
             cmake .. \
               -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
               -DANDROID_ABI=$ABI \
@@ -113,19 +97,11 @@ jobs:
               -DLLAMA_BUILD_EXAMPLES=OFF \
               -DLLAMA_BUILD_SERVER=OFF \
               -DLLAMA_BUILD_TESTS=OFF \
-              -DLLAMA_BUILD_COMMON=OFF \
-              $EXTRA_FLAGS
-
+              -DLLAMA_BUILD_COMMON=OFF
             make llama -j$(nproc)
             mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs/$ABI
             find . -name "*.so" -exec cp {} $GITHUB_WORKSPACE/android/app/src/main/jniLibs/$ABI/ \;
             echo "✅ $ABI libraries copied"
-
-            # Restore sgemm.cpp for the next ABI (if we renamed it)
-            if [ "$ABI" = "armeabi-v7a" ] && [ -f "${SGEMM_FILE}.disabled" ]; then
-              mv "${SGEMM_FILE}.disabled" "$SGEMM_FILE"
-              echo "✅ Restored sgemm.cpp for next build"
-            fi
           done
 
       - name: Setup Java
@@ -149,7 +125,7 @@ jobs:
             if unzip -l $APK | grep -q "armeabi-v7a.*\.so" && unzip -l $APK | grep -q "arm64-v8a.*\.so"; then
               echo "✅ Both armeabi-v7a and arm64-v8a libraries found"
             else
-              echo "⚠️ Not both ABIs found – check build"
+              echo "⚠️ Not both ABIs found – but may still work"
             fi
           else
             echo "APK not found"
