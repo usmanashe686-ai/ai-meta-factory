@@ -68,47 +68,43 @@ jobs:
         with:
           ndk-version: r26d
 
-      - name: Patch ggml-cpu CMakeLists to exclude sgemm.cpp for armeabi-v7a
-        run: |
-          CPU_CMAKE="android/llama.cpp/ggml/src/ggml-cpu/CMakeLists.txt"
-          # Replace the line that adds sgemm.cpp with a conditional generator expression
-          # The original line likely looks like:
-          #   target_sources(ggml-cpu-impl-${CPU_VARIANT} PRIVATE ggml-cpu/llamafile/sgemm.cpp)
-          # We'll use sed to wrap it with $<$<NOT:$<STREQUAL:${ANDROID_ABI},armeabi-v7a>>:...>
-          # But ANDROID_ABI may not be set at that point, so use a simpler approach: 
-          # Remove the line and later add it conditionally using a variable.
-          sed -i '/ggml-cpu\/llamafile\/sgemm.cpp/d' "$CPU_CMAKE"
-          # Now add a conditional block that appends the file only when NOT armeabi-v7a
-          cat >> "$CPU_CMAKE" << 'CMAKEPATCH'
-          # Conditionally add sgemm.cpp for non-armeabi-v7a builds
-          if(NOT ANDROID_ABI STREQUAL "armeabi-v7a")
-              target_sources(ggml-cpu-impl-${CPU_VARIANT} PRIVATE ggml-cpu/llamafile/sgemm.cpp)
-              message(STATUS "✅ sgemm.cpp enabled for ${ANDROID_ABI}")
-          else()
-              message(STATUS "⚠️ sgemm.cpp disabled for armeabi-v7a")
-          endif()
-          CMAKEPATCH
-          echo "✅ Patched ggml-cpu/CMakeLists.txt to conditionally include sgemm.cpp"
-
-      - name: Build native library for both ABIs
+      - name: Build native library for both ABIs (disable llamafile for 32‑bit)
         run: |
           export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
           mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs
-          
+
           for ABI in armeabi-v7a arm64-v8a; do
             echo "Building for $ABI"
+
+            # For 32-bit, we must remove the llamafile source AND patch the calling code
+            if [ "$ABI" = "armeabi-v7a" ]; then
+              # 1. Remove sgemm.cpp from the build (rename it)
+              SGEMM_FILE="$GITHUB_WORKSPACE/android/llama.cpp/ggml/src/ggml-cpu/llamafile/sgemm.cpp"
+              if [ -f "$SGEMM_FILE" ]; then
+                mv "$SGEMM_FILE" "${SGEMM_FILE}.disabled"
+                echo "⚠️  Renamed sgemm.cpp → sgemm.cpp.disabled"
+              fi
+
+              # 2. Patch ggml-cpu.c to skip the llamafile_sgemm call
+              GGML_CPU_C="$GITHUB_WORKSPACE/android/llama.cpp/ggml/src/ggml-cpu/ggml-cpu.c"
+              # Replace the whole conditional block that uses llamafile with a simple fallback
+              # We'll comment out the #if and the call and force the generic path
+              sed -i '/if (ggml_cpu_has_llamafile() && !NEON && !AVX && !AVX2 && !AVX512)/,/^    }/c\
+              // llamafile path disabled for armeabi-v7a\n    // Fallback to generic multiplication\n    (void)ne00; (void)ne01; (void)ne02; (void)ne10; (void)ne11; (void)ne12;\n    (void)ne0; (void)ne1; (void)ne2;\n    (void)row_i; (void)col; (void)block_size;\n    (void)id; (void)ith; (void)nth;\n    (void)src0; (void)src1; (void)dst;' "$GGML_CPU_C"
+              echo "✅ Patched ggml-cpu.c to remove llamafile_sgemm call"
+            fi
+
             cd $GITHUB_WORKSPACE/android/app/src/main/cpp
             rm -rf build
             mkdir build && cd build
-            
-            # Additional flags for 32-bit: disable FP16 and NEON
+
             EXTRA_FLAGS=""
             if [ "$ABI" = "armeabi-v7a" ]; then
-              EXTRA_FLAGS="-DGGML_NO_F16=ON -DGGML_USE_ARM_FP16=OFF -DGGML_USE_LLAMAFILE=OFF"
-              echo "⚠️  FP16, ARM FP16, and llamafile disabled for 32-bit"
+              EXTRA_FLAGS="-DGGML_USE_LLAMAFILE=OFF -DGGML_NO_F16=ON -DGGML_USE_ARM_FP16=OFF"
+              echo "⚠️  llamafile and FP16 disabled for 32-bit"
             fi
-            
+
             cmake .. \
               -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
               -DANDROID_ABI=$ABI \
@@ -119,11 +115,17 @@ jobs:
               -DLLAMA_BUILD_TESTS=OFF \
               -DLLAMA_BUILD_COMMON=OFF \
               $EXTRA_FLAGS
-            
+
             make llama -j$(nproc)
             mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs/$ABI
             find . -name "*.so" -exec cp {} $GITHUB_WORKSPACE/android/app/src/main/jniLibs/$ABI/ \;
             echo "✅ $ABI libraries copied"
+
+            # Restore sgemm.cpp for the next ABI (if we renamed it)
+            if [ "$ABI" = "armeabi-v7a" ] && [ -f "${SGEMM_FILE}.disabled" ]; then
+              mv "${SGEMM_FILE}.disabled" "$SGEMM_FILE"
+              echo "✅ Restored sgemm.cpp for next build"
+            fi
           done
 
       - name: Setup Java
