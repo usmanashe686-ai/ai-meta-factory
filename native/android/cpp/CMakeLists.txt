@@ -13,6 +13,11 @@ if(NOT EXISTS ${LLAMA_CPP_DIR}/include/llama.h)
     message(FATAL_ERROR "llama.cpp not found at ${LLAMA_CPP_DIR}/include/llama.h")
 endif()
 
+# Disable building examples, server, tests (they fail on Android)
+set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_SERVER   OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
+
 # Build llama.cpp as a static library
 add_subdirectory(${LLAMA_CPP_DIR} ${CMAKE_CURRENT_BINARY_DIR}/llama_build)
 
