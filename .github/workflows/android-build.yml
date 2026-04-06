@@ -38,11 +38,11 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Force ARM64 ABI
-        run: echo "android.defaultConfig.ndk.abiFilters=arm64-v8a" >> android/gradle.properties
-
-      - name: Clone llama.cpp
-        run: git clone --depth 1 https://github.com/ggerganov/llama.cpp android/llama.cpp
+      - name: Clone llama.cpp (stable commit for 32-bit support)
+        run: |
+          git clone https://github.com/ggerganov/llama.cpp android/llama.cpp
+          cd android/llama.cpp
+          git checkout b3420
 
       - name: Restore native files and clean manifest
         run: |
@@ -54,30 +54,41 @@ jobs:
           cp native/android/assets/capacitor.plugins.json android/app/src/main/assets/ 2>/dev/null || true
           mkdir -p android/app/src/main/java/com/aimetafactory/app
           cp native/android/MainActivity.patch android/app/src/main/java/com/aimetafactory/app/MainActivity.java
-          # Replace AndroidManifest.xml with clean template
           cp native/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
-          echo "Native files restored and manifest replaced"
+          echo "Native files restored"
+
+      - name: Fix AndroidManifest permissions
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          grep -q "INTERNET" $MANIFEST || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
+          grep -q "FOREGROUND_SERVICE" $MANIFEST || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />' $MANIFEST
+          grep -q "WRITE_EXTERNAL_STORAGE" $MANIFEST || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST
 
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r26d
 
-      - name: Build native library (manual CMake with llama.cpp)
+      - name: Build native library for both ABIs
         run: |
           export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
-          cd android/app/src/main/cpp
-          mkdir -p build && cd build
-          cmake .. \
-            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
-            -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=android-24 \
-            -DCMAKE_BUILD_TYPE=Release
-          make -j$(nproc)
-          mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs/arm64-v8a
-          find . -name "*.so" -exec cp {} $GITHUB_WORKSPACE/android/app/src/main/jniLibs/arm64-v8a/ \;
-          echo "✅ All native libraries copied to jniLibs"
+          mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs
+          for ABI in armeabi-v7a arm64-v8a; do
+            echo "Building for $ABI"
+            cd $GITHUB_WORKSPACE/android/app/src/main/cpp
+            rm -rf build
+            mkdir build && cd build
+            cmake .. \
+              -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+              -DANDROID_ABI=$ABI \
+              -DANDROID_PLATFORM=android-24 \
+              -DCMAKE_BUILD_TYPE=Release
+            make -j$(nproc)
+            mkdir -p $GITHUB_WORKSPACE/android/app/src/main/jniLibs/$ABI
+            find . -name "*.so" -exec cp {} $GITHUB_WORKSPACE/android/app/src/main/jniLibs/$ABI/ \;
+            echo "✅ $ABI libraries copied"
+          done
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -85,20 +96,27 @@ jobs:
           distribution: 'temurin'
           java-version: 21
 
-      - name: Build debug APK (signed with debug key)
+      - name: Build universal APK
         working-directory: ./android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
-      - name: Verify APK contains native library
+      - name: Verify APK contains both ABIs
         run: |
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
           if [ -f "$APK" ]; then
             echo "APK size: $(du -h $APK)"
-            unzip -l $APK | grep '\.so$' && echo "✅ Native libraries present" || { echo "❌ Missing native libraries"; exit 1; }
+            unzip -l $APK | grep '\.so' && echo "✅ Native libraries present"
+            # Check for both architectures
+            if unzip -l $APK | grep -q "armeabi-v7a.*\.so" && unzip -l $APK | grep -q "arm64-v8a.*\.so"; then
+              echo "✅ Both armeabi-v7a and arm64-v8a libraries found"
+            else
+              echo "❌ Missing one architecture"
+              exit 1
+            fi
           else
-            echo "APK not found at $APK"
+            echo "APK not found"
             exit 1
           fi
 
