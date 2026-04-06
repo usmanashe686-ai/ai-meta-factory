@@ -38,10 +38,12 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Clone llama.cpp (latest master)
+      - name: Clone llama.cpp (stable commit b2561 – works on 32-bit)
         run: |
           git clone https://github.com/ggerganov/llama.cpp android/llama.cpp
-          echo "✅ llama.cpp cloned (master)"
+          cd android/llama.cpp
+          git checkout b2561
+          echo "✅ llama.cpp checked out at b2561"
 
       - name: Restore native files and clean manifest
         run: |
@@ -68,7 +70,7 @@ jobs:
         with:
           ndk-version: r26d
 
-      - name: Build native library for both ABIs (disable NEON for 32‑bit)
+      - name: Build native library for both ABIs (disable llamafile & NEON for 32-bit)
         run: |
           export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
@@ -81,8 +83,8 @@ jobs:
             
             EXTRA_FLAGS=""
             if [ "$ABI" = "armeabi-v7a" ]; then
-              EXTRA_FLAGS="-DGGML_NO_NEON=ON"
-              echo "⚠️  NEON disabled for 32-bit ARM"
+              EXTRA_FLAGS="-DGGML_NO_LLAMAFILE=ON -DGGML_NO_NEON=ON"
+              echo "⚠️  llamafile and NEON disabled for 32-bit ARM"
             fi
             
             cmake .. \
@@ -136,4 +138,3 @@ jobs:
           name: AI-Meta-Factory-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-# Force rebuild
